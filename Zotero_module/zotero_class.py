@@ -92,85 +92,7 @@ class Zotero:
     import requests
     from tqdm import tqdm
 
-    def update_all_zotero_item_tags(self, item_id, aim="delete", index=0):
-        if aim != "delete":
-            api = ChatGPT(**self.chat_args)
-        else:
-            api = ""
-
-        """
-        Updates tags for all Zotero items in a specified collection starting from a given index.
-
-        This function retrieves items from a Zotero collection and modifies their tags based on the specified aim: 
-        'delete' to remove all tags, 'replace' to replace existing tags with new ones (requires specifying new_tags),
-        or 'append' to add new tags to existing ones (also requires new_tags).
-
-        Args:
-            item_id (str): The ID of the Zotero collection whose items are to be updated.
-            aim (str): The operation to perform on the item's tags ('delete', 'replace', or 'append').
-            index (int): The starting index from which items in the collection will be updated.
-
-        Returns:
-            list: A list containing the updated items. Returns an empty list if no updates were made.
-        """
-
-        url = f'https://api.zotero.org/users/{self.library_id}/collections/{item_id}/items'
-        headers = {'Zotero-API-Key': self.api_key}
-        updated_items = []  # Initialize a list to store updated items
-
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            items = response.json()[index:]  # Slice the items starting from the provided index
-
-        with tqdm(total=len(items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]', colour='green') as pbar:
-            for item in items:
-                index1 = index
-                if item['data']['itemType'] not in ['note', 'attachment', 'linkAttachment', 'fileAttachment']:
-                    if 'attachment' in item['links']:
-                        pbar.set_description(f"Processing:{item['data']['title']} index:{index1}")
-                        current_tags = item['data']['tags']
-                        attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                        directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
-
-                        for root, dirs, files in os.walk(directory):
-                            for file in files:
-                                if file.endswith(".pdf"):
-                                    pdf_path = os.path.join(root, file)
-
-                                    if aim == "replace" or aim == "append":
-                                        if len(current_tags) < 5:
-                                            new_tags = ast.literal_eval(
-                                                api.interact_with_page(prompt=tags_prompt, path=pdf_path, copy=True))
-                                            print("new tags:", new_tags)
-                                            new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
-
-
-                                            if aim == "append":
-                                                # Extend existing tags with new ones
-                                                item['data']['tags'].extend(new_tags)
-
-                                            if aim == "replace":
-                                                # Replace existing tags with new ones
-                                                item['data']['tags'] = new_tags
-
-                                index1 += 1
-                                if aim == "delete":
-                                    item['data']['tags'] = []  # This will remove all tags since new_tags is empty
-
-                                pbar.update(1)
-                                updated_items.append(item)
-                                # Update the item on the server
-                                try:
-                                    updated_item = self.zot.update_item(item)
-                                    updated_items.append(updated_item)  # Add the updated item to the list
-                                except pyzotero.zotero_errors.PreConditionFailed:
-                                    print("Item version conflict detected. Retrieving the latest version and retrying.")
-                                    latest_item = self.zot.item(item['key'])  # Get the latest version of the item
-                                    latest_item['data']['tags'] = current_tags  # Update tags on the latest version
-                                    updated_item = self.zot.update_item(latest_item)
-                                    updated_items.append(updated_item)  # Add the updated item to the list
-        return updated_items  # Return the list of updated items
-    def get_or_update_collection(self, collection_name=None, update=False):
+    def get_or_update_collection(self, collection_name=None, update=False,tag=None):
         """
         Fetches or updates a specified collection's data from Zotero.
 
@@ -186,6 +108,10 @@ class Zotero:
         Returns:
             dict: A dictionary containing the collection's data.
         """
+        if tag== "replace" or tag == "append":
+            api = ChatGPT(**self.chat_args)
+        else:
+            api = ""
         # Loop until a valid collection name is provided
         while True:
             if not collection_name:
@@ -213,6 +139,7 @@ class Zotero:
 
             collection_found = False
             # Check if we found the right collection
+
             for collection in all_collections:
                 if collection['data']['name'].lower() == collection_name.lower():
                     print(f'Found the collection "{collection_name}".')
@@ -240,34 +167,70 @@ class Zotero:
                             break  # Exit loop if no more items are returned
                         note_data = None
                         # Process each item in this batch
-                        for item in collection_items:
-                            item_data = item['data']
-                            item_type = item_data['itemType']
+                        with tqdm(total=len(collection_items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                                  colour='green') as pbar:
 
-                            if item_type == 'note':
+                            for item in collection_items:
+                                item_data = item['data']
+                                item_type = item_data['itemType']
 
-                                note_content = item_data['note']
-                                quote= "<h2>1.1 Research Question</h2"
-                                if note_content.find(quote):
+                                if item_type == 'note':
 
-                                    note_data = {'id': item_data['key'], 'content': note_content}
+                                    note_content = item_data['note']
+                                    quote= "<h2>1.1 Research Question</h2"
+                                    if note_content.find(quote):
 
-                            elif item_type not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
-                                                   'annotation']:
-                                paper_title = item_data.get('title', 'No Title')
-                                paper_key = item_data['key']
-                                paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
-                                # Process attachments if present
-                                if 'attachment' in item['links']:
-                                    attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                                    directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
-                                    for root, dirs, files in os.walk(directory):
-                                        for file in files:
-                                            if file.endswith(".pdf"):
-                                                pdf_path = os.path.join(root, file)
-                                                paper_data['pdf'] = pdf_path
-                                target_collection['items']['papers'][paper_title] = paper_data
+                                        note_data = {'id': item_data['key'], 'content': note_content}
 
+                                elif item_type not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
+                                                       'annotation']:
+                                    paper_title = item_data.get('title', 'No Title')
+                                    pbar.set_description(f"processing {paper_title}")
+
+                                    paper_key = item_data['key']
+                                    paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
+                                    # Process attachments if present
+                                    if 'attachment' in item['links']:
+                                        attachment_link = item['links']['attachment']['href'].split("/")[-1]
+                                        directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
+                                        for root, dirs, files in os.walk(directory):
+                                            for file in files:
+                                                if file.endswith(".pdf"):
+                                                    pdf_path = os.path.join(root, file)
+                                                    paper_data['pdf'] = pdf_path
+                                                    if tag !=None:
+
+                                                        if tag == "replace" or tag == "append":
+                                                            if api:  # Check if API is set for non-delete aims
+                                                                new_tags = ast.literal_eval(
+                                                                    api.interact_with_page(prompt=tags_prompt,
+                                                                                           path=pdf_path, copy=True))
+                                                                new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
+
+                                                                if tag == "append":
+                                                                    item['data']['tags'].extend(
+                                                                        new_tags)  # Extend existing tags with new ones
+                                                                elif tag == "replace":
+                                                                    item['data'][
+                                                                        'tags'] = new_tags  # Replace existing tags with new ones
+
+                                                        if tag == "delete":
+                                                            item['data']['tags'] = []  # Remove all tags
+
+                                                        # Update the item on the server
+                                                        try:
+                                                            updated_item = self.zot.update_item(item)
+
+                                                            print(f"Item updated: {item['data']['title']}")
+                                                        except pyzotero.zotero_errors.PreConditionFailed as e:
+                                                            print(
+                                                                f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
+                                                                e)
+                                                            latest_item = self.zot.item(item['key'])
+                                                            updated_item = self.zot.update_item(latest_item)
+                                                             # Add the updated item to the list
+                                    target_collection['items']['papers'][paper_title] = paper_data
+                                pbar.update()
 
 
 

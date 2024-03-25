@@ -1,3 +1,5 @@
+import time
+
 from Zotero_module.zotero_class import  Zotero
 import os
 from dotenv import load_dotenv
@@ -38,18 +40,27 @@ library_id = library_id,
     api_key=api_key,
     library_type =library_type,
     chat_args=chat_args)
-collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
+# collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
 # collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
-collection3 = zt.get_or_update_collection(collection_name="state responsibility",update=False)
+collection3 = zt.get_or_update_collection(collection_name="state responsibility",
+                                          update=True,
+                                          tag="replace"
+                                          )
 
-zt.update_all_zotero_item_tags(item_id="4WD89ZHE",aim="replace",index=0)
 
-print(len(collection["items"]["papers"]))
-print(len(collection["items"]["papers"].keys()))
-for paper in collection["items"]["papers"]:
-    print(collection["items"]["papers"][paper])
-print(collection["items"]["papers"])
-
-# for n,notes in enumerate(collection["items"]):
+# process =True
+index =0
+print(collection3)
+# while process:
+#     try:
+# index +=1
 #
-#     print(n,notes["notes"],sep="\n")
+#     except:pass
+#     time.sleep(60)
+#     if index==142:
+#         process=False
+print(len(collection3["items"]["papers"]))
+# for paper_id, paper_info in collection3["items"]["papers"].items():
+#     print(paper_info)
+
+

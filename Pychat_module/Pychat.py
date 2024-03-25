@@ -174,9 +174,13 @@ class ChatGPT:
         '''
 
         self.logger.debug('Initializing browser...')
-
+        # Calculate the height
+        height = int(2 / 3 * 1024)  # 2/3 of 1024
         options = uc.ChromeOptions()
-        options.add_argument('--window-size=1024,568')
+        # Set the window size
+        options.add_argument(f'--window-size=1024,{height}')
+
+        # options.add_argument('--window-size=1024,568')
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-application-cache")
         options.add_argument("--disable-gpu")
@@ -464,7 +468,7 @@ class ChatGPT:
 
                     print(f"An error occurred with send button: {e}")
 
-                sleep_duration = 60 * 1
+                sleep_duration = 60 * 13
                 self.sleep(sleep_duration)
 
                 textbox.click()
