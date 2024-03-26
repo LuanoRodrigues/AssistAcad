@@ -73,7 +73,9 @@ class ChatGPT:
             chrome_args: list = [],
             moderation: bool = True,
             verbose: bool = False,
-            check_url: bool = True
+            check_url: bool = True,
+            os: str = 'win'
+
     ):
         '''
         Initialize the ChatGPT object\n
@@ -108,6 +110,7 @@ class ChatGPT:
         self.url = ""
         self.current = ""
         self.check_url = check_url
+        self.os = os
 
         if not self.__session_token and (
                 not self.__email or not self.__password or not self.__auth_type
@@ -178,22 +181,22 @@ class ChatGPT:
         height = int(2 / 3 * 1024)  # 2/3 of 1024
         options = uc.ChromeOptions()
         # Set the window size
-        options.add_argument(f'--window-size=1024,{height}')
-
-        # options.add_argument('--window-size=1024,568')
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-application-cache")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-setuid-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        # options.add_argument(f'--window-size=1024,{height}')
+        #
+        # # options.add_argument('--window-size=1024,568')
+        # options.add_argument("--disable-extensions")
+        # options.add_argument("--disable-application-cache")
+        # options.add_argument("--disable-gpu")
+        # options.add_argument("--no-sandbox")
+        # options.add_argument("--disable-setuid-sandbox")
+        # options.add_argument("--disable-dev-shm-usage")
         if self.__proxy:
             options.add_argument(f'--proxy-server={self.__proxy}')
         for arg in self.__chrome_args:
             options.add_argument(arg)
         try:
-            webdriver_path = ChromeDriverManager().install()
-            self.driver = uc.Chrome(driver_executable_path=webdriver_path, options=options)
+
+            self.driver = uc.Chrome( options=options)
 
         except TypeError as e:
             if str(e) == 'expected str, bytes or os.PathLike object, not NoneType':
@@ -389,12 +392,10 @@ class ChatGPT:
             self.logger.debug('Dismissing alert...')
             self.driver.execute_script('arguments[0].remove()', alerts[0])
 
-    from selenium.webdriver.common.keys import Keys
-    from selenium.webdriver.common.action_chains import ActionChains
+
     def interact_with_page(self, path, prompt="", copy=False):
 
-        self.logger.debug('Ensuring Cloudflare cookies...')
-        self.__ensure_cf()
+
         enabled_button = None
 
         # Press Esc to close the 'Find' box
@@ -425,15 +426,25 @@ class ChatGPT:
             # Copy the 'path' value to the clipboard
 
             pyperclip.copy(path)  # Copy path to clipboard
+            if self.os == "mac":
+                pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
+                time.sleep(5)  # Wait a moment for the paste action to complete
+                pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+                time.sleep(2)  # Wait a moment for the paste action to complete
+                pyautogui.press('enter')  # Press enter to submit the dialog
+                time.sleep(2)
+                pyautogui.press('enter')  # Press enter to submit the dialog
+                print("submit.")
+            if self.os == "win":
 
-            # The following key actions are intended for the file dialog,
-            print("Pasting the path in the file dialog...")
-            time.sleep(1)  # Wait a moment for the dialog to fully gain focus
-            pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
-            print("Pasted the path.")
-            time.sleep(3)  # Wait a moment for the paste action to complete
-            pyautogui.press('enter')  # Press enter to submit the dialog
-            print("Pressed return.")
+                    # The following key actions are intended for the file dialog,
+                print("Pasting the path in the file dialog...")
+                time.sleep(1)  # Wait a moment for the dialog to fully gain focus
+                pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+                print("Pasted the path.")
+                time.sleep(3)  # Wait a moment for the paste action to complete
+                pyautogui.press('enter')  # Press enter to submit the dialog
+                print("Pressed return.")
 
             # Wait for the file to be uploaded (adjust time as necessary)
             print("Waiting for the file to upload...")

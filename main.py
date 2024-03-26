@@ -1,5 +1,8 @@
 import time
+import urllib
 
+from bs4 import BeautifulSoup
+from Zotero_module.zotero_data import note_update
 from Zotero_module.zotero_class import  Zotero
 import os
 from dotenv import load_dotenv
@@ -20,47 +23,25 @@ api_key = os.environ.get("API_KEY")
 library_type = os.environ.get("LIBRARY_TYPE")
 token = os.environ.get("TOKEN")
 
-# Printing out the values to verify
-print("Library ID:", library_id)
-print("API Key:", api_key)
-print("Library Type:", library_type)
-print("Token:", token)
-
-
 
 
 chat_args = {
     "session_token":token,
     # "conversation_id":'258d2f9d-9932-4d1e-9e0a-40d18e28ae22',
-    "chat_id": "pdf"
+    "chat_id": "pdf",
+    "os":"mac"
 }
 
 zt=Zotero(
 library_id = library_id,
     api_key=api_key,
     library_type =library_type,
-    chat_args=chat_args)
+    chat_args=chat_args,
+os="mac")
 # collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
-# collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
-collection3 = zt.get_or_update_collection(collection_name="state responsibility",
-                                          update=True,
-                                          tag="replace"
-                                          )
-
-
-# process =True
-index =0
-print(collection3)
-# while process:
-#     try:
-# index +=1
-#
-#     except:pass
-#     time.sleep(60)
-#     if index==142:
-#         process=False
-print(len(collection3["items"]["papers"]))
-# for paper_id, paper_info in collection3["items"]["papers"].items():
-#     print(paper_info)
-
-
+# # collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
+# collection3 = zt.get_or_update_collection(collection_name="state responsibility",
+#                                           update=True,
+#                                           tag="replace"
+#                                           )
+zt.update_all(collection_name="lawful evidence", update=False)

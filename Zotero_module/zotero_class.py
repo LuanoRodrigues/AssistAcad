@@ -7,7 +7,7 @@ import pprint
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update,initial_prompt,thematic_section, new_data,tags_prompt
+from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt
 from tqdm import tqdm
 import requests
 import re
@@ -19,7 +19,8 @@ class Zotero:
                  library_id="<Library ID>",
                  library_type='user',
                  api_key="<API KEY>",
-                 chat_args = { "chat_id": "pdf"}
+                 chat_args = { "chat_id": "pdf"},
+                 os = "mac"
                  ):
         self.library_id = library_id
         self.library_type = library_type
@@ -27,6 +28,7 @@ class Zotero:
         self.zot = self.connect()
 
         self.chat_args = chat_args
+        self.zotero_directory = "/Users/pantera/Zotero/storage/" if os=="mac" else "C:\\Users\\luano\\Zotero\\storage\\"
 
     def connect(self):
         # Assuming you have zotero package installed
@@ -166,70 +168,63 @@ class Zotero:
                         if not collection_items:
                             break  # Exit loop if no more items are returned
                         note_data = None
+                        collection_items= [papers for papers in collection_items if papers['data']['itemType'] not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
+                                                       'annotation']]
+
                         # Process each item in this batch
                         with tqdm(total=len(collection_items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                                   colour='green') as pbar:
 
                             for item in collection_items:
                                 item_data = item['data']
-                                item_type = item_data['itemType']
+                                paper_title = item_data.get('title', 'No Title')
+                                pbar.set_description(f"processing {paper_title}")
+                                paper_key = item_data['key']
+                                note_data = self.get_children_notes(paper_key)
 
-                                if item_type == 'note':
+                                paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
+                                # Process attachments if present
+                                if 'attachment' in item['links']:
+                                    attachment_link = item['links']['attachment']['href'].split("/")[-1]
+                                    directory = self.zotero_directory + attachment_link
+                                    print(directory)
+                                    for root, dirs, files in os.walk(directory):
+                                        for file in files:
+                                            if file.endswith(".pdf"):
+                                                pdf_path = os.path.join(root, file)
+                                                paper_data['pdf'] = pdf_path
+                                                if tag !=None:
 
-                                    note_content = item_data['note']
-                                    quote= "<h2>1.1 Research Question</h2"
-                                    if note_content.find(quote):
+                                                    if tag == "replace" or tag == "append":
+                                                        if api:  # Check if API is set for non-delete aims
+                                                            new_tags = ast.literal_eval(
+                                                                api.interact_with_page(prompt=tags_prompt,
+                                                                                       path=pdf_path, copy=True))
+                                                            new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
 
-                                        note_data = {'id': item_data['key'], 'content': note_content}
+                                                            if tag == "append":
+                                                                item['data']['tags'].extend(
+                                                                    new_tags)  # Extend existing tags with new ones
+                                                            elif tag == "replace":
+                                                                item['data'][
+                                                                    'tags'] = new_tags  # Replace existing tags with new ones
 
-                                elif item_type not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
-                                                       'annotation']:
-                                    paper_title = item_data.get('title', 'No Title')
-                                    pbar.set_description(f"processing {paper_title}")
+                                                    if tag == "delete":
+                                                        item['data']['tags'] = []  # Remove all tags
 
-                                    paper_key = item_data['key']
-                                    paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
-                                    # Process attachments if present
-                                    if 'attachment' in item['links']:
-                                        attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                                        directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
-                                        for root, dirs, files in os.walk(directory):
-                                            for file in files:
-                                                if file.endswith(".pdf"):
-                                                    pdf_path = os.path.join(root, file)
-                                                    paper_data['pdf'] = pdf_path
-                                                    if tag !=None:
+                                                    # Update the item on the server
+                                                    try:
+                                                        updated_item = self.zot.update_item(item)
 
-                                                        if tag == "replace" or tag == "append":
-                                                            if api:  # Check if API is set for non-delete aims
-                                                                new_tags = ast.literal_eval(
-                                                                    api.interact_with_page(prompt=tags_prompt,
-                                                                                           path=pdf_path, copy=True))
-                                                                new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
-
-                                                                if tag == "append":
-                                                                    item['data']['tags'].extend(
-                                                                        new_tags)  # Extend existing tags with new ones
-                                                                elif tag == "replace":
-                                                                    item['data'][
-                                                                        'tags'] = new_tags  # Replace existing tags with new ones
-
-                                                        if tag == "delete":
-                                                            item['data']['tags'] = []  # Remove all tags
-
-                                                        # Update the item on the server
-                                                        try:
-                                                            updated_item = self.zot.update_item(item)
-
-                                                            print(f"Item updated: {item['data']['title']}")
-                                                        except pyzotero.zotero_errors.PreConditionFailed as e:
-                                                            print(
-                                                                f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
-                                                                e)
-                                                            latest_item = self.zot.item(item['key'])
-                                                            updated_item = self.zot.update_item(latest_item)
-                                                             # Add the updated item to the list
-                                    target_collection['items']['papers'][paper_title] = paper_data
+                                                        print(f"Item updated: {item['data']['title']}")
+                                                    except pyzotero.zotero_errors.PreConditionFailed as e:
+                                                        print(
+                                                            f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
+                                                            e)
+                                                        latest_item = self.zot.item(item['key'])
+                                                        updated_item = self.zot.update_item(latest_item)
+                                                         # Add the updated item to the list
+                                target_collection['items']['papers'][paper_title] = paper_data
                                 pbar.update()
 
 
@@ -256,15 +251,15 @@ class Zotero:
 
         if not item:
         # Retrieve the latest version of the item
-            item = zot.item(item_id)
+            item = self.zot.item(item_id)
     
         if item:
     
             if 'attachment' in item['links']:
                 # Extract the 'href' value from the 'attachment' link
                 attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
-    
+                directory = self.zotero_directory + attachment_link
+
                 # Pdf
                 # Replace this with your actual storage path
                 for root, dirs, files in os.walk(directory):
@@ -279,13 +274,13 @@ class Zotero:
     
             # Update the item on the server
             try:
-                updated_item = zot.update_item(item)
+                updated_item = self.zot.update_item(item)
                 return updated_item  # Return the updated item
             except pyzotero.zotero_errors.PreConditionFailed as e:
                 print("Item version conflict detected. Retrieving the latest version and retrying.",e)
-                latest_item = zot.item(item_id)  # Get the latest version of the item
+                latest_item = self.zot.item(item_id)  # Get the latest version of the item
                 latest_item['data']['tags'] = new_tags  # Update tags on the latest version
-                updated_item = zot.update_item(latest_item)
+                updated_item = self.zot.update_item(latest_item)
                 return updated_item
         else:
             return None  # Item was not found
@@ -296,11 +291,11 @@ class Zotero:
     
     
         # Fetch the item by ID
-        item = zot.item(item_id)
+        item = self.zot.item(item_id)
         # tags = ["tag1", "tag2", "tag3", "tag4"]
     
         # Fetch the item by ID
-        item = zot.item(item_id)
+        item = self.zot.item(item_id)
         data = item
         links = ""
         date = data['data'].get('date')
@@ -331,7 +326,7 @@ class Zotero:
                  f' ('
                  f'PY=("{date}") OR '
                  f'AU=("{authors}") OR '
-                 f'DO=("{doi}") OR '
+                 f'DO=("{doi}")'
                  f')')
     
         key = data.get('key')
@@ -343,7 +338,7 @@ class Zotero:
         if item['data']['itemType'] in ['note', 'attachment', 'linkAttachment', 'fileAttachment']:
             return  # Exit the function as we cannot proceed
         # Format the current date and time
-        now = datetime.datetime.now().strftime("%d-%m-%Y at %H:%M")
+        now = datetime.now().strftime("%d-%m-%Y at %H:%M")
         data_wos = self.get_document_info(query)
         if data_wos:
             title = data_wos.get('title')
@@ -461,7 +456,7 @@ class Zotero:
         """
     
         # Create the new note
-        new_note = zot.create_items([{
+        new_note = self.zot.create_items([{
             "itemType": "note",
             'parentItem': item_id,
             "note": note_content,
@@ -474,7 +469,7 @@ class Zotero:
         new_note_id =new_note['successful']['0']['data']['key']
     
         if new_note_id:
-            note = zot.item(new_note_id)
+            note = self.zot.item(new_note_id)
             note_content = note['data']['note']
     
             # Update the note content with the new note ID
@@ -491,7 +486,7 @@ class Zotero:
             time.sleep(15)
             try:
                 # Attempt to update the note in Zotero
-                response = zot.update_item(updated_note)
+                response = self.zot.update_item(updated_note)
                 if response:
                     print("Note updated successfully.")
                     return new_note_id
@@ -528,7 +523,7 @@ class Zotero:
                         file_id = metadata.get('key')
     
     
-                        directory = f"C:\\Users\\luano\\Zotero\\storage\\{attachment_link}"
+                        directory = self.zotero_directory+attachment_link
     
                         # Pdf
                         # Replace this with your actual storage path
@@ -564,7 +559,7 @@ class Zotero:
         """
         # Retrieve the current note content
     
-        note = zot.item(note_id)
+        note = self.zot.item(note_id)
         if 'data' in note and 'note' in note['data']:
             note_content = note['data']['note']
         else:
@@ -622,7 +617,7 @@ class Zotero:
             }
             try:
                 # Attempt to update the note in Zotero
-                response = zot.update_item(updated_note)
+                response = self.zot.update_item(updated_note)
                 if response:
                     print("Note updated successfully in section function.")
                 else:
@@ -642,7 +637,7 @@ class Zotero:
         except for 'Thematic Review', which will append new content to the end.
         """
         # Retrieve the current note content
-        note = zot.item(note_id)
+        note = self.zot.item(note_id)
         if 'data' in note and 'note' in note['data']:
             note_content = note['data']['note']
         else:
@@ -680,7 +675,7 @@ class Zotero:
         }
         try:
             # Attempt to update the note in Zotero
-            response = zot.update_item(updated_note)
+            response = self.zot.update_item(updated_note)
             if response:
                 print("Note updated successfully.")
             else:
@@ -689,9 +684,8 @@ class Zotero:
             print(f"An error occurred during the update: {e}")
 
     
-    def update_all(self,collection_data,index,tag=False):
-        api = ChatGPT(**self.chat_args
-                      )
+    def update_all(self,collection_name,index=0,tag=None,update=True):
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][index:]
         # Setting up the tqdm iterator
         pbar = tqdm(data,
@@ -700,83 +694,89 @@ class Zotero:
     
         for keys, values in pbar:
             # Dynamically update the description with the current key being processed
-            index = [i for i in collection_data["items"]["papers"]].index(keys)
-            pbar.set_description(f"Processing index:{index},paper:{keys} ")
-    
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys} ")
+            note = values['note']
             id = values['id']
             pdf = values['pdf']
-            # updated_item = update_zotero_item_tags(file_id)
-            if not tag:
+            print(values)
+            print(keys)
+            if note is None and pdf is not None:
+
                 note_id= self.create_note(id, pdf)
-    
+
                 if note_id:
                     try:
-                        print(note_id)
-                        api.interact_with_page(path=pdf, prompt=initial_prompt)
-    
-                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,api=api)
-                        api.open_new_tab()
-                        api.interact_with_page(path=pdf, prompt=initial_prompt)
-                        self.update_multiple_notes(sections_prompts=thematic_section,note_id=note_id,api=api)
-                        api.open_new_tab()
-                        api.interact_with_page(path=pdf, prompt=initial_prompt)
-                        self.update_multiple_notes(sections_prompts=new_data,note_id=note_id,api=api)
+                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id)
                     except:
                         return index
-    
+
                 else:
-                    print("Failed to update item.")
-            if tag:
-                self.update_zotero_item_tags(api=api,item_id=id)
-    # collection_data =get_or_update_collection("lawful evidence", update=False)
-    #
-    # update_all(collection_data=collection_data)
+                        print("Failed to update item.")
+                if note["headings"] is not None:
+                    print("note", note)
+                    note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
+                    note_id = self.create_note(id, pdf)
+
+                    if note_id:
+                        try:
+                            self.update_multiple_notes(sections_prompts=note_update1, note_id=note_id)
+                        except:
+                            return index1
+
+
     
-    def update_multiple_notes(self,sections_prompts,note_id,pdf='',api=False,start_section=False):
-        if not api:
-            api = ChatGPT(**self.chat_args
-                          )
-            if self.chat_args.get("chat_id"):
-                api.interact_with_page(path=pdf, prompt=initial_prompt)
+    def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False):
+
+        api = ChatGPT(**self.chat_args
+                      )
+        if self.chat_args.get("chat_id"):
+            api.interact_with_page(path=pdf, prompt=initial_prompt)
     
     
         process=False
     
         # Assuming thematic_section is a dictionary
         total_iterations = len(sections_prompts)
-    
-        with tqdm(total=total_iterations, desc="Processing sections",
-                  bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}", colour='blue') as pbar:
+        with tqdm(total=len(total_iterations), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                  colour='blue') as pbar:
+
             for i, section_tuple in enumerate(sections_prompts.items(), 1):
                 if start_section:
                     if section_tuple[0] == start_section:
                         process = True
                 if not start_section:
                     process=True
-    
+                if i==13:
+                    api.open_new_tab()
                 if process:
-                    pbar.set_postfix_str(f"Processing section {section_tuple[0]}",
-                                         refresh=True)  # Optionally, update the postfix to display the current section being processed
-                    #
-                    # # Check if it's the 'Thematic Review' section which expects multiple updates
-                    # if section_tuple[0] == '<h2>Thematic Review</h2>':
-                    #     api.open_new_tab()
-                    #
-                    #     api.interact_with_page(path=pdf,prompt=initial_prompt)
-                    #
-                    #     for value in section_tuple[1]:  # section_tuple[1] should be the list of updates for Thematic Review
-                    #         update_dict = {section_tuple[0]: value}  # Create a dictionary from the tuple
-                    #
-                    #         update_zotero_note_section(note_id, update_dict, pdf)
-                    # else:
-                    #
-    
-                        # For sections that are not 'Thematic Review', update normally
+
+                    pbar.set_description(f"Processing section {section_tuple[0]}",
+                                         refresh=True)
                     update_dict = {section_tuple[0]: section_tuple[1]}  # Convert tuple to dictionary
-                    print("this is the dict for section {}",update_dict)
                     pbar.set_description( f'Processing: {section_tuple[0]}')  # Update the processing text with current section
     
                     self.update_zotero_note_section(note_id=note_id, updates=update_dict,api=api)
+
+    def extract_relevant_h2_blocks(self,html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        relevant_h2_blocks = []  # List to hold h2 texts that meet the specific conditions
+
+        for element in soup.find_all(True):  # Iterating over all tags
+            if element.name == 'h2':  # If it's an H2 element
+                next_sibling = element.find_next_sibling(
+                    text=False)  # Get the next non-text sibling (to check for actual content)
+                if next_sibling:
+                    sibling_text = next_sibling.get_text(" ", strip=True).lower()
+                    # Check if the next non-text sibling starts with 'guidelines' or if there's no significant text following
+                    if sibling_text.startswith('guidelines') or sibling_text == '':
+                        relevant_h2_blocks.append(f"<h2>{element.get_text(strip=True)}</h2>")
+                else:
+                    # If there is no next sibling, the H2 has no content below it
+                    relevant_h2_blocks.append(f"<h2>{element.get_text(strip=True)}</h2>")
+        relevant_h2_blocks =  [i for i in relevant_h2_blocks if i in note_update.keys()]
+
+        return relevant_h2_blocks
     def html_update(self,note_id):
     # Your HTML content
         with open(r"../Word_modules/Html_templates/holder.html", "r", encoding="utf-8") as html_file:
@@ -796,7 +796,7 @@ class Zotero:
     
     
     
-                for i, section_tuple in enumerate(thematic_section.items(), 0):
+                for i, section_tuple in enumerate(note_update, 0):
                     if start_section:
                         if section_tuple[0] == start_section:
                             process = True
@@ -815,19 +815,32 @@ class Zotero:
                 print(text)
                 print("_"*50)
     def get_children_notes(self,item_id):
-        global zot  # Use the global Zotero instance
-    
+        notes_info = []
         # Fetch all children of the item
-        children = zot.children(item_id)
+        children = self.zot.children(item_id)
     
         # Filter out only the notes from the children
         notes = [child for child in children if child['data']['itemType'] == 'note']
         # Initialize a pretty printer
-        pp = pprint.PrettyPrinter(indent=4)
-    
+
         # Print out each note's key and content
         for n,note in enumerate(notes):
-            note_info = {f'key {str(n+1)}': note['data']['key'], 'note': note['data']['note']}
-            pp.pprint(note_info)  # Pretty print the note information
-        return notes
+            note_content = note['data']["note"]
+            note_id = note['data']["key"]
+            heading_pattern = re.compile(r'<h\d>(.*?)<\/h\d>', re.IGNORECASE)
+
+            if heading_pattern.findall(note_content):
+                reemaining_h2 =self.extract_relevant_h2_blocks(note_content)
+                data = {"note_id": note_id, "headings": reemaining_h2}
+                if not reemaining_h2:
+                    current_tags = note['data']['tags']
+                    if not current_tags:
+                        note['data']['tags'] = [{"tag":"note_complete"}]  # Replace existing tags with new ones
+                        print("note completed")
+                        self.zot.update_item(note)
+                        return None
+                return data
+            else:
+                return None
+
 
