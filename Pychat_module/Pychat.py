@@ -112,6 +112,7 @@ class ChatGPT:
         self.check_url = check_url
         self.os = os
 
+
         if not self.__session_token and (
                 not self.__email or not self.__password or not self.__auth_type
         ):
@@ -393,10 +394,7 @@ class ChatGPT:
             self.driver.execute_script('arguments[0].remove()', alerts[0])
 
 
-    def interact_with_page(self, path, prompt="", copy=False):
-
-
-        enabled_button = None
+    def interact_with_page(self, path, prompt="",copy=True):
 
         # Press Esc to close the 'Find' box
         pyautogui.press('esc', 2)
@@ -426,9 +424,12 @@ class ChatGPT:
             # Copy the 'path' value to the clipboard
 
             pyperclip.copy(path)  # Copy path to clipboard
+            print("File copied to clipboard.")
+            print("pdf",path)
             if self.os == "mac":
                 pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
                 time.sleep(5)  # Wait a moment for the paste action to complete
+                print("Pasting the path in the file dialog...")
                 pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
                 time.sleep(2)  # Wait a moment for the paste action to complete
                 pyautogui.press('enter')  # Press enter to submit the dialog
@@ -436,10 +437,8 @@ class ChatGPT:
                 pyautogui.press('enter')  # Press enter to submit the dialog
                 print("submit.")
             if self.os == "win":
-
                     # The following key actions are intended for the file dialog,
                 print("Pasting the path in the file dialog...")
-                time.sleep(1)  # Wait a moment for the dialog to fully gain focus
                 pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
                 print("Pasted the path.")
                 time.sleep(3)  # Wait a moment for the paste action to complete

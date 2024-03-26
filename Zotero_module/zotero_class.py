@@ -12,6 +12,8 @@ from tqdm import tqdm
 import requests
 import re
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()  # loads the variables from .env
 api_key = os.environ.get("wos_api_key")
 
 class Zotero:
@@ -245,48 +247,6 @@ class Zotero:
                 print(f'Collection "{collection_name}" not found in Zotero. Please try again.')
                 collection_name = None  # Reset collection_name to prompt again
 
-    def update_zotero_item_tags(self,api="",item_id="",item=False):
-    
-    
-
-        if not item:
-        # Retrieve the latest version of the item
-            item = self.zot.item(item_id)
-    
-        if item:
-    
-            if 'attachment' in item['links']:
-                # Extract the 'href' value from the 'attachment' link
-                attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                directory = self.zotero_directory + attachment_link
-
-                # Pdf
-                # Replace this with your actual storage path
-                for root, dirs, files in os.walk(directory):
-                    for file in files:
-                        if file.endswith(".pdf"):
-                            pdf_path = os.path.join(root, file)
-    
-            new_tags = ast.literal_eval(api.interact_with_page(prompt=tags_prompt, path=pdf_path,copy=True))
-            print("new tags:",new_tags)
-            new_tags = [{"tag":tag.strip().lower()} for tag in new_tags]
-            item['data']['tags'] = new_tags  # Replace existing tags with new ones
-    
-            # Update the item on the server
-            try:
-                updated_item = self.zot.update_item(item)
-                return updated_item  # Return the updated item
-            except pyzotero.zotero_errors.PreConditionFailed as e:
-                print("Item version conflict detected. Retrieving the latest version and retrying.",e)
-                latest_item = self.zot.item(item_id)  # Get the latest version of the item
-                latest_item['data']['tags'] = new_tags  # Update tags on the latest version
-                updated_item = self.zot.update_item(latest_item)
-                return updated_item
-        else:
-            return None  # Item was not found
-    
-    
-    
     def create_note(self,item_id,path):
     
     
@@ -496,62 +456,7 @@ class Zotero:
                 print(f"An error occurred during the update: {e}")
     
     
-    def get_items_in_collection(self,collection_id,tag=False):
-        items_data = []
-    
-        # URL for the items in the collection
-        url = f'https://api.zotero.org/users/{self.library_id}/collections/{collection_id}/items'
-        headers = {
-            'Zotero-API-Key': self.api_key
-        }
-        pdf_path  = None
-        # Get items in the collection
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            items = response.json()
-            attachment_link =None
-    
-            for item in items:
-                metadata = item['data']
-                # Assuming your data structure is stored in a variable named `item`
-                # Assuming the variable 'item' holds your data
-                if item['data']['itemType'] not in ['attachment', 'note','annotation']:
-                    # Check if 'attachment' is a key in the 'links' dictionary
-                    if 'attachment' in item['links']:
-                        # Extract the 'href' value from the 'attachment' link
-                        attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                        file_id = metadata.get('key')
-    
-    
-                        directory = self.zotero_directory+attachment_link
-    
-                        # Pdf
-                        # Replace this with your actual storage path
-                        for root, dirs, files in os.walk(directory):
-                            for file in files:
-                                if file.endswith(".pdf"):
-                                    pdf_path = os.path.join(root, file)
-                                    data = {"id":file_id,"pdf":pdf_path}
-                                    items_data.append(data)
-                                    # # updated_item = update_zotero_item_tags(file_id)
-                                    # updated_item = create_note(file_id, pdf_path)
-                                    # if updated_item:
-                                    #     print("Item updated successfully.")
-                                    # else:
-                                    #     print("Failed to update item.")
-    
-                        print("-" * 50)
-                    else:
-                        return
-                else:
-                    pass
-            return items_data
-        else:
-            print(f"Failed to retrieve items: {response.status_code}")
-    
-    import re
-    
-    
+
     def update_zotero_note_section(self,note_id, updates,api):
         """
         Update specific sections of a Zotero note by item ID. Sections will only be updated if they currently have no content,
@@ -699,22 +604,27 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
-            print(values)
-            print(keys)
+            print("key:",keys)
+            print("value:",values)
+
             if note is None and pdf is not None:
+                print("note is None and pdf is None")
+                print(note)
 
                 note_id= self.create_note(id, pdf)
 
                 if note_id:
                     try:
-                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id)
+                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,pdf=pdf
+                                                   )
                     except:
                         return index
 
                 else:
                         print("Failed to update item.")
                 if note["headings"] is not None:
-                    print("note", note)
+                    print("note heading")
+                    print(note["headings"])
                     note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
                     note_id = self.create_note(id, pdf)
 
@@ -731,8 +641,8 @@ class Zotero:
         api = ChatGPT(**self.chat_args
                       )
         if self.chat_args.get("chat_id"):
-            api.interact_with_page(path=pdf, prompt=initial_prompt)
-    
+            api.interact_with_page(path=pdf, copy=False)
+
     
         process=False
     
@@ -832,13 +742,16 @@ class Zotero:
             if heading_pattern.findall(note_content):
                 reemaining_h2 =self.extract_relevant_h2_blocks(note_content)
                 data = {"note_id": note_id, "headings": reemaining_h2}
-                if not reemaining_h2:
-                    current_tags = note['data']['tags']
-                    if not current_tags:
+                current_tags = note['data']['tags']
+                print(note)
+                print("current tags:",current_tags)
+                if reemaining_h2==[] and not current_tags:
                         note['data']['tags'] = [{"tag":"note_complete"}]  # Replace existing tags with new ones
                         print("note completed")
                         self.zot.update_item(note)
-                        return None
+
+
+
                 return data
             else:
                 return None

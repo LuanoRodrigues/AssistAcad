@@ -29,7 +29,7 @@ chat_args = {
     "session_token":token,
     # "conversation_id":'258d2f9d-9932-4d1e-9e0a-40d18e28ae22',
     "chat_id": "pdf",
-    "os":"mac"
+    "os":"win"
 }
 
 zt=Zotero(
@@ -37,11 +37,12 @@ library_id = library_id,
     api_key=api_key,
     library_type =library_type,
     chat_args=chat_args,
-os="mac")
+os="win")
 # collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
 # # collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
 # collection3 = zt.get_or_update_collection(collection_name="state responsibility",
 #                                           update=True,
 #                                           tag="replace"
 #                                           )
-zt.update_all(collection_name="lawful evidence", update=False)
+zt.update_all(collection_name="lawful evidence", update=True
+              )
