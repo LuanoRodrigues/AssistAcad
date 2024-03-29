@@ -242,19 +242,23 @@ class ChatGPT:
         self.logger.debug('Opening chat page...')
         if self.chat_id:
             if self.chat_id == "consensus":
-                self.chat_id = "bo0FiWLY7-consensus"
+                self.chat_id = "/g/g-bo0FiWLY7-consensus"
+            if self.chat_id == "meu":
+                self.chat_id = "/g/g-t7Tsg17tO-academic-extractor"
+            if self.chat_id == "4":
+                self.chat_id = "?model=gpt-4"
             if self.chat_id == "scholar":
-                self.chat_id = "kZ0eYXlJe-scholar-gpt"
+                self.chat_id = "/g/g-kZ0eYXlJe-scholar-gpt"
             if self.chat_id == "scispace":
-                self.chat_id = "NgAcklHd8-scispace"
+                self.chat_id = "/g/g-NgAcklHd8-scispace"
             if self.chat_id == "askpdf":
-                self.chat_id = "UfFxTDMxq-askyourpdf-research-assistant"
+                self.chat_id = "/g/g-UfFxTDMxq-askyourpdf-research-assistant"
             if self.chat_id == "lit":
-                self.chat_id = "lfY2IC1TZ-auto-literature-review"
+                self.chat_id = "/g/g-lfY2IC1TZ-auto-literature-review"
 
             if self.chat_id == "pdf":
-                self.chat_id = "l3aJUSU8K-ask-pdf"
-            self.url = f'https://chat.openai.com//g/g-{self.chat_id}'
+                self.chat_id = "/g/g-l3aJUSU8K-ask-pdf"
+            self.url = f'https://chat.openai.com/{self.chat_id}'
             self.driver.get(self.url)
             if self.chat_id == "":
                 self.driver.get(f'https://chat.openai.com')
@@ -447,10 +451,11 @@ class ChatGPT:
 
             # Wait for the file to be uploaded (adjust time as necessary)
             print("Waiting for the file to upload...")
+            self.sleep(60)
 
-            time.sleep(60 * 2)
 
             if copy:
+
                 self.logger.debug('Sending message...')
                 textbox = WebDriverWait(self.driver, 3600).until(
                     EC.element_to_be_clickable(chatgpt_textbox)
@@ -508,18 +513,16 @@ class ChatGPT:
         # Navigate to the URL
         self.driver.get(self.url)
 
-
-
-    def sleep(self, sleep_duration):
-        with tqdm(total=sleep_duration, desc="Sleeping", bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
-                  colour='yellow') as pbar:
-            start_time = time.time()
-            while time.time() - start_time < sleep_duration:
-                time.sleep(1)
-                remaining_time = int(sleep_duration - (time.time() - start_time))
-                pbar.set_postfix({"Remaining": remaining_time})
-                pbar.update(0)  # Update the progress bar without incrementing
-            pbar.update(sleep_duration)  # Ensure the progress bar is complete at the end
+    def sleep(self,sleep_duration):
+        # Initialize the tqdm progress bar
+        with tqdm(total=sleep_duration, bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                  colour='yellow',
+                  leave=False) as pbar:  # leave=False ensures the last line is not kept after completion
+            # Iterate over the range created by sleep_duration
+            for _ in range(sleep_duration):
+                time.sleep(1)  # Sleep for a second
+                pbar.update(1)  # Update the progress bar by one unit
+                pbar.set_description(f"sleeping for {sleep_duration} seconds")
 
     def send_message(self, message: str, copy=True) -> dict:
         '''
@@ -552,7 +555,7 @@ class ChatGPT:
 
         self.logger.debug('Getting response...')
 
-        sleep_duration = 60 * 4  # 4 minutes
+        sleep_duration = 60 * 15  # 4 minutes
         self.sleep(sleep_duration)
         # Copy the response by the shortcut Ctrl+Shift+;
         try:

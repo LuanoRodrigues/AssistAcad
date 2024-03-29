@@ -25,24 +25,36 @@ token = os.environ.get("TOKEN")
 
 
 
-chat_args = {
-    "session_token":token,
-    # "conversation_id":'258d2f9d-9932-4d1e-9e0a-40d18e28ae22',
-    "chat_id": "pdf",
-    "os":"win"
-}
-
-zt=Zotero(
-library_id = library_id,
-    api_key=api_key,
-    library_type =library_type,
-    chat_args=chat_args,
-os="win")
+# chat_args = {
+#     "session_token":token,
+#     # "conversation_id":'258d2f9d-9932-4d1e-9e0a-40d18e28ae22',
+#     "chat_id": "",
+#     "os":"win"
+# }
+#
+# zt=Zotero(
+# library_id = library_id,
+#     api_key=api_key,
+#     library_type =library_type,
+#     chat_args=chat_args,
+# os="win")
 # collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
 # # collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
 # collection3 = zt.get_or_update_collection(collection_name="state responsibility",
 #                                           update=True,
 #                                           tag="replace"
 #                                           )
-zt.update_all(collection_name="lawful evidence", update=True
-              )
+# while True:
+#     try:
+#         zt.update_all(collection_name="lawful evidence", update=True)
+#     except Exception as e:
+#         print(e)
+#         time.sleep(60*13)
+# zt.update_multiple_notes(note_id="65N2C8TM",sections_prompts=note_update,pdf=r"C:\Users\luano\Zotero\storage\TBBTDB7I\Dederer and Singer - 2019 - Adverse Cyber Operations Causality, Attribution, .pdf")
+
+# note = zt.get_children_notes("CKG4M34K")
+#
+# print(note)
+
+
+zt.update_all(collection_name="lawful evidence", update=True)

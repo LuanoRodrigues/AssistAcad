@@ -2,7 +2,7 @@ import os
 import ast
 import time
 import pickle
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup,NavigableString
 import pprint
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
@@ -15,7 +15,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
 api_key = os.environ.get("wos_api_key")
-
+ser_api_key = os.environ.get("ser_api_key ")
 class Zotero:
     def __init__(self,
                  library_id="<Library ID>",
@@ -36,7 +36,7 @@ class Zotero:
         # Assuming you have zotero package installed
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
-    def get_document_info(self,query):
+    def get_document_info1(self,query):
         # Set the URL for the API endpoint
         url = "https://api.clarivate.com/apis/wos-starter/v1/documents"
         # Set the query parameters
@@ -91,11 +91,55 @@ class Zotero:
             print(f"Request failed with status code {response.status_code}: {response.text}")
             return None
 
-    import ast
-    import os
-    import requests
-    from tqdm import tqdm
+    def get_document_info2(self,query,authors):
+        # Set the URL for the API endpoint
+        url = "https://serpapi.com/search"
+        # Set the query parameters
+        params = {
+            "engine": "google_scholar",
+            "q": query,
+            "api_key": ser_api_key,
+            "num": 1  # Limit to 1 result
+        }
+        # Send the GET request
+        response = requests.get(url, params=params)
+        # Initialize the result dictionary
+        result = {}
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Parse the response JSON
+            data = response.json()
+            # Check for organic results
+            if 'organic_results' in data and data['organic_results']:
+                hit = data['organic_results'][0]  # Assuming only one hit is returned
+                # Extracting the information
+                result['title'] = hit.get('title')
 
+                # Assuming there may be multiple authors, but we only extract the first one for simplicity
+                authors = hit.get('publication_info', {}).get('authors', [])
+                result['author'] = authors[0]['name'] if authors else 'Unknown'
+                if authors not in result['author']:
+                    return None
+
+                result['snippet'] = hit.get('snippet')
+                result['link'] = hit.get('link')
+
+                # Extracting citation information
+                cited_by = hit.get('inline_links', {}).get('cited_by', {})
+                result['total_cited'] = cited_by.get('total', 0)
+                result['cited_link'] = cited_by.get('link')
+
+                # Extracting related pages link
+                result['related_pages_link'] = hit.get('inline_links', {}).get('related_pages_link')
+
+                return result
+            else:
+                print("No records found")
+                return None
+        else:
+            # Print the status code and error message if the request failed
+            print(f"Request failed with status code {response.status_code}: {response.text}")
+            return None
     def get_or_update_collection(self, collection_name=None, update=False,tag=None):
         """
         Fetches or updates a specified collection's data from Zotero.
@@ -189,7 +233,6 @@ class Zotero:
                                 if 'attachment' in item['links']:
                                     attachment_link = item['links']['attachment']['href'].split("/")[-1]
                                     directory = self.zotero_directory + attachment_link
-                                    print(directory)
                                     for root, dirs, files in os.walk(directory):
                                         for file in files:
                                             if file.endswith(".pdf"):
@@ -259,6 +302,7 @@ class Zotero:
         data = item
         links = ""
         date = data['data'].get('date')
+        authors = None
         try:
             # Iterate through each author in the data.
             # Check if both 'firstName' and 'lastName' keys exist, and join them if they do.
@@ -270,7 +314,7 @@ class Zotero:
             ])
         except Exception as e:
             # If there is an error, print out the error and the format that caused it.
-            authors = None  # Ensure authors is set to None or an empty list if there is an error
+             # Ensure authors is set to None or an empty list if there is an error
             print(f"Error when parsing authors: {e}")
         title = data['data'].get('title')
         date = data['data'].get('date')
@@ -280,7 +324,7 @@ class Zotero:
         doi = "3457788"  # data['data'].get('DOI',"165432")
         publication_title = data['data'].get('publicationTitle', "journal")
     
-        query = (f'('
+        query1 = (f'('
                  f'TI=("{title}")'
                  f') AND'
                  f' ('
@@ -299,19 +343,32 @@ class Zotero:
             return  # Exit the function as we cannot proceed
         # Format the current date and time
         now = datetime.now().strftime("%d-%m-%Y at %H:%M")
-        data_wos = self.get_document_info(query)
+        data_wos = self.get_document_info1(query1)
         if data_wos:
             title = data_wos.get('title')
             publication_title = data_wos.get("source")
             doi = data_wos.get('doi') if not doi else doi
-            publication_title = data_wos.get('source') if not publication_title else publication_title
+            if publication_title:
+                data_wos.get('source').capitalize()
+
+
+
             links = f"""
     
                     <li><strong>Citing Articles</strong>: <a href="{data_wos.get("citing_articles_link")}">Citation[{data_wos.get('citations')}]</a></li>
                     <li><strong>References</strong>: <a href="{data_wos.get("references_link")}">References</a></li>
                     <li><strong>Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
                 """
-    
+        if not data_wos:
+            serp =self.get_document_info2(query=title,authors=authors)
+            if serp:
+
+                links = f"""
+
+                                  <li><strong>Citing Articles</strong>: <a href="{serp['cited_link']}">Citation[{serp['total_cited']}]</a></li>
+                                  <li><strong>Related</strong>: <a href="{serp["related_pages_link"]}">Related</a></li>
+                              """
+
         # Construct the note content using the item details
         note_content = f"""
     <!DOCTYPE html>
@@ -323,8 +380,8 @@ class Zotero:
     </head>
     <body>
             <div>
+            <em>@{key}</em><br>
             <em>Note date: {now}</em><br>
-            <em>Parent id : {key}</em><br>
             <h1>{title}</h1>
             <hr>
             <hr>
@@ -420,6 +477,7 @@ class Zotero:
             "itemType": "note",
             'parentItem': item_id,
             "note": note_content,
+
     
     
         }])
@@ -427,7 +485,6 @@ class Zotero:
         print("New note created:", new_note)
         time.sleep(15)
         new_note_id =new_note['successful']['0']['data']['key']
-    
         if new_note_id:
             note = self.zot.item(new_note_id)
             note_content = note['data']['note']
@@ -454,85 +511,72 @@ class Zotero:
                     print("Failed to update the note.")
             except Exception as e:
                 print(f"An error occurred during the update: {e}")
-    
-    
 
-    def update_zotero_note_section(self,note_id, updates,api):
+
+
+    def update_zotero_note_section(self, note_id, updates, api):
         """
-        Update specific sections of a Zotero note by item ID. Sections will only be updated if they currently have no content,
-        except for 'Thematic Review', which will append new content to the end.
+        Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
+
+        Args:
+            note_id (str): The unique identifier of the Zotero note to update.
+            updates (dict): A dictionary where keys are section headings and values are prompts used to generate new content.
+            api: External API for generating new content based on the prompts.
+
+        Returns:
+            None: The function prints out the result of the operation.
         """
         # Retrieve the current note content
-    
         note = self.zot.item(note_id)
+        tags = note['data'].get('tags', [])
         if 'data' in note and 'note' in note['data']:
             note_content = note['data']['note']
         else:
             print(f"No note content found for item ID {note_id}")
             return
-    
+
         updated_content = note_content  # Initialize with the current note content
-    
-        # Process the updates
-        for section, new_content in updates.items():
-            # Regular expression to find the section and its content
-            pattern = re.compile(f"({re.escape(section)})(.*?)(<hr>)", re.DOTALL | re.IGNORECASE)
-            matches = pattern.findall(updated_content)
-    
+
+        # Process updates for each section
+        for section, new_prompt in updates.items():
+            # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
+            pattern = re.compile(f'({re.escape(section)})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            matches = pattern.search(updated_content)
+
             if matches:
-                original_content = matches[0][1].strip()  # The current (old) content of the section
-                # if section == "<h2>Thematic Review</h2>":
-                #     processed_content = api.send_message(new_content)
-                #     # try:
-                #     #     processed_content = processed_content.split("/")[1]
-                #     # except:
-                #     #     print("err")
-                #
-                #
-                #
-                #     # For 'Thematic Review', append new content to the end
-                #     updated_section = f"{matches[0][0]}{original_content}{processed_content.lstrip()}<hr>"
-                # if not original_content:
-                processed_content = api.send_message(new_content)
-                    # try:
-                    #     processed_content = processed_content.split("/")[1]
-                    # except:
-                    #     print("err")
-                    # For other sections, update only if there's no existing content
-                updated_section = f"{matches[0][0]}{processed_content.lstrip()}<hr>"
-                # else:
-                #     # If there is existing content and it's not 'Thematic Review', do not update
-                #     print(f"Existing content found in section {section}, no update made.")
-                #     continue  # Skip to the next section
-    
-                # Update the note content with the new section content
-                updated_content = updated_content.replace(matches[0][0] + matches[0][1] + "<hr>", updated_section)
+                # Generate new content using the API based on the provided prompt
+                new_content = api.send_message(new_prompt).strip()
+
+                # Replace the old section content with the new one
+                updated_section = f"{matches.group(1)}{new_content}"
+                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
                 print(f"Section title '{section}' not found in the note content.")
-    
+        if section =="<h2>4.1 Article Structure</h2>":
+            tags.extend(self.extract_unique_keywords_from_html(new_content))
+
+
         # Check if the content has been updated
         if updated_content != note_content:
-            # Prepare the updated note for submission to Zotero
             updated_note = {
                 'key': note['data']['key'],
                 'version': note['data']['version'],
                 'itemType': note['data']['itemType'],
                 'note': updated_content,
-                'tags': note['data'].get('tags', [])
+                'tags': tags
             }
             try:
                 # Attempt to update the note in Zotero
                 response = self.zot.update_item(updated_note)
                 if response:
-                    print("Note updated successfully in section function.")
+                    print("Note updated successfully.")
                 else:
-                    print("Failed to update the note in section function.")
+                    print("Failed to update the note.")
             except Exception as e:
                 print(f"An error occurred during the update: {e}")
         else:
             print("No changes were made to the note content.")
-    
-    
+
     def update_note_section_fromHtml(self,note_id, updates):
     
     
@@ -550,7 +594,7 @@ class Zotero:
             return
     
         updated_content = note_content  # Initialize with the current note content
-    
+
         # Process the updates
         for section, new_content in updates.items():
             # Regular expression to find the section and its content
@@ -617,22 +661,23 @@ class Zotero:
                     try:
                         self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,pdf=pdf
                                                    )
-                    except:
-                        return index
+                    except Exception as e:
+                        print("multiple notes function failed:",e)
 
                 else:
                         print("Failed to update item.")
-                if note["headings"] is not None:
-                    print("note heading")
-                    print(note["headings"])
-                    note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                    note_id = self.create_note(id, pdf)
+            if note and note["headings"]:
+                note_id=note["note_id"]
+                print("note heading")
+                print(note["headings"])
+                note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
 
-                    if note_id:
-                        try:
-                            self.update_multiple_notes(sections_prompts=note_update1, note_id=note_id)
-                        except:
-                            return index1
+
+
+                try:
+                    self.update_multiple_notes(sections_prompts=note_update1,pdf=pdf, note_id=note_id)
+                except:
+                    return index1
 
 
     
@@ -648,45 +693,70 @@ class Zotero:
     
         # Assuming thematic_section is a dictionary
         total_iterations = len(sections_prompts)
-        with tqdm(total=len(total_iterations), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+        with tqdm(sections_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
 
-            for i, section_tuple in enumerate(sections_prompts.items(), 1):
+            for key, value in pbar:
                 if start_section:
-                    if section_tuple[0] == start_section:
+                    if key == start_section:
                         process = True
                 if not start_section:
                     process=True
-                if i==13:
+                if key=="<h2>1.6 Shortcomings</h2>" or key=="<h2>3.8 Geopolitical Implications</h2>":
+                    api.interact_with_page(path=pdf, copy=False)
+
+                if key=="<h2>2.6 Authors Cited</h2>":
                     api.open_new_tab()
+                    api.interact_with_page(path=pdf, copy=False)
                 if process:
 
-                    pbar.set_description(f"Processing section {section_tuple[0]}",
-                                         refresh=True)
-                    update_dict = {section_tuple[0]: section_tuple[1]}  # Convert tuple to dictionary
-                    pbar.set_description( f'Processing: {section_tuple[0]}')  # Update the processing text with current section
-    
-                    self.update_zotero_note_section(note_id=note_id, updates=update_dict,api=api)
 
-    def extract_relevant_h2_blocks(self,html_content):
+                    pbar.set_description(f"Processing section {key}",
+                                         )
+
+
+                    self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
+                    pbar.update()
+
+    from bs4 import BeautifulSoup
+
+    def extract_relevant_h2_blocks(self, html_content):
+        """
+        Extracts <h2> elements from HTML content, including their opening and closing tags, based on specific conditions
+        related to the text immediately following these headings.
+
+        This function iterates over all <h2> elements in the provided HTML content. It checks the text immediately following each <h2>.
+        If there is no text immediately following or if the text starts with a specific guideline phrase,
+        the <h2> element itself (including its opening and closing tags but excluding any following text)
+        is appended to a list.
+
+        Args:
+            html_content (str): The HTML content to be processed.
+
+        Returns:
+            list: A list of <h2> elements (with opening and closing tags) that meet the specified conditions.
+        """
+        # Parse the HTML content
         soup = BeautifulSoup(html_content, 'html.parser')
-        relevant_h2_blocks = []  # List to hold h2 texts that meet the specific conditions
+        relevant_h2_blocks = []
 
-        for element in soup.find_all(True):  # Iterating over all tags
-            if element.name == 'h2':  # If it's an H2 element
-                next_sibling = element.find_next_sibling(
-                    text=False)  # Get the next non-text sibling (to check for actual content)
-                if next_sibling:
-                    sibling_text = next_sibling.get_text(" ", strip=True).lower()
-                    # Check if the next non-text sibling starts with 'guidelines' or if there's no significant text following
-                    if sibling_text.startswith('guidelines') or sibling_text == '':
-                        relevant_h2_blocks.append(f"<h2>{element.get_text(strip=True)}</h2>")
-                else:
-                    # If there is no next sibling, the H2 has no content below it
-                    relevant_h2_blocks.append(f"<h2>{element.get_text(strip=True)}</h2>")
-        relevant_h2_blocks =  [i for i in relevant_h2_blocks if i in note_update.keys()]
+        h2_elements = soup.find_all('h2')
+        for h2_element in h2_elements:
+            # Check the immediate following sibling of the h2 element
+            next_sibling = h2_element.next_sibling
 
+            # If the next sibling is a NavigableString (plain text, not another tag)
+            if isinstance(next_sibling, NavigableString):
+                text_str = next_sibling.strip()
+                # If the text is empty or contains the "guidelines" sentence, add the h2 element to the list
+                if not text_str or "guidelines" in text_str.lower():  # Assuming 'guidelines' check should be case-insensitive
+                    relevant_h2_blocks.append(str(h2_element))
+            # If there is no following sibling, the h2 element should also be added
+            elif not next_sibling:
+                relevant_h2_blocks.append(str(h2_element))
+        relevant_h2_blocks = [h2 for h2 in relevant_h2_blocks if h2 in note_update.keys()]
         return relevant_h2_blocks
+
     def html_update(self,note_id):
     # Your HTML content
         with open(r"../Word_modules/Html_templates/holder.html", "r", encoding="utf-8") as html_file:
@@ -724,36 +794,80 @@ class Zotero:
                             break
                 print(text)
                 print("_"*50)
-    def get_children_notes(self,item_id):
-        notes_info = []
-        # Fetch all children of the item
+
+    def get_children_notes(self, item_id):
+        """
+        Retrieves and processes child notes for a specified item from the Zotero library.
+
+        This function filters through child notes associated with a specified item. It performs several checks:
+        - If more than one note exists, it prints the first two notes.
+        - If a note is marked as complete ('note_complete'), it returns immediately with the note's ID and an empty list of headings.
+        - If no sections are remaining to be updated and the note is not marked as complete, it updates the note with the 'note_complete' tag.
+        - Otherwise, it returns the note ID and the headings of the sections that need to be updated.
+
+        Args:
+            item_id (str): The unique identifier of the Zotero library item whose child notes are to be fetched.
+
+        Returns:
+            dict or None: A dictionary containing the 'note_id' and 'headings' if there are incomplete notes, otherwise None.
+        """
+        # Fetch all children of the specified item
         children = self.zot.children(item_id)
-    
-        # Filter out only the notes from the children
-        notes = [child for child in children if child['data']['itemType'] == 'note']
-        # Initialize a pretty printer
 
-        # Print out each note's key and content
-        for n,note in enumerate(notes):
-            note_content = note['data']["note"]
+        # Filter out only notes that contain headings
+        notes = [child for child in children if
+                 child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
+                                                                   re.IGNORECASE)]
+        # Check the number of notes and print them if more than one
+        if len(notes) > 1:
+            print("Note 1:", notes[0]['data']["note"])
+            print("Note 2:", notes[1]['data']["note"])
+
+        # Process each note
+        for note in notes:
             note_id = note['data']["key"]
-            heading_pattern = re.compile(r'<h\d>(.*?)<\/h\d>', re.IGNORECASE)
+            note_content = note['data']["note"]
+            tags = [tag["tag"] for tag in note['data']['tags']]
 
-            if heading_pattern.findall(note_content):
-                reemaining_h2 =self.extract_relevant_h2_blocks(note_content)
-                data = {"note_id": note_id, "headings": reemaining_h2}
-                current_tags = note['data']['tags']
-                print(note)
-                print("current tags:",current_tags)
-                if reemaining_h2==[] and not current_tags:
-                        note['data']['tags'] = [{"tag":"note_complete"}]  # Replace existing tags with new ones
-                        print("note completed")
-                        self.zot.update_item(note)
+            # Check if the note is marked as complete
+            if "note_complete" in tags:
+                print("Note complete")
+                return {"note_id": note_id, "headings": []}
 
+            # Extract headings still needing updates
+            remaining_h2 = self.extract_relevant_h2_blocks(note_content)
 
+            # Check if there are no remaining sections and the note is not marked complete
+            if not remaining_h2 and "note_complete" not in tags:
+                note['data']['tags'].append({"tag": "note_complete"})
+                self.zot.update_item(note)
+                return {"note_id": note_id, "headings": []}
 
-                return data
-            else:
-                return None
+            # If there are remaining sections, return them with the note ID
+            if remaining_h2:
+                return {"note_id": note_id, "headings": remaining_h2}
+
+        # If no notes meet the criteria, return None
+        return None
+
+    def extract_unique_keywords_from_html(self,html_text):
+        """
+        Extracts unique keywords enclosed in <li> tags from the provided HTML text and returns them as a list.
+
+        Args:
+        - html_text (str): A string containing HTML content.
+
+        Returns:
+        - list: A list of unique keywords extracted from the HTML text.
+        """
+        # Use regular expression to find all keywords within <li> tags
+        keywords = re.findall(r"<li>(.*?)</li>", html_text)
+        # Remove duplicates by converting the list to a set, then back to a list
+        unique_keywords = list(set(keywords))
+        # Return the list of unique keywords
+        tags = [{"tag": tag.strip().lower()} for tag in unique_keywords]
+
+        return tags
+
 
 
