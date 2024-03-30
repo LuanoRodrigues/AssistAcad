@@ -15,7 +15,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
 api_key = os.environ.get("wos_api_key")
-ser_api_key = os.environ.get("ser_api_key ")
+ser_api_key = os.environ.get("ser_api_key")
 class Zotero:
     def __init__(self,
                  library_id="<Library ID>",
@@ -91,7 +91,7 @@ class Zotero:
             print(f"Request failed with status code {response.status_code}: {response.text}")
             return None
 
-    def get_document_info2(self,query,authors):
+    def get_document_info2(self,query,author):
         # Set the URL for the API endpoint
         url = "https://serpapi.com/search"
         # Set the query parameters
@@ -118,7 +118,7 @@ class Zotero:
                 # Assuming there may be multiple authors, but we only extract the first one for simplicity
                 authors = hit.get('publication_info', {}).get('authors', [])
                 result['author'] = authors[0]['name'] if authors else 'Unknown'
-                if authors not in result['author']:
+                if not result['author'].find(author):
                     return None
 
                 result['snippet'] = hit.get('snippet')
@@ -152,6 +152,7 @@ class Zotero:
         Args:
             collection_name (str): The name of the collection to fetch or update.
             update (bool): If True, forces the method to update the local data with data from Zotero.
+            tag (str): replace, append or delete as options
 
         Returns:
             dict: A dictionary containing the collection's data.
@@ -360,7 +361,7 @@ class Zotero:
                     <li><strong>Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
                 """
         if not data_wos:
-            serp =self.get_document_info2(query=title,authors=authors)
+            serp =self.get_document_info2(query=title,author=authors)
             if serp:
 
                 links = f"""
@@ -408,8 +409,6 @@ class Zotero:
         <h2>1.1 Research Question</h2>
         <hr>
         <h2>1.2 Literature Review</h2>
-        <hr>
-        <h2>1.3 Key Arguments</h2>
         <hr>
         <h2>1.4 Key Findings</h2>
         <hr>
@@ -490,8 +489,8 @@ class Zotero:
             note_content = note['data']['note']
     
             # Update the note content with the new note ID
-            updated_content = note_content.replace(f'<em>Parent id : {key}</em><br>',
-                                                   f'<em>Note ID: {new_note_id}</em><br><em>Parent id: {key}</em><br>')
+            updated_content = note_content.replace(f'<em>Note date: {now}</em><br>',
+                                                   f'<em>Note ID: {new_note_id}</em><br><em>Note date: {now}</em><br>')
     
             updated_note = {
                 'key': note['data']['key'],
@@ -636,15 +635,17 @@ class Zotero:
     def update_all(self,collection_name,index=0,tag=None,update=True):
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][index:]
+        note_complete = len(collection_data["items"]["papers"].items())
+        print("Note complete is",note_complete)
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
                     colour='green')
-    
+
         for keys, values in pbar:
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
-            pbar.set_description(f"Processing index:{index1},paper:{keys} ")
+            pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
             note = values['note']
             id = values['id']
             pdf = values['pdf']
@@ -670,15 +671,25 @@ class Zotero:
                 note_id=note["note_id"]
                 print("note heading")
                 print(note["headings"])
+
+
                 note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
 
 
 
                 try:
                     self.update_multiple_notes(sections_prompts=note_update1,pdf=pdf, note_id=note_id)
-                except:
-                    return index1
+                except Exception as e:
+                    print("multiple notes function err if remaining",e)
 
+
+            if note and note["headings"] == []:
+                print("note heading==[]")
+                note_complete -=1
+        if note_complete>0:
+            return True
+        if note_complete ==0:
+            return False
 
     
     def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False):
@@ -845,7 +856,7 @@ class Zotero:
 
             # If there are remaining sections, return them with the note ID
             if remaining_h2:
-                return {"note_id": note_id, "headings": remaining_h2}
+                return {"note_id": note_id, "headings": remaining_h2,"content": note_content}
 
         # If no notes meet the criteria, return None
         return None
