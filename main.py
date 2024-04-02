@@ -47,9 +47,8 @@ os="win")
 #         time.sleep(60*30)
 
 
-# zt.get_or_update_collection(collection_name="cyber interference",update=True,tag="replace")
+zt.update_all(collection_name="cyber interference",update=True)
 # zot =zt.connect()
 # note = zot.item("7QE3D2H6")['data']['note']
 # print(note)
 #
-print(note_update.keys())
