@@ -31,6 +31,7 @@ class Zotero:
 
         self.chat_args = chat_args
         self.zotero_directory = "/Users/pantera/Zotero/storage/" if os=="mac" else "C:\\Users\\luano\\Zotero\\storage\\"
+        self.schema = ""
 
     def connect(self):
         # Assuming you have zotero package installed
@@ -405,70 +406,46 @@ class Zotero:
         <p>"{item['data'].get('abstractNote')}"</p>
         <hr>
         <hr>
+        <h1>1. Summary:</h1>
         <h1>1. Introduction:</h1>
-        <h2>1.1 Research Question</h2>
-        <hr>
-        <h2>1.2 Literature Review</h2>
-        <hr>
-        <h2>1.4 Key Findings</h2>
-        <hr>
-        <h2>1.5 Scientific Significance</h2>
-        <hr>
-        <h2>1.6 Shortcomings</h2>
-        <hr>
-        <h2>1.7 Future Research Directions</h2>
-        <hr>
-        <hr>
+            <h2>1.1 Research Framework</h2>
+            <hr>
+            <h2>1.2 Key Terms Definitions</h2>
+            <hr>
+            <h2>1.3 Key Findings</h2>
+            <hr>
+            <h2>1.4 Shortcomings Limitations</h2>
+            <hr>
+            <h2>1.5 Research Gap and Future Research Directions</h2>
+            <hr>
+            <hr>
         <h1>2. Methodology and Methods:</h1>
-        <h2>2.1 Data and Analysis</h2>
-        <hr>
-        <h2>2.2 Theoretical Framework or Models</h2>
-        <hr>
-        <h2>2.3 Research Methods and Epistemologies</h2>
-        <hr>
-        <h2>2.4 Critical Evidence</h2>
-        <hr>
-        <h2>2.5 Implications and Policy</h2>
-        <hr>
-        <h2>2.6 Authors Cited</h2>
-        <hr>
-        <hr>
+            <h2>2.1 Data, Analysis and Epistemologies</h2>
+            <hr>
+            <h2>2.2 Theoretical Framework or Models</h2>
+            <hr>
+            <h2>2.3 Implications and Policy</h2>
+            <hr>
+            <h2>2.4 Author References</h2>
+            <hr>
+            <h2>2.5 Entity Reference</h2>
+            <hr>
+            <hr>
         <h1>3. Thematic Review</h1>
-        <h2>3.1 Terms and Definitions</h2>
-        <hr>
-        <h2>3.2 International Law</h2>
-        <hr>
-        <h2>3.3 Attribution Proposals</h2>
-        <hr>
-        <h2>3.4 Evidence and Proof Standards</h2>
-        <hr>
-        <h2>3.5 Sociotechnical Aspects</h2>
-        <hr>
-        <h2>3.6 Intelligence Methodology</h2>
-        <hr>
-        <h2>3.7 Technical Challenges</h2>
-        <hr>
-        <h2>3.8 Geopolitical Implications</h2>
-        <hr>
-        <h2>3.9 Responses to Cyber Attacks</h2>
-        <hr>
-        <hr>
-        <h1>4. NPL analysis</h1>
-        <hr>
-        <h2>4.1 Article Structure</h2>
-        <hr>
-        <h2>4.2 Citation Analysis</h2>
-        <hr>
-        <h2>4.3 Topic Modeling Analysis</h2>
-        <hr>
-        <h2>4.4 Interdisciplinary Connections</h2>
-        <hr>
-        <hr>
-        <h2>Loose notes</h2>
-        <hr>
-        </div>
-        </body>
-        </html>
+            <h2>3.1 Structure and Keywords</h2>
+            <hr>
+            <h2>3.2 Main Topics</h2>
+            <hr>
+            <h2>3.3 Thematic Analysis 1</h2>
+            <hr>
+            <h2>3.4 Thematic Analysis 1</h2>
+            <hr>
+            <hr>
+            <h2>Loose notes</h2>
+            <hr>
+                </div>
+                </body>
+                </html>
         """
     
         # Create the new note
@@ -551,9 +528,17 @@ class Zotero:
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
                 print(f"Section title '{section}' not found in the note content.")
-        if section =="<h2>4.1 Article Structure</h2>":
+        if section =="<h2>3.1 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
-
+            self.schema = self.extract_insert_article_schema(updated_content)
+            pattern = re.compile(f'({re.escape("<h1>1. Summary:</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            matches = pattern.search(updated_content)
+            content= '<hr>\n'.join(self.schema)
+            if matches:
+                updated_section = f"{matches.group(1)}{content}"
+                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
+            else:
+                print(f"Section title '<h1>1. Summary:</h1>' not found in the note content.")
 
         # Check if the content has been updated
         if updated_content != note_content:
@@ -671,7 +656,9 @@ class Zotero:
                 note_id=note["note_id"]
                 print("note heading")
                 print(note["headings"])
-
+                note_content = note["content"]
+                self.schema = self.insert_article_schema(note_content)
+                print("schema:",self.schema)
 
                 note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
 
@@ -686,10 +673,22 @@ class Zotero:
             if note and note["headings"] == []:
                 print("note heading==[]")
                 note_complete -=1
+
+            if self.schema:
+                section_dict = {
+                    k: f"Perform an in-depth analysis of the '{k}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+
+                    for k in self.schema}
+                try:
+                    self.update_multiple_notes(sections_prompts=section_dict, pdf=pdf, note_id=note_id)
+                except Exception as e:
+                    print("multiple notes function err in section ditc", e)
+
         if note_complete>0:
             return True
         if note_complete ==0:
             return False
+
 
     
     def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False):
@@ -861,7 +860,7 @@ class Zotero:
         # If no notes meet the criteria, return None
         return None
 
-    def extract_unique_keywords_from_html(self,html_text):
+    def extract_unique_keywords_from_html(self,html_text,tag=True):
         """
         Extracts unique keywords enclosed in <li> tags from the provided HTML text and returns them as a list.
 
@@ -871,6 +870,7 @@ class Zotero:
         Returns:
         - list: A list of unique keywords extracted from the HTML text.
         """
+
         # Use regular expression to find all keywords within <li> tags
         keywords = re.findall(r"<li>(.*?)</li>", html_text)
         # Remove duplicates by converting the list to a set, then back to a list
@@ -882,3 +882,17 @@ class Zotero:
 
 
 
+
+    def extract_insert_article_schema(self,html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        schema_list = []
+
+        article_schema = soup.find('h3', string='Article Schema:')
+        if article_schema:
+            # Extract the schema list items and convert them to h2 tags
+            schema_items = article_schema.find_next_sibling('ol').find_all('li')
+            for item in schema_items:
+                schema_list.append(f'<h2>{item.text.strip()}</h2>')
+
+
+        return schema_list
