@@ -555,7 +555,7 @@ class ChatGPT:
 
         self.logger.debug('Getting response...')
 
-        sleep_duration = 60 * 12
+        sleep_duration = 60 * 13
         self.sleep(sleep_duration)
         # Copy the response by the shortcut Ctrl+Shift+;
         try:
