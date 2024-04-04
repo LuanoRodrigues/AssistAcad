@@ -24,6 +24,17 @@ class Zotero:
                  chat_args = { "chat_id": "pdf"},
                  os = "mac"
                  ):
+        """
+            Initialize a new instance of the class, setting up the necessary configurations for accessing and interacting with a Zotero library.
+
+            Parameters:
+            - library_id (str): The ID of the Zotero library to connect to.
+            - library_type (str): The type of the Zotero library (e.g., 'user' or 'group').
+            - api_key (str): The API key used for authenticating with the Zotero API.
+            - chat_args: Additional arguments or configurations related to chat functionalities (the exact type and structure need to be specified based on usage).
+
+            This method also establishes a connection to the Zotero library, sets the directory path for Zotero storage based on the operating system, and initializes a schema attribute.
+            """
         self.library_id = library_id
         self.library_type = library_type
         self.api_key = api_key
@@ -34,10 +45,28 @@ class Zotero:
         self.schema = ""
 
     def connect(self):
-        # Assuming you have zotero package installed
+        """
+           Establishes and returns a connection to the Zotero API using the Zotero library credentials stored in the instance.
+
+           Returns:
+           - An instance of the Zotero object configured with the specified library ID, library type, and API key. This object can be used to perform various operations with the Zotero API.
+           """
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
     def get_document_info1(self,query):
+        """
+           Retrieves document information from the Clarivate Web of Science Starter API based on a specified query.
+
+           Parameters:
+           - query (str): The search query to fetch document information for.
+
+           Returns:
+           - A dictionary containing details about the first document matching the query, including title, authors, source, publication year, volume, issue, pages range, DOI, keywords, record link, citing articles link, references link, related records link, and citations count.
+           - Returns None if no records are found or if the request fails.
+
+           Note:
+           - This method prints the response data, citations count, and detailed result for debugging purposes.
+           """
         # Set the URL for the API endpoint
         url = "https://api.clarivate.com/apis/wos-starter/v1/documents"
         # Set the query parameters
@@ -93,6 +122,20 @@ class Zotero:
             return None
 
     def get_document_info2(self,query,author):
+        """
+            Retrieves document information from the Google Scholar search engine via the SERP API based on a specified query and author name.
+
+            Parameters:
+            - query (str): The search query to fetch document information for.
+            - author (str): The name of the author to specifically look for in the search results.
+
+            Returns:
+            - A dictionary containing details about the first document matching the query and author, including title, author name, snippet, link to the document, total citations count, link to the cited by page, and link to related pages.
+            - Returns None if no records are found, the specified author does not match, or if the request fails.
+
+            Note:
+            - The method performs a single result search on Google Scholar, filtered by the provided author name, to find a relevant document.
+            """
         # Set the URL for the API endpoint
         url = "https://serpapi.com/search"
         # Set the query parameters
@@ -100,7 +143,7 @@ class Zotero:
             "engine": "google_scholar",
             "q": query,
             "api_key": ser_api_key,
-            "num": 1  # Limit to 1 result
+            "num": 10  # Limit to 1 result
         }
         # Send the GET request
         response = requests.get(url, params=params)
@@ -220,8 +263,8 @@ class Zotero:
                                                        'annotation']]
 
                         # Process each item in this batch
-                        with tqdm(total=len(collection_items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
-                                  colour='green') as pbar:
+                        with (tqdm(total=len(collection_items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                                  colour='green') as pbar):
 
                             for item in collection_items:
                                 item_data = item['data']
@@ -235,42 +278,60 @@ class Zotero:
                                 if 'attachment' in item['links']:
                                     attachment_link = item['links']['attachment']['href'].split("/")[-1]
                                     directory = self.zotero_directory + attachment_link
-                                    for root, dirs, files in os.walk(directory):
-                                        for file in files:
-                                            if file.endswith(".pdf"):
-                                                pdf_path = os.path.join(root, file)
-                                                paper_data['pdf'] = pdf_path
-                                                if tag !=None:
+                                    try:
+                                        # Iterate through each author in the data.
+                                        # Check if both 'firstName' and 'lastName' keys exist, and join them if they do.
+                                        # If they don't exist, use the 'name' key directly.
+                                        authors = ", ".join([
+                                            f"{author['firstName']} {author['lastName']}" if 'firstName' in author and 'lastName' in author
+                                            else author['name']
+                                            for author in item['data'].get('creators', [])
+                                        ])
+                                    except Exception as e:
+                                        authors= "author"
+                                        # If there is an error, print out the error and the format that caused it.
+                                        # Ensure authors is set to None or an empty list if there is an error
+                                        print(f"Error when parsing authors: {e}")
 
-                                                    if tag == "replace" or tag == "append":
-                                                        if api:  # Check if API is set for non-delete aims
-                                                            new_tags = ast.literal_eval(
-                                                                api.interact_with_page(prompt=tags_prompt,
-                                                                                       path=pdf_path, copy=True))
-                                                            new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
+                                    date = item['data'].get('date')
+                                    date =  "date" if date is None else date
+                                    year_match = re.search(r'\b\d{4}\b', date)
+                                    if year_match:
+                                        date = year_match.group(0)
+                                    new_path = f"{authors}_{date}.pdf"
+                                    pdf_path=self.get_pdf_path(directory,new_path)
+                                    paper_data = {'id': paper_key, 'pdf': pdf_path, "note": note_data}
 
-                                                            if tag == "append":
-                                                                item['data']['tags'].extend(
-                                                                    new_tags)  # Extend existing tags with new ones
-                                                            elif tag == "replace":
-                                                                item['data'][
-                                                                    'tags'] = new_tags  # Replace existing tags with new ones
+                                    if pdf_path is not None and tag:
+                                        if tag == "replace" or tag == "append":
+                                            if api:  # Check if API is set for non-delete aims
+                                                new_tags = ast.literal_eval(
+                                                    api.interact_with_page(prompt=tags_prompt,
+                                                                           path=pdf_path, copy=True))
+                                                new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
 
-                                                    if tag == "delete":
-                                                        item['data']['tags'] = []  # Remove all tags
+                                                if tag == "append":
+                                                    item['data']['tags'].extend(
+                                                        new_tags)  # Extend existing tags with new ones
+                                                elif tag == "replace":
+                                                    item['data'][
+                                                        'tags'] = new_tags  # Replace existing tags with new ones
 
-                                                    # Update the item on the server
-                                                    try:
-                                                        updated_item = self.zot.update_item(item)
+                                        if tag == "delete":
+                                            item['data']['tags'] = []  # Remove all tags
 
-                                                        print(f"Item updated: {item['data']['title']}")
-                                                    except pyzotero.zotero_errors.PreConditionFailed as e:
-                                                        print(
-                                                            f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
-                                                            e)
-                                                        latest_item = self.zot.item(item['key'])
-                                                        updated_item = self.zot.update_item(latest_item)
-                                                         # Add the updated item to the list
+                                        # Update the item on the server
+                                        try:
+                                            updated_item = self.zot.update_item(item)
+
+                                            print(f"Item updated: {item['data']['title']}")
+                                        except pyzotero.zotero_errors.PreConditionFailed as e:
+                                            print(
+                                                f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
+                                                e)
+                                            latest_item = self.zot.item(item['key'])
+                                            updated_item = self.zot.update_item(latest_item)
+                                             # Add the updated item to the list
                                 target_collection['items']['papers'][paper_title] = paper_data
                                 pbar.update()
 
@@ -292,8 +353,71 @@ class Zotero:
                 print(f'Collection "{collection_name}" not found in Zotero. Please try again.')
                 collection_name = None  # Reset collection_name to prompt again
 
+
+    def get_pdf_path(self, dir_path, new_filename):
+        """
+        Renames the first encountered PDF file in the specified directory to a new filename,
+        if the current filename does not match the new filename. It assumes there's only one
+        PDF file within the entire directory structure starting from 'dir_path'.
+
+        Parameters:
+        - dir_path (str): The root directory path to start searching for the PDF file. The search
+          will include all subdirectories under this path.
+        - new_filename (str): The new filename to assign to the found PDF file. This should include
+          the '.pdf' extension but should not include any directory path components.
+
+        Returns:
+        - str: The full path of the PDF file after renaming. If the PDF file's name already matched
+          'new_filename', the original path is returned. If no PDF file is found, returns None.
+
+        Raises:
+        - ValueError: If 'new_filename' does not end with '.pdf'.
+
+        Example usage:
+            renamer = FileRenamer()
+            pdf_path = renamer.get_pdf_path("/path/to/directory", "new_document_name.pdf")
+            if pdf_path:
+                print(f"PDF path: {pdf_path}")
+            else:
+                print("No PDF file found in the directory.")
+
+        Note:
+        This method assumes that there is only one PDF file in the given directory and its
+        subdirectories. If there are multiple PDF files, only the first encountered PDF file will be
+        renamed, and the method will stop searching further.
+        """
+        if not new_filename.endswith(".pdf"):
+            raise ValueError("The new filename must end with '.pdf'.")
+
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if file.endswith(".pdf"):
+                    current_pdf_path = os.path.join(root, file)
+                    new_pdf_path = os.path.join(root, new_filename)
+                    if current_pdf_path != new_pdf_path:
+                        os.rename(current_pdf_path, new_pdf_path)
+                        print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
+                        return new_pdf_path
+                    return current_pdf_path
+
+
     def create_note(self,item_id,path):
-    
+        """
+            Creates a Zotero note for a given item ID, incorporating various item details and external data sources to enrich the note content.
+
+            Parameters:
+            - item_id (str): The unique identifier of the Zotero item for which to create a note.
+            - path (str): The path where the note or related resources might be stored or used in processing.
+
+            This method performs multiple steps:
+            1. Retrieves the Zotero item by its ID.
+            2. Extracts and formats item details such as authors, title, publication year, and DOI.
+            3. Constructs a query for external data sources to enrich the note with citations, references, and related articles.
+            4. Creates and updates the Zotero note with the retrieved information and additional links.
+
+            Note:
+            - The function handles items of specific types differently and might return early for types like attachments or links.
+            """
     
         # Fetch the item by ID
         item = self.zot.item(item_id)
@@ -302,7 +426,8 @@ class Zotero:
         # Fetch the item by ID
         item = self.zot.item(item_id)
         data = item
-        links = ""
+        link1 = ""
+        link2 = ""
         date = data['data'].get('date')
         authors = None
         try:
@@ -355,18 +480,17 @@ class Zotero:
 
 
 
-            links = f"""
+            link1 = f"""
     
-                    <li><strong>Citing Articles</strong>: <a href="{data_wos.get("citing_articles_link")}">Citation[{data_wos.get('citations')}]</a></li>
-                    <li><strong>References</strong>: <a href="{data_wos.get("references_link")}">References</a></li>
-                    <li><strong>Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
+                    <li><strong>WoS Citing Articles</strong>: <a href="{data_wos.get("citing_articles_link")}">Citation[{data_wos.get('citations')}]</a></li>
+                    <li><strong>WoS References</strong>: <a href="{data_wos.get("references_link")}">References</a></li>
+                    <li><strong>WoS Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
                 """
-        if not data_wos:
-            serp =self.get_document_info2(query=title,author=authors)
-            if serp:
 
-                links = f"""
-
+        serp =self.get_document_info2(query=title,author=authors)
+        if serp:
+                link2 = f"""
+    
                                   <li><strong>Citing Articles</strong>: <a href="{serp['cited_link']}">Citation[{serp['total_cited']}]</a></li>
                                   <li><strong>Related</strong>: <a href="{serp["related_pages_link"]}">Related</a></li>
                               """
@@ -397,7 +521,9 @@ class Zotero:
             <li><strong>DOI</strong>: {doi}</li>
             <li><strong>Identifier</strong>: <a href="{item['data'].get('url')}">Online</a></li>
             <li><strong>PDF</strong>: <a href="{path}">Zotero</a></li>
-            {links}
+            {link1}
+            {link2}
+
     
         </ul>
         <hr>
@@ -406,7 +532,6 @@ class Zotero:
         <p>"{item['data'].get('abstractNote')}"</p>
         <hr>
         <hr>
-        <h1>Summary</h1>
         <h1>1. Introduction:</h1>
             <h2>1.1 Research Framework</h2>
             <hr>
@@ -440,7 +565,11 @@ class Zotero:
             <hr>
             <h2>3.4 Thematic Analysis 2</h2>
             <hr>
+            <h2>3.5 Thematic Analysis 3</h2>
             <hr>
+            <hr>
+            <h1>Summary</h1>
+
             <h2>Loose notes</h2>
             <hr>
                 </div>
@@ -491,17 +620,20 @@ class Zotero:
 
 
     def update_zotero_note_section(self, note_id, updates, api):
-        """
-        Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
 
-        Args:
-            note_id (str): The unique identifier of the Zotero note to update.
-            updates (dict): A dictionary where keys are section headings and values are prompts used to generate new content.
-            api: External API for generating new content based on the prompts.
-
-        Returns:
-            None: The function prints out the result of the operation.
         """
+    Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
+
+    Parameters:
+    - note_id (str): The unique identifier of the Zotero note to update.
+    - updates (dict): A dictionary where keys are section headings and values are the new content to update those sections with.
+    - api: An external API object used to generate new content based on the updates.
+
+    This method also handles adding new tags and updating the 'Structure and Keywords' section with unique keywords extracted from the updated content. If the content is successfully updated, it attempts to post the changes back to Zotero.
+
+    Note:
+    - The function prints out the result of the operation, indicating success or failure of the update.
+    """
         # Retrieve the current note content
         note = self.zot.item(note_id)
         tags = note['data'].get('tags', [])
@@ -530,7 +662,7 @@ class Zotero:
                 print(f"Section title '{section}' not found in the note content.")
         if section =="<h2>3.1 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
-            self.schema = self.extract_insert_article_schema(updated_content)
+            self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
             pattern = re.compile(f'({re.escape("<h1>Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
             matches = pattern.search(updated_content)
             content= '<hr>\n'.join(self.schema) +"<hr>\n"
@@ -618,8 +750,22 @@ class Zotero:
 
     
     def update_all(self,collection_name,index=0,tag=None,update=True):
+        """
+            Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
+
+            Parameters:
+            - collection_name (str): The name of the Zotero collection to process.
+            - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
+            - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+            - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+
+            The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+
+            Note:
+            - The method provides feedback via print statements regarding the progress and success of note updates.
+            """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
-        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][index:]
+        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
         note_complete = len(collection_data["items"]["papers"].items())
         print("Note complete is",note_complete)
         # Setting up the tqdm iterator
@@ -634,13 +780,12 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
-            print("key:",keys)
-            print("value:",values)
+
 
 
             if note is None and pdf is not None:
                 print("note is None and pdf is None")
-                print(note)
+
 
                 note_id= self.create_note(id, pdf)
 
@@ -687,6 +832,15 @@ class Zotero:
             return False
 
     def clean_h2_title(self,html_string):
+        """
+           Extracts and cleans the text of the first <h2> tag found in the given HTML string.
+
+           Parameters:
+           - html_string (str): The HTML string to parse for an <h2> tag.
+
+           Returns:
+           - The cleaned text content of the first <h2> tag, with all HTML tags removed. Returns None if no <h2> tag is found.
+           """
         # Use regular expression to extract text within <h2> tags
         h2_text = re.search(r'<h2>(.*?)</h2>', html_string)
         if h2_text:
@@ -719,8 +873,9 @@ class Zotero:
                     process=True
 
                 if self.schema:
-                    if key==self.schema[0]:
+                    if key==self.schema[0] or key=="<h2>2.2 Theoretical Framework or Models</h2>":
                         api.open_new_tab()
+
                         api.interact_with_page(path=pdf, copy=False)
                 if process:
 
@@ -732,7 +887,6 @@ class Zotero:
                     self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                     pbar.update()
 
-    from bs4 import BeautifulSoup
 
     def extract_relevant_h2_blocks(self,html_content):
         """
@@ -750,29 +904,29 @@ class Zotero:
         Returns:
             list: A list of <h2> elements (with opening and closing tags) that meet the specified conditions.
         """
+        self.schema = self.extract_insert_article_schema(html_content)
+        if self.schema:
+            section_dict = {
+                k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+
+                for k in self.schema if k not in ["Abstract", "table of content"]}
+            note_update.update(section_dict)
         soup = BeautifulSoup(html_content, 'html.parser')
         relevant_h2_blocks = []
-        print("oi")
         h2_elements = soup.find_all('h2')
         for h2_element in h2_elements:
             # Initialize a variable to iterate through siblings
             next_sibling = h2_element.next_sibling
 
+            # Iterate through siblings until you find a non-empty text or a tag that's not <hr>
             while next_sibling and isinstance(next_sibling, NavigableString) and not next_sibling.strip():
-                # Move to the next sibling if the current is a NavigableString but empty (whitespace)
                 next_sibling = next_sibling.next_sibling
 
-            # If next_sibling is an element, grab its text
-            if next_sibling and not isinstance(next_sibling, NavigableString):
-                text_str = next_sibling.get_text(strip=True)
-            else:
-                text_str = next_sibling.strip() if next_sibling else ''
-
-            if not text_str or text_str.lower().startswith("guidelines"):
+            # Check if the next_sibling is an <hr> or if there is no significant text following
+            if not next_sibling or next_sibling.name == 'hr' or (
+                    isinstance(next_sibling, NavigableString) and not next_sibling.strip()):
                 relevant_h2_blocks.append(str(h2_element))
-
-        print("relevant_h2_blocks:", relevant_h2_blocks)
-        # relevant_h2_blocks = [h2 for h2 in relevant_h2_blocks if h2 in note_update.keys()]
+        relevant_h2_blocks = [h2 for h2 in relevant_h2_blocks if h2 in note_update.keys()]
         return relevant_h2_blocks
 
     def html_update(self,note_id):
@@ -846,19 +1000,13 @@ class Zotero:
             note_id = note['data']["key"]
             note_content = note['data']["note"]
             tags = [tag["tag"] for tag in note['data']['tags']]
-            self.schema = self.extract_insert_article_schema(note_content)
+
             # Extract headings still needing updates
             remaining_h2 = self.extract_relevant_h2_blocks(note_content)
-            if self.schema:
-                section_dict = {
-                    k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
 
-                    for k in self.schema if k not in ["Abstract", "table pf"]}
-                note_update.update(section_dict)
-                print("note_update updated", note_update)
             # Check if the note is marked as complete
             if "note_complete" in tags:
-                print("Note complete")
+                print("Note complete\n")
                 return {"note_id": note_id, "headings": [],"content": note_content}
 
             # Check if there are no remaining sections and the note is not marked complete
@@ -869,10 +1017,11 @@ class Zotero:
 
             # If there are remaining sections, return them with the note ID
             if remaining_h2:
+
                 keys =list(note_update.keys())
-                print(keys)
+
+
                 remaining_h2 = [h2 for h2 in remaining_h2 if h2 in keys]
-                print( note_update.keys())
                 return {"note_id": note_id, "headings": remaining_h2,"content": note_content}
 
         # If no notes meet the criteria, return None
@@ -915,6 +1064,15 @@ class Zotero:
         return tags
 
     def extract_insert_article_schema(self,html_content):
+        """
+            Extracts article schema information from the given HTML content and formats it into a list of <h2> tags.
+
+            Parameters:
+            - html_content (str): HTML content from which to extract the article schema.
+
+            Returns:
+            - A list of strings, each representing an article schema item formatted as an <h2> tag. If the 'Article Schema:' section is not found, returns an empty list.
+            """
         soup = BeautifulSoup(html_content, 'html.parser')
         schema_list = []
 

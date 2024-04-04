@@ -269,6 +269,20 @@ class ChatGPT:
         self.__is_active = True
         Thread(target=self.__keep_alive, daemon=True).start()
 
+    def open_new_tab(self):
+        # Open a new tab using JavaScript
+        self.driver.execute_script("window.open('');")
+
+        # Switch to the newly opened tab
+        self.driver.switch_to.window(self.driver.window_handles[1])
+
+        # Close the previous tab
+        self.driver.switch_to.window(self.driver.window_handles[0])
+        self.driver.close()
+
+        # Switch back to the new tab
+        self.driver.switch_to.window(self.driver.window_handles[0])
+
     def __ensure_cf(self, retry: int = 3) -> None:
         '''
         Ensure Cloudflare cookies are set\n
@@ -521,8 +535,8 @@ class ChatGPT:
             # Iterate over the range created by sleep_duration
             for _ in range(sleep_duration):
                 time.sleep(1)  # Sleep for a second
-                pbar.update(1)  # Update the progress bar by one unit
-                pbar.set_description(f"sleeping for {sleep_duration} seconds")
+                pbar.update()  # Update the progress bar by one unit
+                pbar.set_description(f"sleeping for {sleep_duration/60} min")
 
     def send_message(self, message: str, copy=True) -> dict:
         '''
@@ -555,7 +569,7 @@ class ChatGPT:
 
         self.logger.debug('Getting response...')
 
-        sleep_duration = 60 * 13
+        sleep_duration = 60 * 10
         self.sleep(sleep_duration)
         # Copy the response by the shortcut Ctrl+Shift+;
         try:

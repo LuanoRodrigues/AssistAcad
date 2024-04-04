@@ -2,6 +2,8 @@ import time
 import urllib
 
 from bs4 import BeautifulSoup
+from tqdm import tqdm
+
 from Zotero_module.zotero_data import note_update,test
 from Zotero_module.zotero_class import  Zotero
 import os
@@ -47,12 +49,17 @@ os="win")
 #         time.sleep(60*30)
 
 
-# zt.update_all(collection_name="lawful evidence",update=True)
+zt.update_all(collection_name="lawful evidence",update=True)
 # zot =zt.connect()
 # note = zot.item("7QE3D2H6")['data']['note']
 # print(note)
 # #
-# collection =zt.get_or_update_collection(collection_name="lawful evidence",update=True)
+# collection =zt.get_or_update_collection(collection_name="lawful evidence",update=False)
+# data = [(t, i) for t, i in collection["items"]["papers"].items()]
+# for n,item in enumerate(data):
+#     print(n,item)
+#     print("\n")
+
 # data = [(t, i) for t, i in collection["items"]["papers"].items()][0:]
 # for keys, values in data:
 #     # Dynamically update the description with the current key being processed
@@ -62,8 +69,8 @@ os="win")
 #     pdf = values['pdf']
 #     print("key:", keys)
 #     print("value:", values)
-d ={'id': '76DQPE49', 'pdf': 'C:\\Users\\luano\\Zotero\\storage\\NREIF9TL\\Aravindakshan - 2021 - Cyberattacks a look at evidentiary thresholds in .pdf', 'note': {'note_id': '7QE3D2H6', 'headings': []}}
-# print(zt.get_children_notes("5NNXUT6Q"))
+
+# note =zt.get_children_notes("ZPS98M2N")
+# print(note['headings'])
+# print(note['content'])
 # zt.update_multiple_notes(sections_prompts=test,note_id='7QE3D2H6',pdf=d["pdf"])
-
-
