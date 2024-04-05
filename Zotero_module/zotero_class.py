@@ -2,12 +2,14 @@ import os
 import ast
 import time
 import pickle
+from progress.bar import Bar
+
 from bs4 import BeautifulSoup,NavigableString
 import pprint
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt,test
+from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt,test,book,initial_book, book_titles
 from tqdm import tqdm
 import requests
 import re
@@ -1088,3 +1090,80 @@ class Zotero:
                     schema_list.append(f'<h2>{item.text.strip()}</h2>')
 
         return schema_list
+
+    def process_headings(self, title,update=False):
+
+        headings_dict_file = f"Zotero_module/Data/book_data/{title}_dict.pickle"
+        def create_prompts_dict(headings, prompts_list):
+            prompts_dict = {}
+            for heading in headings:
+                for prompt_item in prompts_list:
+                    if heading.startswith(prompt_item["type"].capitalize()):
+                        identifier = heading.split()[1].replace(':', '')
+                        prompt = prompt_item["prompt"].format(identifier, identifier)
+                        prompts_dict[heading] = prompt
+                        break
+            return prompts_dict
+        headings = self.extract_headings(update=update,title=title)
+        # Check if headings_dict.pickle exists or update is required
+        if update or not os.path.exists(headings_dict_file):
+            dici = create_prompts_dict(headings=headings, prompts_list=book)
+            with open(headings_dict_file, 'wb') as f:
+                pickle.dump(dici, f)
+        else:
+            with open(headings_dict_file, 'rb') as f:
+                dici = pickle.load(f)
+
+        self.generate_book_content(dici=dici,title=title)
+
+        return dici
+
+    def extract_headings(self,title,update=False):
+        headings_file = f"Zotero_module/Data/book_data/{title}_list.pickle"
+        html_content = ""
+        # Check if headings.pickle exists or update is required
+        if update or not os.path.exists(headings_file):
+            api = ChatGPT(**self.chat_args)
+
+            book_info = ", ".join([f"'{str(k)}': '{str(v)}'" for k, v in title.items()])
+            bar = Bar('Generating Chapters',
+                      max=5,
+                      suffix='%(percent)d%% - %(elapsed_td)s',  # Shows percentage and elapsed time
+                      fill='█',
+                      empty='-',
+                      bar_prefix=' [',
+                      bar_suffix='] ',
+                      color='green')
+
+
+            for n in range(5):
+                message = f"{book_info}\n {initial_book}\nPlease provide Chapter {n + 1}"
+                bar.message="generating chapter " + str(n + 1)
+                html_content += api.send_message(message=message, sleep=60*2) + "\n"
+            soup = BeautifulSoup(html_content, 'html.parser')
+            headings = [heading.text.strip() for heading in soup.find_all(['h2', 'h3', 'h4', 'h5'])]
+            api.delete_quit()
+            with open(headings_file, 'wb') as f:
+                pickle.dump(headings, f)
+            return headings
+        else:
+
+            with open(headings_file, 'rb') as f:
+                headings = pickle.load(f)
+                return headings
+
+    def generate_book_content(self,dici,title):
+        book_file =f"Zotero_module/Data/book_data/book_{title}.html"
+        api = ChatGPT(**self.chat_args)
+        with (tqdm(total=len(dici.keys()), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                   colour='green') as pbar):
+            for key, value in dici.items():
+                pbar.set_description("processing " + key)
+                prompt = key.replace(":", " =") + "\n" + value
+                # Assuming api is a pre-initialized ChatGPT API client instance within the class
+                html_content= api.send_message(message=prompt)  # Simulated API call
+
+
+                # Append the resulting HTML content to the file
+                with open(book_file, "a+", encoding="utf-8") as fp:
+                    fp.write(html_content + "\n\n")  # Adding a newline for separation between entries

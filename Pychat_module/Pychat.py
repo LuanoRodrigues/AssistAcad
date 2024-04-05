@@ -1,3 +1,5 @@
+from logging.handlers import TimedRotatingFileHandler
+
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
 from selenium.webdriver.support.ui import WebDriverWait
@@ -159,7 +161,7 @@ class ChatGPT:
             self.logger.debug('Closing display...')
             self.display.stop()
 
-    def __init_logger(self, verbose: bool) -> None:
+    def __init_logger(self, verbose: bool, log_file='logfile.log') -> None:
         '''
         Initialize the logger\n
         :param verbose: Whether to enable verbose logging
@@ -171,6 +173,11 @@ class ChatGPT:
             stream_handler = logging.StreamHandler()
             stream_handler.setFormatter(formatter)
             self.logger.addHandler(stream_handler)
+
+            # Create a TimedRotatingFileHandler to write logs to a file
+            file_handler = TimedRotatingFileHandler(log_file, when='S', interval=99999999, backupCount=1)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
 
     def __init_browser(self) -> None:
         '''
@@ -411,7 +418,16 @@ class ChatGPT:
             self.logger.debug('Dismissing alert...')
             self.driver.execute_script('arguments[0].remove()', alerts[0])
 
-
+    def delete_quit(self):
+        self.logger.debug('deleting the chat and quiting the browser')
+        if self.os=="win":
+            pyautogui_args =["ctrl","shift","delete"]
+        if self.os=="mac":
+            pyautogui_args =["command","shift","delete"]
+        pyautogui.hotkey(*pyautogui_args)
+        pyautogui.press("return")
+        time.sleep(2)
+        self.driver.quit()
     def interact_with_page(self, path, prompt="",copy=True):
 
         # Press Esc to close the 'Find' box
@@ -538,7 +554,7 @@ class ChatGPT:
                 pbar.update()  # Update the progress bar by one unit
                 pbar.set_description(f"sleeping for {sleep_duration/60} min")
 
-    def send_message(self, message: str, copy=True) -> dict:
+    def send_message(self, message: str, copy=True, sleep=60*11) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
@@ -562,52 +578,40 @@ class ChatGPT:
         # Create an ActionChain to perform a paste operation
         textbox.click()
         actions = ActionChains(self.driver)
-        actions.key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+        if self.os == "win":
+            actions.key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+
+        if self.os == "mac":
+            actions.key_down(Keys.COMMAND).send_keys('v').key_up(Keys.CONTROL).perform()
 
         textbox.send_keys(Keys.ENTER)
         self.logger.debug('Waiting for completion...')
 
         self.logger.debug('Getting response...')
 
-        sleep_duration = 60 * 10
-        self.sleep(sleep_duration)
+
+        self.sleep(sleep)
         # Copy the response by the shortcut Ctrl+Shift+;
         try:
-            if copy:
-                textbox = WebDriverWait(self.driver, timeout).until(
-                    EC.element_to_be_clickable(chatgpt_textbox)
-                )
-                print('Copying code')
-                textbox.click()
-                actions2 = ActionChains(self.driver)
-                actions2.key_down(Keys.CONTROL).key_down(Keys.SHIFT).send_keys(';').key_up(Keys.CONTROL).key_up(
-                    Keys.SHIFT).perform()
-                pyautogui.FAILSAFE = False
-                time.sleep(5)
 
-                pyautogui.click()
-                # Press Control, Shift, and ;
-                pyautogui.hotkey('ctrl', 'shift', ';')
-                content = pyperclip.paste()
-                print("copied")
+            textbox = WebDriverWait(self.driver, timeout).until(
+                EC.element_to_be_clickable(chatgpt_textbox)
+            )
+            print('Copying code')
+            textbox.click()
+            if self.os =="win":
+                pyautogui_arg= ['ctrl', 'shift', ';']
+            if self.os =="mac":
+                pyautogui_arg= ['command', 'shift', ';']
 
-            else:
-                textbox = WebDriverWait(self.driver, timeout).until(
-                    EC.element_to_be_clickable(chatgpt_textbox)
+            pyautogui.FAILSAFE = False
+            time.sleep(5)
 
-                )
-                print('Copying text')
-
-                textbox.click()
-                actions2 = ActionChains(self.driver)
-                actions2.key_down(Keys.CONTROL).key_down(Keys.SHIFT).send_keys('c').key_up(Keys.CONTROL).key_up(
-                    Keys.SHIFT).perform()
-                time.sleep(5)
-                pyautogui.click()
-                # Press Control, Shift, and ;
-                pyautogui.hotkey('ctrl', 'shift', 'c')
-                content = pyperclip.paste()
-                print("copied")
+            pyautogui.click()
+            # Press Control, Shift, and ;
+            pyautogui.hotkey(*pyautogui_arg)
+            content = pyperclip.paste()
+            print("copied")
 
             return content
         except SeleniumExceptions.TimeoutException as e:
