@@ -1140,8 +1140,10 @@ class Zotero:
                 message = f"{book_info}\n {initial_book}\nPlease provide Chapter {n + 1}"
                 bar.message="generating chapter " + str(n + 1)
                 html_content += api.send_message(message=message, sleep=60*2) + "\n"
+                print("html content: ", html_content + "\n")
             soup = BeautifulSoup(html_content, 'html.parser')
             headings = [heading.text.strip() for heading in soup.find_all(['h2', 'h3', 'h4', 'h5'])]
+            print("headings: ", headings)
             api.delete_quit()
             with open(headings_file, 'wb') as f:
                 pickle.dump(headings, f)

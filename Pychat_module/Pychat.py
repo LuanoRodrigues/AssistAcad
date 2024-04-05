@@ -6,6 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import pyautogui
+from alive_progress import alive_bar
 
 pyautogui.FAILSAFE = False
 
@@ -545,26 +546,25 @@ class ChatGPT:
 
     def sleep(self,sleep_duration):
         # Initialize the tqdm progress bar
-        with tqdm(total=sleep_duration, bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
-                  colour='yellow',
-                  leave=False) as pbar:  # leave=False ensures the last line is not kept after completion
-            # Iterate over the range created by sleep_duration
-            for _ in range(sleep_duration):
-                time.sleep(1)  # Sleep for a second
-                pbar.update()  # Update the progress bar by one unit
-                pbar.set_description(f"sleeping for {sleep_duration/60} min")
+        with alive_bar(sleep_duration,
+                       bar='bubbles',  # Choose a bar style
+                       spinner='dots_waves2',  # Choose a spinner style
+                       title=f"sleeping for {sleep_duration/60} min",  # Set a title for the bar
+                       force_tty=True,  # Ensure the bar renders in non-TTY environments
+                       ) as bar:
+            for item in sleep_duration:
+                time.sleep(0.1)  # Simulate work by sleeping
+                bar()  # Update the progress bar
 
-    def send_message(self, message: str, copy=True, sleep=60*11) -> dict:
+    def send_message(self, message: str, sleep=60*11) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
         :return: Dictionary with keys `message` and `conversation_id`
         '''
 
-        response = None  # or "" if an empty string makes more sense in your context
-        #
-        # self.logger.debug('Ensuring Cloudflare cookies...')
-        # self.__ensure_cf()
+        # Press Esc to close the 'Find' box
+        pyautogui.press('esc', 2)
 
         # self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(
