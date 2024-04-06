@@ -879,6 +879,7 @@ class Zotero:
                         api.open_new_tab()
 
                         api.interact_with_page(path=pdf, copy=False)
+
                 if process:
 
 
@@ -1091,35 +1092,29 @@ class Zotero:
 
         return schema_list
 
-    def process_headings(self, title,update=False):
+    def process_headings(self,title,key="", update=False):
 
-        headings_dict_file = f"Zotero_module/Data/book_data/{title}_dict.pickle"
         def create_prompts_dict(headings, prompts_list):
             prompts_dict = {}
             for heading in headings:
                 for prompt_item in prompts_list:
                     if heading.startswith(prompt_item["type"].capitalize()):
+
                         identifier = heading.split()[1].replace(':', '')
                         prompt = prompt_item["prompt"].format(identifier, identifier)
                         prompts_dict[heading] = prompt
                         break
             return prompts_dict
-        headings = self.extract_headings(update=update,title=title)
-        # Check if headings_dict.pickle exists or update is required
-        if update or not os.path.exists(headings_dict_file):
-            dici = create_prompts_dict(headings=headings, prompts_list=book)
-            with open(headings_dict_file, 'wb') as f:
-                pickle.dump(dici, f)
-        else:
-            with open(headings_dict_file, 'rb') as f:
-                dici = pickle.load(f)
 
+        headings = self.extract_headings(update=update, title=title,key=key)
+        dici = create_prompts_dict(headings=headings, prompts_list=book)
+        print("dici:",dici)
         self.generate_book_content(dici=dici,title=title)
 
         return dici
 
-    def extract_headings(self,title,update=False):
-        headings_file = f"Zotero_module/Data/book_data/{title}_list.pickle"
+    def extract_headings(self,title,update=False,key=""):
+        headings_file = f"Zotero_module/Data/book_data/{title.title}_list.pickle"
         html_content = ""
         # Check if headings.pickle exists or update is required
         if update or not os.path.exists(headings_file):
@@ -1139,11 +1134,9 @@ class Zotero:
             for n in range(5):
                 message = f"{book_info}\n {initial_book}\nPlease provide Chapter {n + 1}"
                 bar.message="generating chapter " + str(n + 1)
-                html_content += api.send_message(message=message, sleep=60*2) + "\n"
-                print("html content: ", html_content + "\n")
+                html_content += api.send_message(message=message, sleep=60*4) + "\n"
             soup = BeautifulSoup(html_content, 'html.parser')
             headings = [heading.text.strip() for heading in soup.find_all(['h2', 'h3', 'h4', 'h5'])]
-            print("headings: ", headings)
             api.delete_quit()
             with open(headings_file, 'wb') as f:
                 pickle.dump(headings, f)
@@ -1152,7 +1145,13 @@ class Zotero:
 
             with open(headings_file, 'rb') as f:
                 headings = pickle.load(f)
-                return headings
+                if key == "":
+                    index = 0
+                else:
+
+                    index = [i for i in headings].index(key)
+
+                return headings[index:]
 
     def generate_book_content(self,dici,title):
         book_file =f"Zotero_module/Data/book_data/book_{title}.html"
@@ -1163,7 +1162,7 @@ class Zotero:
                 pbar.set_description("processing " + key)
                 prompt = key.replace(":", " =") + "\n" + value
                 # Assuming api is a pre-initialized ChatGPT API client instance within the class
-                html_content= api.send_message(message=prompt)  # Simulated API call
+                html_content= api.send_message(message=prompt,sleep=60*4)  # Simulated API call
 
 
                 # Append the resulting HTML content to the file

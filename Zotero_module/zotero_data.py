@@ -96,25 +96,40 @@ stop_words = """
 note="the output should be complete with no placeholders or comments for instance '<!-- Additional sections and subsections follow the same structure -->'. provide the whole detailed structure\noutput:HTML in a code block."
 initial_book =f"Instructions:Please create a book divided into 5 chapters. Each chapter should include 5 sections, and each section should consist of 5 subsections. Please format the response in a HTML div structure.\n\nExample:\n<div><h2>Chapter [Chapter Number] : [Chapter Title]</h2><h3>Section [Section Number]: [Section Title]</h3><h4>Subsection [Subsection Number]: [Subsection Title]</h4></div>{note}"
 book_titles = [
-  {"title": "Cyber-Diplomacy: The New Frontier in International Relations", "references": ["Andrew N. Liaropoulos (2017)", "Milton L. Mueller (2020)", "A. Aydin, Türksel Kaya Bensghir (2019)", "S. Korostelev (2020)", "D. Antonov (2022)"]},
-  {"title": "The Architecture of Cyber Security: International Law Perspectives", "references": ["Eneken Tikk-Ringas (2015)", "Laurie R. Blank (2012)", "K. Mačák (2016)", "Vanshika Shukla (2023)", "Sean Kanuck (2010)"]},
-  {"title": "Digital Sovereignty: Cyberspace and State Power", "references": ["Liudmila Terentieva (2021)", "Andrew N. Liaropoulos (2017)", "Milton L. Mueller (2020)", "A. Aydin, Türksel Kaya Bensghir (2019)", "S. Korostelev (2020)"]},
-  {"title": "Global Cyber Conflicts: Securing the 5th Domain", "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)", "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]}
+    {"title": "The Cybersecurity Dilemma: National Security in the Internet Age",
+     "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)",
+                    "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+    {"title": "Advanced Persistent Threats and International Security: A Global Challenge",
+     "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)",
+                    "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+    {"title": "The Digital Silk Road: Cyberspace in International Trade and Diplomacy",
+     "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)",
+                    "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+    {"title": "Cyber Espionage and Foreign Policy: Navigating the Shadowy Waters",
+     "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)",
+                    "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+{"title": "Digital Borders: Cyber Operations and National Sovereignty", "references": ["Liudmila Terentieva (2021)", "Andrew N. Liaropoulos (2017)", "Milton L. Mueller (2020)", "A. Aydin, Türksel Kaya Bensghir (2019)", "S. Korostelev (2020)"]},
+  {"title": "The Information Age Conflict: Cyber Power and International Relations", "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)", "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+  {"title": "Governing the Ungovernable: Cyberspace, Law, and Order", "references": ["Eneken Tikk-Ringas (2015)", "Laurie R. Blank (2012)", "K. Mačák (2016)", "Vanshika Shukla (2023)", "Sean Kanuck (2010)"]},
+  {"title": "Cyber Threats and International Cooperation: Building a Safer World", "references": ["T. Tuukkanen (2011)", "R. Darby (2012)", "A. Kosenkov (2016)", "Jerónimo Domínguez-Bascoy, Bartolomé Bauzá-Abril (2017)", "Ehab Khalifa (2021)"]},
+  {"title": "The Digital Divide: Cyberspace and the Global Balance of Power", "references": ["Liudmila Terentieva (2021)", "Andrew N. Liaropoulos (2017)", "Milton L. Mueller (2020)", "A. Aydin, Türksel Kaya Bensghir (2019)", "S. Korostelev (2020)"]},
+  {"title": "From Cybercrime to Cyberwarfare: Evolving Threats and Strategies", "references": ["Eneken Tikk-Ringas (2015)", "Laurie R. Blank (2012)", "K. Mačák (2016)", "Vanshika Shukla (2023)", "Sean Kanuck (2010)"]}
+
 ]
 
 book=[
   {
     "type": "chapter",
 
-    "prompt": f"Outline the chapter, focusing on its: 1. research problem, 2.key research questions, and 3. hypothesis in prose. Provide a compelling introduction that encourages further reading.\nExample:\n<div><h2>Chapter [Chapter Number]: [Chapter Title]</h2><p>[1. research problem, 2.key research questions, and 3. hypothesis in prose]</p></div>{note}"
+    "prompt": f"Outline the chapter, focusing on its: 1. research problem, 2.key research questions, and 3. hypothesis in prose. Provide a compelling introduction that encourages further reading.\nExample:\n<div><h2>Chapter [the actual Chapter Number]: [the actual Chapter Title]</h2><p>[1. research problem, 2.key research questions, and 3. hypothesis in prose]</p></div>{note}"
   },
   {
     "type": "section",
-    "prompt": f"Introduce the section by detailing the specific aspect of the chapter's theme it will explore. Mention its importance and what readers can expect to learn from it.\n\nExample:\n<div><h3>[Section Number]: [Section Title]</h3><p>[Provide a detailed introduction to this section, explaining the specific aspects of the chapter's theme it will explore. Highlight its importance and what new knowledge or insights readers can expect to gain.]</p></div>{note}"
+    "prompt": f"Introduce the section by detailing the specific aspect of the chapter's theme it will explore. Mention its importance and what readers can expect to learn from it.\n\nExample:\n<div><h3>[the actual Section Number]: [the actual Section Title]</h3><p>[Provide a detailed introduction to this section, explaining the specific aspects of the chapter's theme it will explore. Highlight its importance and what new knowledge or insights readers can expect to gain.]</p></div>{note}"
   },
   {
     "type": "subsection",
-    "prompt": f"Dive into the details of the subsection’s topic. Provide thorough explanations, examples, or analyses that enrich the reader's understanding of the section's overall theme.\n\nExample:\n<div><h4>Subsection {{}}: [Subsection Title]</h4><p>[Delve into the details of this subsection's topic. Provide in-depth explanations, relevant examples, and thorough analyses to enrich the reader's understanding. Explain how this subsection contributes to the section's and chapter's themes.]</p></div>{note}"
+    "prompt": f"Dive into the details of the subsection’s topic. Provide thorough explanations, examples, or analyses that enrich the reader's understanding of the section's overall theme.\n\nExample:\n<div><h4>Subsection [the actual Subsection  Number]: [the actual Subsection Title]</h4><p>[Delve into the details of this subsection's topic. Provide in-depth explanations, relevant examples, and thorough analyses to enrich the reader's understanding. Explain how this subsection contributes to the section's and chapter's themes.]</p></div>{note}"
   }
 ]
 

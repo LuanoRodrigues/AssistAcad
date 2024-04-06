@@ -187,12 +187,10 @@ class ChatGPT:
 
         self.logger.debug('Initializing browser...')
         # Calculate the height
-        height = int(2 / 3 * 1024)  # 2/3 of 1024
         options = uc.ChromeOptions()
         # Set the window size
-        # options.add_argument(f'--window-size=1024,{height}')
         #
-        # # options.add_argument('--window-size=1024,568')
+        # options.add_argument('--window-size=1024,568')
         # options.add_argument("--disable-extensions")
         # options.add_argument("--disable-application-cache")
         # options.add_argument("--disable-gpu")
@@ -534,16 +532,6 @@ class ChatGPT:
         except Exception as e:
             print(f"An error occurred with interact function: {e}")
 
-    def open_new_tab(self):
-        # Open a new tab
-        self.driver.execute_script("window.open()")
-
-        # Switch to the newly opened tab
-        self.driver.switch_to.window(self.driver.window_handles[-1])
-
-        # Navigate to the URL
-        self.driver.get(self.url)
-
     def sleep(self,sleep_duration):
         # Initialize the tqdm progress bar
         with alive_bar(sleep_duration,
@@ -552,8 +540,8 @@ class ChatGPT:
                        title=f"sleeping for {sleep_duration/60} min",  # Set a title for the bar
                        force_tty=True,  # Ensure the bar renders in non-TTY environments
                        ) as bar:
-            for item in sleep_duration:
-                time.sleep(0.1)  # Simulate work by sleeping
+            for item in range(sleep_duration):
+                time.sleep(1)  # Simulate work by sleeping
                 bar()  # Update the progress bar
 
     def send_message(self, message: str, sleep=60*11) -> dict:
