@@ -1,9 +1,2 @@
-### Example user template template
-### Example user template
 .env
 main.py
-# IntelliJ project files
-.idea
-*.iml
-out
-gen
