@@ -3,13 +3,12 @@ import ast
 import time
 import pickle
 from progress.bar import Bar
-from gpt_api import chat_response
+from Pychat_module.gpt_api import chat_response
 from bs4 import BeautifulSoup,NavigableString
-import pprint
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt,test,book,initial_book, book_titles,sections_prompt
+from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt
 from tqdm import tqdm
 import requests
 import re
@@ -1197,8 +1196,6 @@ class Zotero:
 
         # If no notes meet the criteria, return None
         return None
-
-    import re
 
     def extract_unique_keywords_from_html(self, html_text):
         """
