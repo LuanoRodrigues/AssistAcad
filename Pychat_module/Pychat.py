@@ -551,8 +551,15 @@ class ChatGPT:
         :return: Dictionary with keys `message` and `conversation_id`
         '''
 
+<<<<<<< HEAD
         # Press Esc to close the 'Find' box
         pyautogui.press('esc', 2)
+=======
+        response = None  # or "" if an empty string makes more sense in your context
+        #
+        self.logger.debug('Ensuring Cloudflare cookies...')
+        self.__ensure_cf()
+>>>>>>> 79e5d20 (d)
 
         # self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(
@@ -580,32 +587,28 @@ class ChatGPT:
 
         self.sleep(sleep)
         # Copy the response by the shortcut Ctrl+Shift+;
-        try:
 
-            textbox = WebDriverWait(self.driver, timeout).until(
-                EC.element_to_be_clickable(chatgpt_textbox)
-            )
-            print('Copying code')
-            textbox.click()
-            if self.os =="win":
-                pyautogui_arg= ['ctrl', 'shift', ';']
-            if self.os =="mac":
-                pyautogui_arg= ['command', 'shift', ';']
 
-            pyautogui.FAILSAFE = False
-            time.sleep(5)
+        textbox = WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable(chatgpt_textbox)
+        )
+        print('Copying code')
+        textbox.click()
+        if self.os =="win":
+            pyautogui_arg= ['ctrl', 'shift', ';']
+        if self.os =="mac":
+            pyautogui_arg= ['command', 'shift', ';']
 
-            pyautogui.click()
-            # Press Control, Shift, and ;
-            pyautogui.hotkey(*pyautogui_arg)
-            content = pyperclip.paste()
-            print("copied")
+        pyautogui.FAILSAFE = False
+        time.sleep(5)
 
-            return content
-        except SeleniumExceptions.TimeoutException as e:
+        pyautogui.click()
+        # Press Control, Shift, and ;
+        pyautogui.hotkey(*pyautogui_arg)
+        content = pyperclip.paste()
+        print("copied")
 
-            self.driver.save_screenshot('copy error.png')
-            raise e
+        return content
 
 
 

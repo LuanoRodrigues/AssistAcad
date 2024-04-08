@@ -3,13 +3,13 @@ import ast
 import time
 import pickle
 from progress.bar import Bar
-
+from gpt_api import chat_response
 from bs4 import BeautifulSoup,NavigableString
 import pprint
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt,test,book,initial_book, book_titles
+from Zotero_module.zotero_data import note_update,initial_prompt,tags_prompt,test,book,initial_book, book_titles,sections_prompt
 from tqdm import tqdm
 import requests
 import re
@@ -212,7 +212,7 @@ class Zotero:
             if not collection_name:
                 collection_name = input("Please enter the collection name you want to get data from: ")
 
-            file_name = f'Zotero_module/collections_data/{collection_name.replace(" ", "_").lower()}_collection.pkl'
+            file_name = f'Zotero_module/Data/collections_data/{collection_name.replace(" ", "_").lower()}_collection.pkl'
             target_collection = {}
 
             print(f'Update mode is {"on" if update else "off"}.')
@@ -275,7 +275,7 @@ class Zotero:
                                 paper_key = item_data['key']
                                 note_data = self.get_children_notes(paper_key)
 
-                                paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
+                                # paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
                                 # Process attachments if present
                                 if 'attachment' in item['links']:
                                     attachment_link = item['links']['attachment']['href'].split("/")[-1]
@@ -300,9 +300,9 @@ class Zotero:
                                     year_match = re.search(r'\b\d{4}\b', date)
                                     if year_match:
                                         date = year_match.group(0)
-                                    new_path = f"{authors}_{date}.pdf"
+                                    new_path = f"({authors}, {date}).pdf"
                                     pdf_path=self.get_pdf_path(directory,new_path)
-                                    paper_data = {'id': paper_key, 'pdf': pdf_path, "note": note_data}
+                                    paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data,}
 
                                     if pdf_path is not None and tag:
                                         if tag == "replace" or tag == "append":
@@ -694,6 +694,81 @@ class Zotero:
                 print(f"An error occurred during the update: {e}")
         else:
             print("No changes were made to the note content.")
+    def update_zotero_note_section2(self, note_id, sections,pdf,reference):
+
+        """
+    Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
+
+    Parameters:
+    - note_id (str): The unique identifier of the Zotero note to update.
+    - updates (dict): A dictionary where keys are section headings and values are the new content to update those sections with.
+    - api: An external API object used to generate new content based on the updates.
+
+    This method also handles adding new tags and updating the 'Structure and Keywords' section with unique keywords extracted from the updated content. If the content is successfully updated, it attempts to post the changes back to Zotero.
+
+    Note:
+    - The function prints out the result of the operation, indicating success or failure of the update.
+    """
+        # Retrieve the current note content
+        note = self.zot.item(note_id)
+        tags = note['data'].get('tags', [])
+        if 'data' in note and 'note' in note['data']:
+            note_content = note['data']['note']
+        else:
+            print(f"No note content found for item ID {note_id}")
+            return
+
+        updated_content = note_content  # Initialize with the current note content
+
+        # Process updates for each section
+        for section, new_prompt in sections.items():
+            input(" enter")
+            # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
+            pattern = re.compile(f'({re.escape(section)})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            matches = pattern.search(updated_content)
+
+            if matches:
+                # Generate new content using the API based on the provided prompt
+                new_content =  chat_response(pdf,new_prompt+f"note:\nauthor reference={reference}")
+
+
+                # Replace the old section content with the new one
+                updated_section = f"{matches.group(1)}{new_content}"
+                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
+            else:
+                print(f"Section title '{section}' not found in the note content.")
+        if section =="<h2>3.1 Structure and Keywords</h2>":
+            tags.extend(self.extract_unique_keywords_from_html(new_content))
+            self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
+            pattern = re.compile(f'({re.escape("<h1>Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            matches = pattern.search(updated_content)
+            content= '<hr>\n'.join(self.schema) +"<hr>\n"
+            if matches:
+                updated_section = f"{matches.group(1)}{content}"
+                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
+            else:
+                print(f"Section title '<h1>Summary</h1>' not found in the note content.")
+
+        # Check if the content has been updated
+        if updated_content != note_content:
+            updated_note = {
+                'key': note['data']['key'],
+                'version': note['data']['version'],
+                'itemType': note['data']['itemType'],
+                'note': updated_content,
+                'tags': tags
+            }
+            try:
+                # Attempt to update the note in Zotero
+                response = self.zot.update_item(updated_note)
+                if response:
+                    print("Note updated successfully.")
+                else:
+                    print("Failed to update the note.")
+            except Exception as e:
+                print(f"An error occurred during the update: {e}")
+        else:
+            print("No changes were made to the note content.")
 
     def update_note_section_fromHtml(self,note_id, updates):
     
@@ -751,7 +826,7 @@ class Zotero:
             print(f"An error occurred during the update: {e}")
 
     
-    def update_all(self,collection_name,index=0,tag=None,update=True):
+    def update_all(self,collection_name,index=0,tag=None,update=True,chat="chat"):
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
@@ -770,6 +845,10 @@ class Zotero:
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
         note_complete = len(collection_data["items"]["papers"].items())
         print("Note complete is",note_complete)
+        if chat=="chat":
+            api = ChatGPT(**self.chat_args
+                          )
+
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
@@ -793,7 +872,7 @@ class Zotero:
 
                 if note_id:
                     try:
-                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,pdf=pdf
+                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,pdf=pdf,api=api
                                                    )
                     except Exception as e:
                         print("multiple notes function failed:",e)
@@ -832,6 +911,84 @@ class Zotero:
             return True
         if note_complete ==0:
             return False
+    def update_all2(self,collection_name,index=0,tag=None,update=True):
+        """
+            Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
+
+            Parameters:
+            - collection_name (str): The name of the Zotero collection to process.
+            - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
+            - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+            - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+
+            The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+
+            Note:
+            - The method provides feedback via print statements regarding the progress and success of note updates.
+            """
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
+        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
+        note_complete = len(collection_data["items"]["papers"].items())
+        print("Note complete is",note_complete)
+        # Setting up the tqdm iterator
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+        for keys, values in pbar:
+            # Dynamically update the description with the current key being processed
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
+            note = values['note']
+            id = values['id']
+            pdf = values['pdf']
+            print("values ",values)
+            reference = values['reference']
+
+
+
+
+            if note is None and pdf is not None:
+                print("note is None and pdf is None")
+
+
+                note_id= self.create_note(id, pdf)
+
+                if note_id:
+                    self.update_multiple_notes2(sections_prompts=sections_prompt,note_id=note_id,pdf=pdf,reference=reference
+                                                   )
+
+            if note and note["headings"]:
+                note_content = note["content"]
+                self.schema = self.extract_insert_article_schema(note_content)
+
+                if self.schema:
+                    section_dict = {
+                        k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+
+                        for k in self.schema if k not in ["Abstract", "table pf"]}
+                    sections_prompt.update(section_dict)
+                note_id=note["note_id"]
+                print("note heading")
+                print(note["headings"])
+
+
+
+                note_update1 = {k: v for k, v in sections_prompt.items() if k in note["headings"]}
+                try:
+                    self.update_multiple_notes2(sections_prompts=note_update1,pdf=pdf, note_id=note_id,reference=reference)
+                except Exception as e:
+                    print("multiple notes function err if remaining",e)
+
+
+            if note and note["headings"] == []:
+                print("note heading==[]")
+                note_complete -=1
+
+
+        if note_complete>0:
+            return True
+        if note_complete ==0:
+            return False
 
     def clean_h2_title(self,html_string):
         """
@@ -852,14 +1009,13 @@ class Zotero:
             # If not found, return None or handle the case appropriately
             return None
     
-    def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False):
+    def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False,):
 
-        api = ChatGPT(**self.chat_args
-                      )
+        api = ChatGPT(**self.chat_args)
         # if self.chat_args.get("chat_id"):
         api.interact_with_page(path=pdf, copy=False)
 
-    
+
         process=False
     
         # Assuming thematic_section is a dictionary
@@ -890,6 +1046,18 @@ class Zotero:
                     self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                     pbar.update()
 
+    def update_multiple_notes2(self, sections_prompts, note_id, pdf,reference):
+        with tqdm(sections_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                  colour='blue') as pbar:
+
+            for key, value in pbar:
+                print("keys:",key)
+
+                pbar.set_description(f"Processing section {key}",
+                                     )
+
+                self.update_zotero_note_section2(note_id=note_id, sections={key: value},pdf=pdf,reference=reference)
+                pbar.update()
 
     def extract_relevant_h2_blocks(self,html_content):
         """
