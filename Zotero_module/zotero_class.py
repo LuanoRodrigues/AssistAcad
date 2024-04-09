@@ -1,7 +1,11 @@
+import json
 import os
 import ast
 import time
 import pickle
+from pathlib import Path
+import traceback
+
 from progress.bar import Bar
 from Pychat_module.gpt_api import chat_response
 from bs4 import BeautifulSoup,NavigableString
@@ -88,7 +92,7 @@ class Zotero:
         if response.status_code == 200:
             # Parse the response JSON
             data = response.json()
-            print(data)
+
             if data["metadata"]["total"] > 0:
     
                 if 'hits' in data and data['hits']:
@@ -108,9 +112,7 @@ class Zotero:
                     result['references_link'] = hit.get('links').get('reference')
                     result['related_records_link'] = hit.get('links').get('related')
                     result['citations'] =  hit.get('citations')[0].get("count")
-                    print(result['citations'])
-                    print(hit['citations'][0]['count'])
-                    print(result)
+
                     return result
     
             else:
@@ -654,7 +656,9 @@ class Zotero:
 
             if matches:
                 # Generate new content using the API based on the provided prompt
+
                 new_content = api.send_message(new_prompt).strip()
+                self.append_training_data(prompt=new_prompt,expected_response=new_content)
 
                 # Replace the old section content with the new one
                 updated_section = f"{matches.group(1)}{new_content}"
@@ -716,9 +720,7 @@ class Zotero:
         else:
             print(f"No note content found for item ID {note_id}")
             return
-
         updated_content = note_content  # Initialize with the current note content
-
         # Process updates for each section
         for section, new_prompt in sections.items():
             input(" enter")
@@ -727,11 +729,12 @@ class Zotero:
             matches = pattern.search(updated_content)
 
             if matches:
-                # Generate new content using the API based on the provided prompt
-                new_content =  chat_response(pdf,new_prompt+f"note:\nauthor reference={reference}")
+                note1 = f"\nnote:fill the placeholders `[]` with real data\nauthor reference={reference}"
+                new_content = chat_response(pdf_path=pdf,
+                                            query=new_prompt+note1
+                                                                    )
 
-
-                # Replace the old section content with the new one
+                # # Replace the old section content with the new one
                 updated_section = f"{matches.group(1)}{new_content}"
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
@@ -769,6 +772,41 @@ class Zotero:
         else:
             print("No changes were made to the note content.")
 
+    def append_training_data(self,prompt, expected_response, file_path="training_data.json"):
+        """
+        Appends a new training data entry to a JSON file.
+
+        Parameters:
+        - prompt: The prompt text as a string.
+        - expected_response: The expected response text as a string.
+        - file_path: The path to the JSON file where the data will be appended.
+        """
+        # Template for a new entry
+        new_entry = {
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "assistant", "content": expected_response}
+            ]
+        }
+
+        # Path to your JSON file
+        json_file_path = Path(file_path)
+
+        # Check if the JSON file exists
+        if json_file_path.exists():
+            # Load existing data
+            with open(json_file_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+        else:
+            # Or create a new structure if the file does not exist
+            data = []
+
+        # Append new data
+        data.append(new_entry)
+
+        # Write the updated data back to the file
+        with open(json_file_path, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
     def update_note_section_fromHtml(self,note_id, updates):
     
     
@@ -825,7 +863,7 @@ class Zotero:
             print(f"An error occurred during the update: {e}")
 
     
-    def update_all(self,collection_name,index=0,tag=None,update=True,chat="chat"):
+    def update_all(self,collection_name,index=0,tag=None,update=True):
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
@@ -843,11 +881,6 @@ class Zotero:
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
         note_complete = len(collection_data["items"]["papers"].items())
-        print("Note complete is",note_complete)
-        if chat=="chat":
-            api = ChatGPT(**self.chat_args
-                          )
-
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
@@ -860,22 +893,15 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
-
-
-
             if note is None and pdf is not None:
                 print("note is None and pdf is None")
-
-
                 note_id= self.create_note(id, pdf)
-
                 if note_id:
                     try:
-                        self.update_multiple_notes(sections_prompts=note_update,note_id=note_id,pdf=pdf,api=api
+                        self.update_multiple_notes(section_prompts=note_update,note_id=note_id,pdf=pdf
                                                    )
                     except Exception as e:
                         print("multiple notes function failed:",e)
-
                 else:
                         print("Failed to update item.")
             if note and note["headings"]:
@@ -884,25 +910,24 @@ class Zotero:
 
                 if self.schema:
                     section_dict = {
-                        k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+                        k: (f"Perform an in-depth section analysis of the section: '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> [Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes until the end of the section] </div> ``` This methodical approach ensures a structured and precise examination of the section: '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis until the end of the provided section."
+                            f"\nnote:if you need to cite the paper during your responses, do in this format (author, date)\noutput:a HTML div in a code block")
 
                         for k in self.schema if k not in ["Abstract", "table pf"]}
                     note_update.update(section_dict)
+
                 note_id=note["note_id"]
-                print("note heading")
-                print(note["headings"])
-
-
-
                 note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                try:
-                    self.update_multiple_notes(sections_prompts=note_update1,pdf=pdf, note_id=note_id)
-                except Exception as e:
-                    print("multiple notes function err if remaining",e)
+
+
+
+                self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+
+
+
 
 
             if note and note["headings"] == []:
-                print("note heading==[]")
                 note_complete -=1
 
 
@@ -928,7 +953,6 @@ class Zotero:
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
         note_complete = len(collection_data["items"]["papers"].items())
-        print("Note complete is",note_complete)
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
@@ -940,7 +964,6 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
-            print("values ",values)
             reference = values['reference']
 
 
@@ -966,21 +989,17 @@ class Zotero:
 
                         for k in self.schema if k not in ["Abstract", "table pf"]}
                     sections_prompt.update(section_dict)
-                note_id=note["note_id"]
-                print("note heading")
-                print(note["headings"])
-
-
-
-                note_update1 = {k: v for k, v in sections_prompt.items() if k in note["headings"]}
                 try:
-                    self.update_multiple_notes2(sections_prompts=note_update1,pdf=pdf, note_id=note_id,reference=reference)
-                except Exception as e:
-                    print("multiple notes function err if remaining",e)
+                    note_id=note["note_id"]
+                    note_update1 = {k: v for k, v in sections_prompt.items() if k in note["headings"]}
+                except Exception as EE:
+                    print("exception ", EE)
+
+                self.update_multiple_notes2(sections_prompts=note_update1,pdf=pdf, note_id=note_id,reference=reference)
+
 
 
             if note and note["headings"] == []:
-                print("note heading==[]")
                 note_complete -=1
 
 
@@ -1008,7 +1027,7 @@ class Zotero:
             # If not found, return None or handle the case appropriately
             return None
     
-    def update_multiple_notes(self,sections_prompts,note_id,pdf='',start_section=False,):
+    def update_multiple_notes(self,section_prompts,note_id,pdf='',start_section=False):
 
         api = ChatGPT(**self.chat_args)
         # if self.chat_args.get("chat_id"):
@@ -1018,8 +1037,7 @@ class Zotero:
         process=False
     
         # Assuming thematic_section is a dictionary
-        total_iterations = len(sections_prompts)
-        with tqdm(sections_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+        with tqdm(section_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
 
             for key, value in pbar:
@@ -1029,12 +1047,10 @@ class Zotero:
                 if not start_section:
                     process=True
 
-                if self.schema:
-                    if key==self.schema[0] or key=="<h2>2.2 Theoretical Framework or Models</h2>":
-                        api.open_new_tab()
 
-                        api.interact_with_page(path=pdf, copy=False)
-
+                if key=="<h2>2.2 Theoretical Framework or Models</h2>":
+                    api.open_new_tab()
+                    api.interact_with_page(path=pdf, copy=False)
                 if process:
 
 
@@ -1044,13 +1060,15 @@ class Zotero:
 
                     self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                     pbar.update()
+            api.delete_quit(close=False)
+
 
     def update_multiple_notes2(self, sections_prompts, note_id, pdf,reference):
         with tqdm(sections_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
 
             for key, value in pbar:
-                print("keys:",key)
+
 
                 pbar.set_description(f"Processing section {key}",
                                      )
@@ -1134,8 +1152,8 @@ class Zotero:
     
                         if i > len(python_elements)-1:
                             break
-                print(text)
-                print("_"*50)
+
+
 
     def get_children_notes(self, item_id):
         """
@@ -1165,6 +1183,7 @@ class Zotero:
             print("Note 1:", notes[0]['data']["note"])
             print("Note 2:", notes[1]['data']["note"])
 
+
         # Process each note
         for note in notes:
             note_id = note['data']["key"]
@@ -1176,7 +1195,7 @@ class Zotero:
 
             # Check if the note is marked as complete
             if "note_complete" in tags:
-                print("Note complete\n")
+
                 return {"note_id": note_id, "headings": [],"content": note_content}
 
             # Check if there are no remaining sections and the note is not marked complete
@@ -1257,29 +1276,35 @@ class Zotero:
 
         return schema_list
 
-    def process_headings(self,title,key="", update=False):
+    def process_headings(self, title,update=False):
 
+        headings_dict_file = f"Zotero_module/Data/book_data/{title}_dict.pickle"
         def create_prompts_dict(headings, prompts_list):
             prompts_dict = {}
             for heading in headings:
                 for prompt_item in prompts_list:
                     if heading.startswith(prompt_item["type"].capitalize()):
-
                         identifier = heading.split()[1].replace(':', '')
                         prompt = prompt_item["prompt"].format(identifier, identifier)
                         prompts_dict[heading] = prompt
                         break
             return prompts_dict
+        headings = self.extract_headings(update=update,title=title)
+        # Check if headings_dict.pickle exists or update is required
+        if update or not os.path.exists(headings_dict_file):
+            dici = create_prompts_dict(headings=headings, prompts_list=book)
+            with open(headings_dict_file, 'wb') as f:
+                pickle.dump(dici, f)
+        else:
+            with open(headings_dict_file, 'rb') as f:
+                dici = pickle.load(f)
 
-        headings = self.extract_headings(update=update, title=title,key=key)
-        dici = create_prompts_dict(headings=headings, prompts_list=book)
-        print("dici:",dici)
         self.generate_book_content(dici=dici,title=title)
 
         return dici
 
-    def extract_headings(self,title,update=False,key=""):
-        headings_file = f"Zotero_module/Data/book_data/{title.title}_list.pickle"
+    def extract_headings(self,title,update=False):
+        headings_file = f"Zotero_module/Data/book_data/{title}_list.pickle"
         html_content = ""
         # Check if headings.pickle exists or update is required
         if update or not os.path.exists(headings_file):
@@ -1299,7 +1324,7 @@ class Zotero:
             for n in range(5):
                 message = f"{book_info}\n {initial_book}\nPlease provide Chapter {n + 1}"
                 bar.message="generating chapter " + str(n + 1)
-                html_content += api.send_message(message=message, sleep=60*4) + "\n"
+                html_content += api.send_message(message=message, sleep=60*2) + "\n"
             soup = BeautifulSoup(html_content, 'html.parser')
             headings = [heading.text.strip() for heading in soup.find_all(['h2', 'h3', 'h4', 'h5'])]
             api.delete_quit()
@@ -1310,13 +1335,7 @@ class Zotero:
 
             with open(headings_file, 'rb') as f:
                 headings = pickle.load(f)
-                if key == "":
-                    index = 0
-                else:
-
-                    index = [i for i in headings].index(key)
-
-                return headings[index:]
+                return headings
 
     def generate_book_content(self,dici,title):
         book_file =f"Zotero_module/Data/book_data/book_{title}.html"
@@ -1327,7 +1346,7 @@ class Zotero:
                 pbar.set_description("processing " + key)
                 prompt = key.replace(":", " =") + "\n" + value
                 # Assuming api is a pre-initialized ChatGPT API client instance within the class
-                html_content= api.send_message(message=prompt,sleep=60*4)  # Simulated API call
+                html_content= api.send_message(message=prompt)  # Simulated API call
 
 
                 # Append the resulting HTML content to the file
