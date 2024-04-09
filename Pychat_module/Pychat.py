@@ -1,12 +1,11 @@
 from logging.handlers import TimedRotatingFileHandler
-
+from alive_progress import alive_bar, alive_it,config_handler
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import pyautogui
-from alive_progress import alive_bar
 
 pyautogui.FAILSAFE = False
 
@@ -187,10 +186,12 @@ class ChatGPT:
 
         self.logger.debug('Initializing browser...')
         # Calculate the height
+        height = int(2 / 3 * 1024)  # 2/3 of 1024
         options = uc.ChromeOptions()
         # Set the window size
+        # options.add_argument(f'--window-size=1024,{height}')
         #
-        # options.add_argument('--window-size=1024,568')
+        # # options.add_argument('--window-size=1024,568')
         # options.add_argument("--disable-extensions")
         # options.add_argument("--disable-application-cache")
         # options.add_argument("--disable-gpu")
@@ -278,13 +279,14 @@ class ChatGPT:
     def open_new_tab(self):
         # Open a new tab using JavaScript
         self.driver.execute_script("window.open('');")
-
+        time.sleep(3)
         # Switch to the newly opened tab
         self.driver.switch_to.window(self.driver.window_handles[1])
+        time.sleep(3)
 
         # Close the previous tab
         self.driver.switch_to.window(self.driver.window_handles[0])
-        self.driver.close()
+        self.delete_quit()
 
         # Switch back to the new tab
         self.driver.switch_to.window(self.driver.window_handles[0])
@@ -417,7 +419,7 @@ class ChatGPT:
             self.logger.debug('Dismissing alert...')
             self.driver.execute_script('arguments[0].remove()', alerts[0])
 
-    def delete_quit(self):
+    def delete_quit(self,close=True):
         self.logger.debug('deleting the chat and quiting the browser')
         if self.os=="win":
             pyautogui_args =["ctrl","shift","delete"]
@@ -426,7 +428,10 @@ class ChatGPT:
         pyautogui.hotkey(*pyautogui_args)
         pyautogui.press("return")
         time.sleep(2)
-        self.driver.quit()
+        if close:
+            self.driver.close()
+        if not close:
+            self.driver.quit()
     def interact_with_page(self, path, prompt="",copy=True):
 
         # Press Esc to close the 'Find' box
@@ -438,7 +443,7 @@ class ChatGPT:
         It will find a button, click it, wait, copy the 'path' value to the clipboard, paste it,
         press the return key, wait, and print the 'prompt'.
         """
-        print("Starting interaction with the page...")
+        print("\nStarting interaction with the page...")
 
         # Click the button by its class name
         try:
@@ -533,33 +538,32 @@ class ChatGPT:
             print(f"An error occurred with interact function: {e}")
 
     def sleep(self,sleep_duration):
-        # Initialize the tqdm progress bar
-        with alive_bar(sleep_duration,
-                       bar='bubbles',  # Choose a bar style
-                       spinner='dots_waves2',  # Choose a spinner style
-                       title=f"sleeping for {sleep_duration/60} min",  # Set a title for the bar
-                       force_tty=True,  # Ensure the bar renders in non-TTY environments
-                       ) as bar:
-            for item in range(sleep_duration):
-                time.sleep(1)  # Simulate work by sleeping
-                bar()  # Update the progress bar
+        config_handler.set_global(spinner='dots_waves2', bar='bubbles', theme='smooth')
 
-    def send_message(self, message: str, sleep=60*11) -> dict:
+        # Determine the maximum width for the progress bar to ensure it fits in the display area
+        max_bar_width = 30  # You can adjust this value based on your terminal size or preferences
+
+        # Initialize the alive_progress bar with enhanced style, force_tty=True, and a constrained width
+        with alive_bar(sleep_duration, force_tty=True, title="Sleeping...", bar="blocks", spinner="dots_waves2",
+                       length=max_bar_width) as bar:
+            for i in range(sleep_duration):
+                time.sleep(1)  # Sleep for a second
+                bar()  # Update the progress bar by one unit
+                # Dynamic message showing remaining time in minutes, using 'i' to track progress
+                remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
+                bar.text(f'Remaining: {remaining_time:.2f} min')
+
+    def send_message(self, message: str, copy=True, sleep=60*11) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
         :return: Dictionary with keys `message` and `conversation_id`
         '''
 
-<<<<<<< HEAD
-        # Press Esc to close the 'Find' box
-        pyautogui.press('esc', 2)
-=======
         response = None  # or "" if an empty string makes more sense in your context
         #
         self.logger.debug('Ensuring Cloudflare cookies...')
         self.__ensure_cf()
->>>>>>> 79e5d20 (d)
 
         # self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(

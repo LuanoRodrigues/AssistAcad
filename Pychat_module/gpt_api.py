@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
 # Models
 EMBEDDING_MODEL = "text-embedding-3-large"
-GPT_MODEL = "gpt-4-turbo-preview"
+GPT_MODEL = "gpt-4-0613"
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -37,11 +37,12 @@ def query_message(query: str, article_text: str, model: str, token_budget: int) 
     return message + question
 
 
-def ask(query: str, article_text: str, model: str = GPT_MODEL, token_budget: int = 12000, print_message: bool = True) -> str:
+def ask(query: str, article_text: str, model: str = GPT_MODEL, token_budget: int = 12000, print_message: bool = False) -> str:
     """Asks the GPT model to list the main topics of an article."""
     prompt = f"{query}\n\nArticle text:\n{article_text}\n\n"
 
     if num_tokens(prompt, model=model) > token_budget:
+        print("using gpt-4 turbo")
         # If the prompt exceeds the token budget, you might need to summarize the article first
         if num_tokens(prompt, model=model) > 32000:
             return None
@@ -53,20 +54,17 @@ def ask(query: str, article_text: str, model: str = GPT_MODEL, token_budget: int
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided html and return  html div after analysing the text."},
+                {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided html and return a html div string after analysing the text."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7  # Adjust for creativity
         )
-        topics = response.choices[0]# Assuming each topic is on a new line
 
-        return topics.message.content
+        topics = response.choices[0]# Assuming each topic is on a new line
+        return re.sub(r'```htm.*?```', '', topics.message.content, flags=re.DOTALL)
+
     except Exception as e:
         return f"An error occurred: {str(e)}"
-
-
-from PyPDF2 import PdfReader
-
 
 def sanitize_text(text):
 
@@ -149,7 +147,6 @@ def extract_and_clean_pdf_text(pdf_path: str) -> str:
 # Example usage
 def chat_response(pdf_path, query):
     article_text = extract_and_clean_pdf_text(pdf_path)
-    print(article_text)
     # Check if the article_text is not empty
     if not article_text.strip():
         return "The article content could not be extracted or is empty. Please check the PDF file."
@@ -157,7 +154,3 @@ def chat_response(pdf_path, query):
     # Call the ask function with the extracted article text and the query
     response_text = ask(query, article_text)
     return response_text
-
-
-
-
