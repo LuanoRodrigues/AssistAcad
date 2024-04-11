@@ -12,15 +12,17 @@ from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt
+from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,template
 from tqdm import tqdm
 import requests
 import re
 from datetime import datetime
 from dotenv import load_dotenv
+from Pychat_module.gpt_api import api_send
 load_dotenv()  # loads the variables from .env
 api_key = os.environ.get("wos_api_key")
 ser_api_key = os.environ.get("ser_api_key")
+
 class Zotero:
     def __init__(self,
                  library_id="<Library ID>",
@@ -723,16 +725,19 @@ class Zotero:
         updated_content = note_content  # Initialize with the current note content
         # Process updates for each section
         for section, new_prompt in sections.items():
-            input(" enter")
+            # input(" enter")
             # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
             pattern = re.compile(f'({re.escape(section)})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
             matches = pattern.search(updated_content)
 
             if matches:
-                note1 = f"\nnote:fill the placeholders `[]` with real data\nauthor reference={reference}"
+                note1 = f"\nnote:fill the placeholders `[]` with real data\n reference format should be: {reference} add the real page to it and not annotations format"
                 new_content = chat_response(pdf_path=pdf,
                                             query=new_prompt+note1
                                                                     )
+                # new_content = api_send(pdf,
+                #                             new_prompt + note1
+                #                             )
 
                 # # Replace the old section content with the new one
                 updated_section = f"{matches.group(1)}{new_content}"
@@ -1352,3 +1357,57 @@ class Zotero:
                 # Append the resulting HTML content to the file
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
+
+
+    def create_one_note(self,item_id,pdf,template_prompt,api):
+        content =api.interact_with_page(path=pdf,prompt=template_prompt,copy=True)
+        new_content = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Feedback Template</title><style>body {{font-family: Arial, sans-serif;margin: 0;padding: 0;}}.container {{max-width: 800px;margin: 20px auto;padding: 20px;border: 1px solid #ccc;border-radius: 5px;background-color: #f9f9f9;}}h2 {{color: #333;}}p {{margin: 10px 0;}}</style></head><body>{content}</body></html>"""
+        # Create the new note
+        new_note = self.zot.create_items([{
+            "itemType": "note",
+            'parentItem': item_id,
+            "note": new_content,
+            'tags': [{"tag": "summary_note"}]
+
+        }])
+
+        print("New note created:", new_note)
+        time.sleep(15)
+        new_note_id = new_note['successful']['0']['data']['key']
+        print(new_note_id)
+
+
+
+    def evaluate(self,collection_name,index=0,tag=None,update=True):
+        api = ChatGPT(**self.chat_args)
+        """
+            Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
+
+            Parameters:
+            - collection_name (str): The name of the Zotero collection to process.
+            - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
+            - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+            - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+
+            The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+
+            Note:
+            - The method provides feedback via print statements regarding the progress and success of note updates.
+            """
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
+        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ]
+        # Setting up the tqdm iterator
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+
+        for keys, values in pbar:
+            # Dynamically update the description with the current key being processed
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys}  ")
+            note = values['note']
+            id = values['id']
+            pdf = values['pdf']
+            if note is None and pdf is not None:
+
+                note_id= self.create_one_note(id, [pdf,r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf",r"C:\Users\luano\Downloads\feedback templates.pdf"],template,api)

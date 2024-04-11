@@ -1,5 +1,9 @@
 import os
+import pickle
 import re
+import time
+
+import openai
 from openai import OpenAI
 import fitz
 import tiktoken  # Ensure this library is installed and supports your models
@@ -154,3 +158,127 @@ def chat_response(pdf_path, query):
     # Call the ask function with the extracted article text and the query
     response_text = ask(query, article_text)
     return response_text
+
+
+# Constants
+PICKLE_FILE_PATH = 'file_thread_mapping.pickle'
+ASSISTANT_ID = 'asst_NcixO2BWUT7ExDHt5IoZQQTw'  # Fixed Assistant ID
+def load_file_thread_mapping():
+    """Loads the mapping from a pickle file."""
+    if os.path.exists(PICKLE_FILE_PATH):
+        with open(PICKLE_FILE_PATH, 'rb') as f:
+            return pickle.load(f)
+    return {}
+
+def save_file_thread_mapping(mapping):
+    """Saves the mapping to a pickle file."""
+    with open(PICKLE_FILE_PATH, 'wb') as f:
+        pickle.dump(mapping, f)
+
+def upload_file(client, file_path):
+    """Uploads a file using the provided client and returns the file ID."""
+    with open(file_path, 'rb') as f:
+        response = client.files.create(file=f, purpose='assistants')
+    print("File uploaded successfully.")
+    return response.id
+
+def create_thread(client, file_id):
+    """Creates a thread with the uploaded file attached and returns the thread ID."""
+    thread = client.beta.threads.create(
+        messages=[{"role": "user",
+                   "content": "Analyze the content of the attached file. output: only in html string div format",
+                   "file_ids": [file_id]}]
+    )
+    print("Thread created successfully.")
+    return thread.id
+def clear_and_create_new_thread(client, file_id, mapping, pdf_path):
+    """Clears the existing thread by creating a new one and updates the mapping."""
+    new_thread_id = create_thread(client, file_id)
+    mapping[pdf_path] = {'file_id': file_id, 'thread_id': new_thread_id}
+    save_file_thread_mapping(mapping)
+    print("Existing thread cleared and new thread created.")
+    return new_thread_id
+
+def send_messages_to_thread( thread_id, assistant_id, prompts_dict):
+    """Sends messages to the thread based on the provided dictionary of prompts."""
+    for section, prompt in prompts_dict.items():
+        print(f"Asking about {section}: {prompt}")
+        response = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id, messages=[{"role": "user", "content": prompt}])
+        # Assuming you want to print the response from the assistant
+        print("Response:", response.choices[0].message.content)
+def add_message_and_get_response(client, thread_id, assistant_id, prompt):
+    # Add the message to the thread
+    client.beta.threads.messages.create(
+        thread_id=thread_id,
+        role="user",
+        content=prompt
+    )
+    print(f"Message added: {prompt}")
+
+    # Create a run to process the thread messages
+    run_response = client.beta.threads.runs.create(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        model="gpt-4-turbo-preview",
+        tools=[{"type": "retrieval"}]
+    )
+    print("Run created.")
+
+    # Polling to wait for the run to complete
+    run_id = run_response.id
+    run_status = run_response.status
+    while run_status not in ["completed", "failed"]:
+        print("Waiting for run to complete...")
+        time.sleep(2)  # Wait for 2 seconds before checking again
+        run = client.beta.threads.runs.retrieve(
+            thread_id=thread_id,
+            run_id=run_id
+        )
+        run_status = run.status
+
+    if run_status == "completed":
+        # List messages in the thread to find the response
+        thread_messages = client.beta.threads.messages.list(thread_id=thread_id)
+
+        # Debug: Print all messages in reverse order
+        for message in reversed(thread_messages.data):
+            print(f"Debug: Message ID: {message.id}, Role: {message.role}")
+
+        # Assuming the last message from the assistant is the response
+        for message in reversed(thread_messages.data):
+            if message.role == "assistant":
+
+                response_message = message.content[0].text.value
+                print(f"Response: {response_message}")
+                return response_message
+
+    print("Run failed or no response received.")
+    return None
+
+
+def api_send(pdf_path, prompt, clear_thread=True):
+    mapping = load_file_thread_mapping()
+
+    # Check if the thread exists for the PDF
+    if pdf_path in mapping:
+        print("PDF path exists in the mapping.")
+        if clear_thread:
+            # Clear the existing thread by creating a new one
+            print("Clearing existing thread.")
+            file_id = mapping[pdf_path]['file_id']  # Reuse the existing file ID
+            thread_id = create_thread(client, file_id)  # Create a new thread
+            mapping[pdf_path] = {'file_id': file_id, 'thread_id': thread_id}  # Update mapping
+            save_file_thread_mapping(mapping)  # Save the updated mapping
+        else:
+            print("Using existing file and thread.")
+            thread_id = mapping[pdf_path]['thread_id']
+    else:
+        # If the PDF path doesn't exist in the mapping, upload the file and create a new thread
+        file_id = upload_file(client, pdf_path)
+        thread_id = create_thread(client, file_id)
+        mapping[pdf_path] = {'file_id': file_id, 'thread_id': thread_id}  # Update mapping
+        save_file_thread_mapping(mapping)  # Save the updated mapping
+
+    response = add_message_and_get_response(client, thread_id, 'asst_NcixO2BWUT7ExDHt5IoZQQTw', prompt)
+    return response
+
