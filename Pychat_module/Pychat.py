@@ -252,6 +252,8 @@ class ChatGPT:
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id == "meu":
                 self.chat_id = "/g/g-t7Tsg17tO-academic-extractor"
+            if self.chat_id == "evaluator":
+                self.chat_id = "/g/g-dEHy38ItZ-evaluator"
             if self.chat_id == "4":
                 self.chat_id = "?model=gpt-4"
             if self.chat_id == "scholar":
@@ -432,110 +434,60 @@ class ChatGPT:
             self.driver.close()
         if not close:
             self.driver.quit()
-    def interact_with_page(self, path, prompt="",copy=True):
+    def insert_pdfs(self,path):
 
-        # Press Esc to close the 'Find' box
+        print("Waiting for the button to be clickable...")
+        button_xpath = "//button[contains(@class,'btn')][contains(@class,'relative')][contains(@class,'p-0')][@aria-label='Attach files']"
+        button = WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable((By.XPATH, button_xpath))
+        )
+        button.click()
+        print("Clicked the button.")
+
+        # Wait for the file dialog to open
+        print("Waiting for the file dialog to open...")
+        time.sleep(2)  # Adjust this delay to ensure the file dialog is open
+
+        # Copy the 'path' value to the clipboard
+
+        pyperclip.copy(path)  # Copy path to clipboard
+        print("File copied to clipboard.")
+        print("pdf",path)
+        if self.os == "mac":
+            pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
+            time.sleep(5)  # Wait a moment for the paste action to complete
+            print("Pasting the path in the file dialog...")
+            pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+            time.sleep(2)  # Wait a moment for the paste action to complete
+            pyautogui.press('enter')  # Press enter to submit the dialog
+            time.sleep(2)
+            pyautogui.press('enter')  # Press enter to submit the dialog
+            print("submit.")
+        if self.os == "win":
+                # The following key actions are intended for the file dialog,
+            print("Pasting the path in the file dialog...")
+            pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+            print("Pasted the path.")
+            time.sleep(3)  # Wait a moment for the paste action to complete
+            pyautogui.press('enter')  # Press enter to submit the dialog
+            print("Pressed return.")
+        self.sleep(45)
+
+        # Wait for the file to be uploaded (adjust time as necessary)
+        print("Waiting for the file to upload...")
+
+
+    def interact_with_page(self, path, prompt,copy=True):
         pyautogui.press('esc', 2)
+        if type(path)==str:
+            self.insert_pdfs(path)
+        if type(path) == list:
+            for pdf_path in path:
+                self.insert_pdfs(pdf_path)
 
-        # Press ESCAPE to close the search box
-        """
-        This function takes a dictionary with 'path' and 'prompt' as keys.
-        It will find a button, click it, wait, copy the 'path' value to the clipboard, paste it,
-        press the return key, wait, and print the 'prompt'.
-        """
-        print("\nStarting interaction with the page...")
-
-        # Click the button by its class name
-        try:
-            print("Waiting for the button to be clickable...")
-            button_xpath = "//button[contains(@class,'btn')][contains(@class,'relative')][contains(@class,'p-0')][@aria-label='Attach files']"
-            button = WebDriverWait(self.driver, timeout).until(
-                EC.element_to_be_clickable((By.XPATH, button_xpath))
-            )
-            button.click()
-            print("Clicked the button.")
-
-            # Wait for the file dialog to open
-            print("Waiting for the file dialog to open...")
-            time.sleep(2)  # Adjust this delay to ensure the file dialog is open
-
-            # Copy the 'path' value to the clipboard
-
-            pyperclip.copy(path)  # Copy path to clipboard
-            print("File copied to clipboard.")
-            print("pdf",path)
-            if self.os == "mac":
-                pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
-                time.sleep(5)  # Wait a moment for the paste action to complete
-                print("Pasting the path in the file dialog...")
-                pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
-                time.sleep(2)  # Wait a moment for the paste action to complete
-                pyautogui.press('enter')  # Press enter to submit the dialog
-                time.sleep(2)
-                pyautogui.press('enter')  # Press enter to submit the dialog
-                print("submit.")
-            if self.os == "win":
-                    # The following key actions are intended for the file dialog,
-                print("Pasting the path in the file dialog...")
-                pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
-                print("Pasted the path.")
-                time.sleep(3)  # Wait a moment for the paste action to complete
-                pyautogui.press('enter')  # Press enter to submit the dialog
-                print("Pressed return.")
-
-            # Wait for the file to be uploaded (adjust time as necessary)
-            print("Waiting for the file to upload...")
-            self.sleep(60)
-
-
-            if copy:
-
-                self.logger.debug('Sending message...')
-                textbox = WebDriverWait(self.driver, 3600).until(
-                    EC.element_to_be_clickable(chatgpt_textbox)
-                )
-                pyperclip.copy(prompt)
-
-                # Create an ActionChain to perform a paste operation
-                textbox.click()
-                actions = ActionChains(self.driver)
-                actions.key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-
-                textbox.send_keys(Keys.ENTER)
-                time.sleep(30)
-                print('Copying text')
-
-                try:
-                    send_button = WebDriverWait(self.driver, timeout).until(
-                        EC.element_to_be_clickable((By.XPATH, "//button[@data-testid='send-button']"))
-                    )
-                    send_button.click()
-                    print("Button clicked successfully.")
-
-                except Exception as e:
-                    pyautogui.press('enter')  # Press enter to submit the dialog
-
-                    print(f"An error occurred with send button: {e}")
-
-                sleep_duration = 60 * 13
-                self.sleep(sleep_duration)
-
-                textbox.click()
-                actions2 = ActionChains(self.driver)
-                actions2.key_down(Keys.CONTROL).key_down(Keys.SHIFT).send_keys(';').key_up(Keys.CONTROL).key_up(
-                    Keys.SHIFT).perform()
-                time.sleep(5)
-                pyautogui.click()
-                # Press Control, Shift, and ;
-                pyautogui.hotkey('ctrl', 'shift', ';')
-                content = pyperclip.paste()
-                print("copied")
-                time.sleep(6)
-                return content
-
-
-        except Exception as e:
-            print(f"An error occurred with interact function: {e}")
+        if copy:
+            content =self.send_message(message=prompt)
+            return content
 
     def sleep(self,sleep_duration):
         config_handler.set_global(spinner='dots_waves2', bar='bubbles', theme='smooth')
@@ -553,7 +505,7 @@ class ChatGPT:
                 remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
                 bar.text(f'Remaining: {remaining_time:.2f} min')
 
-    def send_message(self, message: str, copy=True, sleep=60*11) -> dict:
+    def send_message(self, message: str, sleep=60*11) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
