@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
-from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,template
+from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,feedback,overall_score,questions_addressed
 from tqdm import tqdm
 import requests
 import re
@@ -398,11 +398,12 @@ class Zotero:
             for file in files:
                 if file.endswith(".pdf"):
                     current_pdf_path = os.path.join(root, file)
-                    new_pdf_path = os.path.join(root, new_filename)
-                    if current_pdf_path != new_pdf_path:
-                        os.rename(current_pdf_path, new_pdf_path)
-                        print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
-                        return new_pdf_path
+                    # new_pdf_path = os.path.join(root, new_filename)
+                    #
+                    # if current_pdf_path != new_pdf_path:
+                    #     os.rename(current_pdf_path, new_pdf_path)
+                    #     print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
+                    #     return new_pdf_path
                     return current_pdf_path
 
 
@@ -1178,22 +1179,26 @@ class Zotero:
         """
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
-
+        tags=["tag"]
         # Filter out only notes that contain headings
         notes = [child for child in children if
                  child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
                                                                    re.IGNORECASE)]
         # Check the number of notes and print them if more than one
         if len(notes) > 1:
-            print("Note 1:", notes[0]['data']["note"])
-            print("Note 2:", notes[1]['data']["note"])
+            print("more than one note")
+
+            tags = [tag["tag"] for note in notes for  tag in note['data']['tags'] ]
+        else:
+            if len(notes) == 1:
+                tags = [tag["tag"] for  tag in notes[0]['data']['tags']]
 
 
         # Process each note
         for note in notes:
             note_id = note['data']["key"]
             note_content = note['data']["note"]
-            tags = [tag["tag"] for tag in note['data']['tags']]
+
 
             # Extract headings still needing updates
             remaining_h2 = self.extract_relevant_h2_blocks(note_content)
@@ -1201,13 +1206,13 @@ class Zotero:
             # Check if the note is marked as complete
             if "note_complete" in tags:
 
-                return {"note_id": note_id, "headings": [],"content": note_content}
+                return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
 
             # Check if there are no remaining sections and the note is not marked complete
             if not remaining_h2 and "note_complete" not in tags:
                 note['data']['tags'].append({"tag": "note_complete"})
                 self.zot.update_item(note)
-                return {"note_id": note_id, "headings": [],"content": note_content}
+                return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
 
             # If there are remaining sections, return them with the note ID
             if remaining_h2:
@@ -1216,10 +1221,10 @@ class Zotero:
 
 
                 remaining_h2 = [h2 for h2 in remaining_h2 if h2 in keys]
-                return {"note_id": note_id, "headings": remaining_h2,"content": note_content}
+                return {"note_id": note_id, "headings": remaining_h2,"content": note_content,"tags": tags}
 
         # If no notes meet the criteria, return None
-        return None
+        return {"note_id": " ", "headings":[],"content": "","tags": []}
 
     def extract_unique_keywords_from_html(self, html_text):
         """
@@ -1359,22 +1364,30 @@ class Zotero:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
 
-    def create_one_note(self,item_id,pdf,template_prompt,api):
-        content =api.interact_with_page(path=pdf,prompt=template_prompt,copy=True)
+    def create_one_note(self,item_id,pdf,prompt,api,tag=""):
+        content =""
+        if type(prompt)==list:
+
+            content += api.interact_with_page(path=pdf, prompt=prompt[0], copy=True)
+            content += "\n"+api.send_message(prompt[1])
+        if type(prompt)==str:
+            content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
+
+
         new_content = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Feedback Template</title><style>body {{font-family: Arial, sans-serif;margin: 0;padding: 0;}}.container {{max-width: 800px;margin: 20px auto;padding: 20px;border: 1px solid #ccc;border-radius: 5px;background-color: #f9f9f9;}}h2 {{color: #333;}}p {{margin: 10px 0;}}</style></head><body>{content}</body></html>"""
         # Create the new note
         new_note = self.zot.create_items([{
             "itemType": "note",
             'parentItem': item_id,
             "note": new_content,
-            'tags': [{"tag": "summary_note"}]
+            'tags': [{"tag": "summary_note"},{"tag": tag}]
 
         }])
 
         print("New note created:", new_note)
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
-        print(new_note_id)
+
 
 
 
@@ -1408,6 +1421,20 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
-            if note is None and pdf is not None:
+            tags = values['note']["tags"]
+            print(f"tags:\n{tags}")
 
-                note_id= self.create_one_note(id, [pdf,r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf",r"C:\Users\luano\Downloads\feedback templates.pdf"],template,api)
+            process=False
+            # if note is None and pdf is not None:
+            if "Questions_addressed" not in tags:
+                process =self.create_one_note(item_id=id, pdf=[pdf,r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf"],prompt=questions_addressed,api=api,tag="Questions_addressed")
+            if "Overall_score" not in tags:
+
+                process =self.create_one_note(item_id=id, pdf=[ pdf,r"C:\Users\luano\Downloads\MARKING RUBRIC.pdf",
+                                        r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf"],
+                                   prompt=overall_score, api=api,tag="Overall_score")
+            if "Feedback" not in tags:
+                process =self.create_one_note(item_id=id, pdf=[pdf,r"C:\Users\luano\Downloads\Feedbacks examples.pdf"],prompt=feedback,api=api,tag="Feedback")
+            if process:
+                api.open_new_tab()
+
