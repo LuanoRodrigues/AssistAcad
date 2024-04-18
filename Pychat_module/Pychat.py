@@ -251,9 +251,9 @@ class ChatGPT:
             if self.chat_id == "consensus":
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id == "meu":
-                self.chat_id = "/g/g-t7Tsg17tO-academic-extractor"
+                self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
             if self.chat_id == "evaluator":
-                self.chat_id = "/g/g-dEHy38ItZ-evaluator"
+                self.chat_id = "/g/g-nLpL4nvaW"
             if self.chat_id == "4":
                 self.chat_id = "?model=gpt-4"
             if self.chat_id == "scholar":
@@ -278,20 +278,28 @@ class ChatGPT:
         self.__is_active = True
         Thread(target=self.__keep_alive, daemon=True).start()
 
-    def open_new_tab(self):
+    def open_new_tab(self,close=True):
         # Open a new tab using JavaScript
-        self.driver.execute_script("window.open('');")
-        time.sleep(3)
-        # Switch to the newly opened tab
-        self.driver.switch_to.window(self.driver.window_handles[1])
-        time.sleep(3)
+        # self.driver.execute_script("window.open('');")
+        url = self.driver.current_url
+
+        # self.driver.switch_to.new_window('tab')
+        # time.sleep(3)
+        self.driver.get(url.split("/c/")[0])
+
+        # # Switch to the newly opened tab
+        # self.driver.switch_to.window(self.driver.window_handles[1])
+        # time.sleep(3)
 
         # Close the previous tab
-        self.driver.switch_to.window(self.driver.window_handles[0])
-        self.delete_quit()
+        # self.driver.switch_to.window(self.driver.window_handles[0])
+        # if close:
+        #     self.delete_quit()
+        # if not close:
+        #     self.delete_quit(close=False)
 
         # Switch back to the new tab
-        self.driver.switch_to.window(self.driver.window_handles[0])
+        # self.driver.switch_to.window(self.driver.window_handles[0])
 
     def __ensure_cf(self, retry: int = 3) -> None:
         '''
@@ -432,8 +440,8 @@ class ChatGPT:
         time.sleep(2)
         if close:
             self.driver.close()
-        if not close:
-            self.driver.quit()
+        # if not close:
+        #     self.driver.quit()
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
@@ -471,16 +479,17 @@ class ChatGPT:
             time.sleep(3)  # Wait a moment for the paste action to complete
             pyautogui.press('enter')  # Press enter to submit the dialog
             print("Pressed return.")
-        self.sleep(45)
+        self.sleep(30)
 
         # Wait for the file to be uploaded (adjust time as necessary)
         print("Waiting for the file to upload...")
 
 
-    def interact_with_page(self, path, prompt,copy=True):
+    def interact_with_page(self, path, prompt="",copy=True):
         pyautogui.press('esc', 2)
         if type(path)==str:
             self.insert_pdfs(path)
+            return
         if type(path) == list:
             for pdf_path in path:
                 self.insert_pdfs(pdf_path)
@@ -505,7 +514,7 @@ class ChatGPT:
                 remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
                 bar.text(f'Remaining: {remaining_time:.2f} min')
 
-    def send_message(self, message: str, sleep=60*11) -> dict:
+    def send_message(self, message: str, sleep=60*13) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
@@ -514,8 +523,8 @@ class ChatGPT:
 
         response = None  # or "" if an empty string makes more sense in your context
         #
-        self.logger.debug('Ensuring Cloudflare cookies...')
-        self.__ensure_cf()
+        # self.logger.debug('Ensuring Cloudflare cookies...')
+        # self.__ensure_cf()
 
         # self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(
