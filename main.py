@@ -37,7 +37,7 @@ os="win")
 
 
 
-zt.update_all(collection_name="lawful evidence",update=True)
+zt.update_all(collection_name="cyber interference",update=True)
 # zt.evaluate(collection_name="examens2",update=True)
 
 # zt.update_all2(collection_name="cyber deterrence",update=True)
