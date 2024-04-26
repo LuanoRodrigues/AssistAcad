@@ -17,7 +17,7 @@ token = os.environ.get("TOKEN")
 chat_args = {
     "session_token":token,
     # "conversation_id":'704515c1-fb81-4a3b-a291-1b84568c4b16',
-    "chat_id": "meu",
+    "chat_id": "pdf",
     "os":"win"
 }
 
@@ -28,16 +28,15 @@ library_id = library_id,
     chat_args=chat_args,
 os="win")
 
-# collection = zt.get_or_update_collection(collection_name="lawful evidence",update=True)
-# collection2 = zt.get_or_update_collection(collection_name="cyber due dilligence",update=False)
-# collection3 = zt.get_or_update_collection(collection_name="state responsibility",
-#                                           update=True,
-#                                           tag="replace"
-#                                     )
-
-
-
-zt.update_all(collection_name="cyber interference",update=True)
+# cool= zt.fetch_details('zotero', update=True, fetch_type='items')
+# print(len(cool))
+# for i in cool:
+#     print(i)
+# #
+file = r"C:\Users\luano\Downloads\reformatted_classified_items.json"
+# zt.process_collections_file(file)
+zt.getting_infoFromJson(r"C:\Users\luano\Downloads\Academic_Writing_Attributes.json")
+# zt.update_all(collection_name="lawful evidence",update=True)
 # zt.evaluate(collection_name="examens2",update=True)
 
 # zt.update_all2(collection_name="cyber deterrence",update=True)
