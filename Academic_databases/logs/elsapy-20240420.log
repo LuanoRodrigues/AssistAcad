@@ -1,0 +1,270 @@
+2024-04-20 12:40:54,323 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 12:40:54,325 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 12:40:54,326 - elsapy.utils - INFO - Module loaded.
+2024-04-20 12:40:54,326 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 12:40:54,327 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 12:40:54,328 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 12:40:55,324 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:40:57,706 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:40:57,708 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/abstract/scopus_id/84872135457 to file
+2024-04-20 12:40:58,705 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:41:00,194 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:41:00,198 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/article/pii/S1674927814000082 to file
+2024-04-20 12:41:01,194 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+2024-04-20 12:41:02,199 - elsapy.elsentity - WARNING - HTTP 404 Error from https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+and using headers {'X-ELS-APIKey': '2095deec2b610acf1bef2aac27421d27', 'User-Agent': 'elsapy-v0.5.1', 'Accept': 'application/json'}:
+{"service-error":{"status":{"statusCode":"RESOURCE_NOT_FOUND","statusText":"The resource specified cannot be found."}}}
+2024-04-20 12:44:00,903 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 12:44:00,904 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 12:44:00,905 - elsapy.utils - INFO - Module loaded.
+2024-04-20 12:44:00,906 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 12:44:00,906 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 12:44:00,907 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 12:44:01,903 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:44:03,406 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:44:03,407 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/abstract/scopus_id/84872135457 to file
+2024-04-20 12:44:04,405 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:44:05,999 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:44:06,001 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/article/pii/S1674927814000082 to file
+2024-04-20 12:44:06,999 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+2024-04-20 12:44:07,858 - elsapy.elsentity - WARNING - HTTP 404 Error from https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+and using headers {'X-ELS-APIKey': '2095deec2b610acf1bef2aac27421d27', 'User-Agent': 'elsapy-v0.5.1', 'Accept': 'application/json'}:
+{"service-error":{"status":{"statusCode":"RESOURCE_NOT_FOUND","statusText":"The resource specified cannot be found."}}}
+2024-04-20 12:54:47,738 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 12:54:47,740 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 12:54:47,741 - elsapy.utils - INFO - Module loaded.
+2024-04-20 12:54:47,741 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 12:54:47,742 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 12:54:47,743 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 12:54:48,739 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:54:49,795 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/abstract/scopus_id/84872135457
+2024-04-20 12:54:49,796 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/abstract/scopus_id/84872135457 to file
+2024-04-20 12:54:50,794 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:54:52,087 - elsapy.elsentity - INFO - Data loaded for https://api.elsevier.com/content/article/pii/S1674927814000082
+2024-04-20 12:54:52,089 - elsapy.elsentity - INFO - Wrote https://api.elsevier.com/content/article/pii/S1674927814000082 to file
+2024-04-20 12:54:53,086 - elsapy.elsclient - INFO - Sending GET request to https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+2024-04-20 12:54:53,932 - elsapy.elsentity - WARNING - HTTP 404 Error from https://api.elsevier.com/content/article/doi/10.1002/1099-0682(200011)2000:11<2327::aid-ejic2327>3.0.co;2-6
+and using headers {'X-ELS-APIKey': '2095deec2b610acf1bef2aac27421d27', 'User-Agent': 'elsapy-v0.5.1', 'Accept': 'application/json'}:
+{"service-error":{"status":{"statusCode":"RESOURCE_NOT_FOUND","statusText":"The resource specified cannot be found."}}}
+2024-04-20 13:00:49,932 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:00:49,934 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:00:49,935 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:00:49,935 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:00:49,937 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:00:49,938 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:01:07,917 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:01:07,919 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:01:07,920 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:01:07,920 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:01:07,921 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:01:07,922 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:06:46,357 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:06:46,359 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:06:46,360 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:06:46,360 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:06:46,361 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:06:46,362 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:08:36,877 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:08:36,879 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:08:36,880 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:08:36,880 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:08:36,881 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:08:36,882 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:08:56,226 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:08:56,228 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:08:56,229 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:08:56,229 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:08:56,230 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:08:56,231 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:09:58,717 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:09:58,719 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:09:58,720 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:09:58,720 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:09:58,721 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:09:58,723 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:10:42,373 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:10:42,374 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:10:42,375 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:10:42,376 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:10:42,377 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:10:42,378 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:11:00,916 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:11:00,917 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:11:00,918 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:11:00,919 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:11:00,920 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:11:00,921 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:11:21,167 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:11:21,169 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:11:21,169 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:11:21,170 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:11:21,171 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:11:21,172 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:14:17,526 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:14:17,528 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:14:17,529 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:14:17,530 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:14:17,531 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:14:17,532 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:24:59,387 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:24:59,388 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:24:59,389 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:24:59,390 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:24:59,391 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:24:59,392 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:25:16,133 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:25:16,135 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:25:16,136 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:25:16,136 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:25:16,137 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:25:16,139 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:26:02,513 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:26:02,515 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:26:02,516 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:26:02,516 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:26:02,517 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:26:02,518 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:26:41,015 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:26:41,016 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:26:41,017 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:26:41,018 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:26:41,019 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:26:41,020 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:27:35,814 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:27:35,815 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:27:35,817 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:27:35,817 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:27:35,818 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:27:35,819 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:28:20,878 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:28:20,880 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:28:20,881 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:28:20,881 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:28:20,882 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:28:20,883 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:32:42,416 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:32:42,417 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:32:42,418 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:32:42,419 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:32:42,420 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:32:42,421 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:33:31,131 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:33:31,133 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:33:31,134 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:33:31,134 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:33:31,135 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:33:31,136 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:41:41,008 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:41:41,009 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:41:41,010 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:41:41,010 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:41:41,012 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:41:41,013 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:58:07,839 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:58:07,841 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:58:07,842 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:58:07,842 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:58:07,844 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:58:07,845 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 13:59:01,017 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 13:59:01,019 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 13:59:01,020 - elsapy.utils - INFO - Module loaded.
+2024-04-20 13:59:01,020 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 13:59:01,021 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 13:59:01,022 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:05:01,255 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:05:01,257 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:05:01,258 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:05:01,259 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:05:01,260 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:05:01,261 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:05:24,096 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:05:24,098 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:05:24,099 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:05:24,099 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:05:24,100 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:05:24,101 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:06:50,973 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:06:50,983 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:06:50,984 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:06:50,984 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:06:50,986 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:06:50,987 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:17:15,268 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:17:15,270 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:17:15,271 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:17:15,271 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:17:15,272 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:17:15,273 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:24:03,909 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:24:03,911 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:24:03,911 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:24:03,912 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:24:03,913 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:24:03,914 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:24:41,417 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:24:41,419 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:24:41,419 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:24:41,420 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:24:41,421 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:24:41,422 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 14:25:03,167 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 14:25:03,169 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 14:25:03,170 - elsapy.utils - INFO - Module loaded.
+2024-04-20 14:25:03,170 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 14:25:03,171 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 14:25:03,172 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:50:40,053 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:50:40,055 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:50:40,056 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:50:40,057 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:50:40,058 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:50:40,058 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:53:35,084 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:53:35,086 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:53:35,087 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:53:35,087 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:53:35,088 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:53:35,089 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:55:05,517 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:55:05,519 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:55:05,520 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:55:05,520 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:55:05,521 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:55:05,522 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:55:16,130 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:55:16,131 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:55:16,132 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:55:16,133 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:55:16,134 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:55:16,135 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:55:28,348 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:55:28,349 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:55:28,350 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:55:28,351 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:55:28,352 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:55:28,353 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 17:55:37,647 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 17:55:37,649 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 17:55:37,650 - elsapy.utils - INFO - Module loaded.
+2024-04-20 17:55:37,651 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 17:55:37,652 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 17:55:37,653 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 18:19:42,914 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 18:19:42,916 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 18:19:42,917 - elsapy.utils - INFO - Module loaded.
+2024-04-20 18:19:42,918 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 18:19:42,919 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 18:19:42,920 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 18:19:47,602 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 18:19:47,604 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 18:19:47,605 - elsapy.utils - INFO - Module loaded.
+2024-04-20 18:19:47,606 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 18:19:47,607 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 18:19:47,608 - elsapy.elssearch - INFO - Module loaded.
+2024-04-20 18:20:35,796 - elsapy.elsclient - INFO - Module loaded.
+2024-04-20 18:20:35,797 - elsapy.elsentity - INFO - Module loaded.
+2024-04-20 18:20:35,799 - elsapy.utils - INFO - Module loaded.
+2024-04-20 18:20:35,799 - elsapy.elsprofile - INFO - Module loaded.
+2024-04-20 18:20:35,800 - elsapy.elsdoc - INFO - Module loaded.
+2024-04-20 18:20:35,801 - elsapy.elssearch - INFO - Module loaded.

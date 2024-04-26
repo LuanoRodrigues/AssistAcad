@@ -489,7 +489,7 @@ class ChatGPT:
         pyautogui.press('esc', 2)
         if type(path)==str:
             self.insert_pdfs(path)
-            return
+
         if type(path) == list:
             for pdf_path in path:
                 self.insert_pdfs(pdf_path)
@@ -514,7 +514,7 @@ class ChatGPT:
                 remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
                 bar.text(f'Remaining: {remaining_time:.2f} min')
 
-    def send_message(self, message: str, sleep=60*13) -> dict:
+    def send_message(self, message: str, sleep=60*3) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send

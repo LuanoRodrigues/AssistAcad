@@ -5,6 +5,7 @@ import time
 import pickle
 from pathlib import Path
 import traceback
+from alive_progress import alive_bar, alive_it,config_handler
 
 from progress.bar import Bar
 from Pychat_module.gpt_api import chat_response
@@ -13,15 +14,14 @@ from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero
 from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,feedback,overall_score,questions_addressed
+from Academic_databases.databses import get_document_info1,get_document_info2
 from tqdm import tqdm
 import requests
 import re
 from datetime import datetime
-from dotenv import load_dotenv
 from Pychat_module.gpt_api import api_send
-load_dotenv()  # loads the variables from .env
-api_key = os.environ.get("wos_api_key")
-ser_api_key = os.environ.get("ser_api_key")
+
+
 
 class Zotero:
     def __init__(self,
@@ -60,135 +60,7 @@ class Zotero:
            """
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
-    def get_document_info1(self,query):
-        """
-           Retrieves document information from the Clarivate Web of Science Starter API based on a specified query.
 
-           Parameters:
-           - query (str): The search query to fetch document information for.
-
-           Returns:
-           - A dictionary containing details about the first document matching the query, including title, authors, source, publication year, volume, issue, pages range, DOI, keywords, record link, citing articles link, references link, related records link, and citations count.
-           - Returns None if no records are found or if the request fails.
-
-           Note:
-           - This method prints the response data, citations count, and detailed result for debugging purposes.
-           """
-        # Set the URL for the API endpoint
-        url = "https://api.clarivate.com/apis/wos-starter/v1/documents"
-        # Set the query parameters
-        params = {
-            "q": query,
-            # Limit to 1 result
-        }
-        # Set the headers including the API key
-        headers = {
-            "X-ApiKey": api_key
-        }
-        # Send the GET request
-        response = requests.get(url, headers=headers, params=params)
-    
-        # Initialize the result dictionary
-        result = {}
-        # Check if the request was successful
-        if response.status_code == 200:
-            # Parse the response JSON
-            data = response.json()
-
-            if data["metadata"]["total"] > 0:
-    
-                if 'hits' in data and data['hits']:
-                    hit = data['hits'][0]  # Assuming only one hit is returned
-                    result['title'] = hit.get('title')
-                    result['authors'] = [author['displayName'] for author in hit.get('names', {}).get('authors', [])]
-                    result['source'] = hit.get('source').get('sourceTitle')
-                    result['year'] = hit.get('source').get('publishYear')
-                    result['volume'] = hit.get('source').get('volume')
-                    result['issue'] = hit.get('source').get('issue')
-                    result['pages'] = hit.get('source').get('pages').get('range')
-                    result['doi'] = hit.get('identifiers').get('doi')
-                    result['keywords'] = hit.get('keywords').get('authorKeywords',)
-    
-                    result['record_link'] = hit.get('links').get('record')
-                    result['citing_articles_link']  = hit.get('links').get('citingArticles')
-                    result['references_link'] = hit.get('links').get('reference')
-                    result['related_records_link'] = hit.get('links').get('related')
-                    result['citations'] =  hit.get('citations')[0].get("count")
-
-                    return result
-    
-            else:
-                print("No records found")
-                return None
-    
-        else:
-            # Print the status code and error message if the request failed
-            print(f"Request failed with status code {response.status_code}: {response.text}")
-            return None
-
-    def get_document_info2(self,query,author):
-        """
-            Retrieves document information from the Google Scholar search engine via the SERP API based on a specified query and author name.
-
-            Parameters:
-            - query (str): The search query to fetch document information for.
-            - author (str): The name of the author to specifically look for in the search results.
-
-            Returns:
-            - A dictionary containing details about the first document matching the query and author, including title, author name, snippet, link to the document, total citations count, link to the cited by page, and link to related pages.
-            - Returns None if no records are found, the specified author does not match, or if the request fails.
-
-            Note:
-            - The method performs a single result search on Google Scholar, filtered by the provided author name, to find a relevant document.
-            """
-        # Set the URL for the API endpoint
-        url = "https://serpapi.com/search"
-        # Set the query parameters
-        params = {
-            "engine": "google_scholar",
-            "q": query,
-            "api_key": ser_api_key,
-            "num": 10  # Limit to 1 result
-        }
-        # Send the GET request
-        response = requests.get(url, params=params)
-        # Initialize the result dictionary
-        result = {}
-        # Check if the request was successful
-        if response.status_code == 200:
-            # Parse the response JSON
-            data = response.json()
-            # Check for organic results
-            if 'organic_results' in data and data['organic_results']:
-                hit = data['organic_results'][0]  # Assuming only one hit is returned
-                # Extracting the information
-                result['title'] = hit.get('title')
-
-                # Assuming there may be multiple authors, but we only extract the first one for simplicity
-                authors = hit.get('publication_info', {}).get('authors', [])
-                result['author'] = authors[0]['name'] if authors else 'Unknown'
-                if not result['author'].find(author):
-                    return None
-
-                result['snippet'] = hit.get('snippet')
-                result['link'] = hit.get('link')
-
-                # Extracting citation information
-                cited_by = hit.get('inline_links', {}).get('cited_by', {})
-                result['total_cited'] = cited_by.get('total', 0)
-                result['cited_link'] = cited_by.get('link')
-
-                # Extracting related pages link
-                result['related_pages_link'] = hit.get('inline_links', {}).get('related_pages_link')
-
-                return result
-            else:
-                print("No records found")
-                return None
-        else:
-            # Print the status code and error message if the request failed
-            print(f"Request failed with status code {response.status_code}: {response.text}")
-            return None
     def get_or_update_collection(self, collection_name=None, update=False,tag=None):
         """
         Fetches or updates a specified collection's data from Zotero.
@@ -476,7 +348,7 @@ class Zotero:
             return  # Exit the function as we cannot proceed
         # Format the current date and time
         now = datetime.now().strftime("%d-%m-%Y at %H:%M")
-        data_wos = self.get_document_info1(query1)
+        data_wos = get_document_info1(query1)
         if data_wos:
             title = data_wos.get('title')
             publication_title = data_wos.get("source")
@@ -493,7 +365,7 @@ class Zotero:
                     <li><strong>WoS Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
                 """
 
-        serp =self.get_document_info2(query=title,author=authors)
+        serp =get_document_info2(query=title,author=authors)
         if serp:
                 link2 = f"""
     
@@ -885,7 +757,7 @@ class Zotero:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
-        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
+        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ]
         note_complete = len(collection_data["items"]["papers"].items())
         # Setting up the tqdm iterator
         pbar = tqdm(data,
@@ -899,6 +771,7 @@ class Zotero:
             note = values['note']
             id = values['id']
             pdf = values['pdf']
+            print(values)
             if note is None and pdf is not None:
                 print("note is None and pdf is None")
                 note_id= self.create_note(id, pdf)
@@ -911,6 +784,7 @@ class Zotero:
                 else:
                         print("Failed to update item.")
             if note and note["headings"]:
+                print("headings", note["headings"])
                 note_content = note["content"]
                 self.schema = self.extract_insert_article_schema(note_content)
 
@@ -1205,11 +1079,11 @@ class Zotero:
 
             # Check if the note is marked as complete
             if "note_complete" in tags:
-
                 return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
 
             # Check if there are no remaining sections and the note is not marked complete
             if not remaining_h2 and "note_complete" not in tags:
+
                 note['data']['tags'].append({"tag": "note_complete"})
                 self.zot.update_item(note)
                 return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
@@ -1438,3 +1312,163 @@ class Zotero:
             if process:
                 api.open_new_tab()
 
+    def normalize_title(self,title):
+        """ Normalize the title by removing punctuation, converting to lower case, and stripping spaces. """
+        return re.sub(r'\W+', ' ', title).lower()
+
+    def parse_date(self,date_str):
+        """ Parse the ISO date string to a datetime object. """
+        return datetime.fromisoformat(date_str.rstrip('Z'))
+    def delete_duplicates(self):
+        # Initialize Zotero library
+
+        # Retrieve items tagged with 'duplicates'
+        tagged_items = self.zot.everything(self.zot.items(tag='duplicates'))
+        print(f"Total items retrieved with 'duplicates' tag: {len(tagged_items)}")
+
+        # Group items by normalized title
+        grouped_items = {}
+        for item in tagged_items:
+            if 'title' in item['data']:
+                norm_title = self.normalize_title(item['data']['title'])
+                if norm_title in grouped_items:
+                    grouped_items[norm_title].append(item)
+                else:
+                    grouped_items[norm_title] = [item]
+
+        # Identify duplicates and delete all but the oldest
+        for title, duplicates in grouped_items.items():
+            if len(duplicates) > 1:
+                print(f"Found {len(duplicates)} duplicates for title '{title}'")
+                # Determine the oldest item by 'dateAdded'
+                oldest = min(duplicates, key=lambda x: self.parse_date(x['data']['dateAdded']))
+                # Delete all items except the oldest
+                for duplicate in duplicates:
+                    if duplicate != oldest:
+
+                        self.zot.delete_item(duplicate)
+                        print(f"Deleted item: {duplicate['data']['title']} - Added on {duplicate['data']['dateAdded']}")
+                    else:
+                        print(
+                            f"Keeping oldest item: {oldest['data']['title']} - Added on {oldest['data']['dateAdded']}")
+
+    def fetch_details(self, main_collection_name, update=False, fetch_type='items'):
+        filename = f'Zotero_module/Data/collections_data/{main_collection_name}_{fetch_type}.json'
+        if os.path.exists(filename) and not update:
+            with open(filename, 'r') as file:
+                return json.load(file)
+
+        # Fetch all collections and find the main collection by its name
+        collections = self.zot.everything(self.zot.collections())
+        main_collection = next(
+            (coll for coll in collections if coll['data']['name'].lower() == main_collection_name.lower()), None)
+        if not main_collection:
+            print(f"No collection found with the name '{main_collection_name}'.")
+            return []
+
+        all_details = []
+        self.fetch_recursively(main_collection['key'], all_details, fetch_type)
+
+        # Store the results in a file
+        with open(filename, 'w') as file:
+            json.dump(all_details, file, indent=4)
+        return all_details
+
+    def fetch_recursively(self, collection_key, details_list, fetch_type):
+        if fetch_type == 'items':
+            items = self.zot.everything(self.zot.collection_items(collection_key))
+            filtered_items = [{'title': item['data']['title'], 'key': item['data']['key']}
+                              for item in items if
+                              'title' in item['data'] and item['data']['itemType'] not in ['attachment', 'note']]
+            details_list.extend(filtered_items)
+        elif fetch_type == 'collections':
+            subcollections = self.zot.everything(self.zot.collections_sub(collection_key))
+            collection_details = [{'title': sub['data']['name'], 'key': sub['key']}
+                                  for sub in subcollections]
+            details_list.extend(collection_details)
+
+        # Recursively process subcollections for both items and collections
+        subcollections = self.zot.everything(self.zot.collections_sub(collection_key))
+        for subcol in subcollections:
+            self.fetch_recursively(subcol['key'], details_list, fetch_type)
+
+    def process_collections_file(self, filepath):
+        with open(filepath, 'r') as file:
+            data = [k for k in json.load(file) if k["items"]!=[]]
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+
+        for collection_info in pbar:
+            collection_name = collection_info['collection_name']
+            collection_key = collection_info.get('collection_key', '')
+            pbar.set_description(f"Processing collection {collection_name}  ")
+
+
+            if not collection_key:
+                collection_data = {'name': collection_name}
+                new_collection = self.zot.create_collections([collection_data])
+                if new_collection and 'successful' in new_collection and '0' in new_collection['successful']:
+                    collection_key = new_collection['successful']['0']['key']
+                    print(f"Created collection '{collection_name}' with key '{collection_key}'")
+                else:
+                    print(f"Failed to create collection '{collection_name}', API response: {new_collection}")
+                    continue
+            collection_items = [item['data']['key'] for item in self.zot.everything(self.zot.collection_items(collection_key))]
+            item_keys = [item['item_key'] for item in collection_info['items'] if item['item_key'] not in collection_items]
+
+            if item_keys:
+                item_dicts = [self.zot.item(key) for key in item_keys]
+
+                try:
+                    config_handler.set_global(spinner='dots_waves2', bar='bubbles', theme='smooth')
+
+                    # Determine the maximum width for the progress bar to ensure it fits in the display area
+                    max_bar_width = 30  # You can adjust this value based on your terminal size or preferences
+
+                    # Initialize the alive_progress bar with enhanced style, force_tty=True, and a constrained width
+                    with alive_bar(len(item_dicts), force_tty=True, title="Sleeping...", bar="blocks",
+                                   spinner="dots_waves2",
+                                   length=max_bar_width) as bar:
+                        for item_dict in item_dicts:
+                            time.sleep(2)
+                            success = self.zot.addto_collection(collection=collection_key, payload= item_dict)
+                            bar.text(f"Added items to collection '{collection_name}' with key '{collection_key}'.")
+                        if not success:
+                            print(f"Failed to add items to collection '{collection_name}' with key '{collection_key}'.")
+
+                except Exception as e:
+                    print(f"Exception when adding items to '{collection_name}': {e}")
+
+
+    def getting_infoFromJson(self,filename):
+
+        with open(filename, 'r') as file:
+            data =json.load(file)
+        api = ChatGPT(**self.chat_args)
+        for key,value in data.items():
+            prompt =(f"I am extracting my style to be replicable. Read the document and concerning {key}, meaning {value}. Provide me a paragraph example which illustrates the writing style, which should be always unique from the previous ones."
+                     f"Your logic will be:read the word document carefully,extract the style concerning {key} , check example uniqueness and provide me a dict file in the format of {key}:example directly extracted from the word document.\nno additional information, provide me only the dict in block code")
+            response =ast.literal_eval(
+                                                    api.interact_with_page(prompt=prompt,
+                                                                           path=r"C:\Users\luano\OneDrive - University College London\Research\Literature Review\word\Luano_Rodrigues_MC feedback Feb 2023.docx",
+                                                                           copy=True))
+            file2 ="writing_style.json"
+            # Check if the file exists
+            if Path(file2).is_file():
+                # If the file exists, read its contents
+                with open(file2, 'r') as file:
+                    data = json.load(file)
+            else:
+                # If the file doesn't exist, start with an empty dictionary
+                data = {}
+
+            # Append the new data to the existing dictionary
+            data.update(response)
+
+            # Write the updated dictionary back to the JSON file
+            with open(file2, 'w') as file:
+                json.dump(data, file, indent=4)
+            print(key,value)
+
+# TODO: cosine similarity among pdfs
