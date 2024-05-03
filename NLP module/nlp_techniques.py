@@ -1,4 +1,7 @@
+import fitz  # PyMuPDF
+import re
 from gensim.models import Word2Vec
+
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
@@ -31,20 +34,44 @@ def get_embedding(text, model):
     return embedding
 
 
-# Train a Word2Vec model on the text data
-sentences = [text.lower().split() for text in texts]
-model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
 
 
 # Define a function to calculate cosine similarity between two texts
 def cosine_similarity_text(text1, text2, model):
+    # Train a Word2Vec model on the text data
+    sentences = [text.lower().split() for text in texts]
+    model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
+
     embedding1 = get_embedding(text1, model)
     embedding2 = get_embedding(text2, model)
     return cosine_similarity([embedding1], [embedding2])[0][0]
 
 
-# Calculate cosine similarity between all pairs of texts
-for i in range(len(texts)):
-    for j in range(i + 1, len(texts)):
-        similarity = cosine_similarity_text(texts[i], texts[j], model)
-        print(f"Similarity between '{texts[i]}' and '{texts[j]}': {similarity}")
+def extract_footnotes_and_bibliography(pdf_path):
+    doc = fitz.open(pdf_path)
+    aligned_data = {}
+
+    # Regex to identify footnotes as numbers wrapped in brackets, excluding years
+    footnote_dict = {}
+
+    for page in doc:
+        text = page.get_text("text")
+        pattern = r'^\d{1,3}\s.*?(?=(?:\n\d{1,3}\s)|\Z)'
+        matches = re.findall(pattern, text, flags=re.MULTILINE | re.DOTALL)
+        # Regex pattern to capture the bibliographic citations
+        pattern2 = r'\d+ (?:(?!^\d+ ).)*? \d+(?:-\d+)?'
+
+        # Using regex to find all matches
+        citations = re.findall(pattern2, str(matches), flags=re.MULTILINE | re.DOTALL)
+
+        # Printing the captured citations
+        for n,citation in enumerate(citations):
+            if citation.split(':')[-1].strip() != str(n+2):
+                print(n+2)
+                print("yes")
+                print(citation.strip())
+
+
+file_path = r"C:\Users\luano\Zotero\storage\3R2MZGXM\Ronen - 2020 - Some Evidentiary Dimensions of Attributing Unlawfu.pdf"
+
+found_footnotes = extract_footnotes_and_bibliography(file_path)

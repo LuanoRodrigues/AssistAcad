@@ -189,15 +189,15 @@ class ChatGPT:
         height = int(2 / 3 * 1024)  # 2/3 of 1024
         options = uc.ChromeOptions()
         # Set the window size
-        # options.add_argument(f'--window-size=1024,{height}')
-        #
-        # # options.add_argument('--window-size=1024,568')
-        # options.add_argument("--disable-extensions")
-        # options.add_argument("--disable-application-cache")
-        # options.add_argument("--disable-gpu")
-        # options.add_argument("--no-sandbox")
-        # options.add_argument("--disable-setuid-sandbox")
-        # options.add_argument("--disable-dev-shm-usage")
+        options.add_argument(f'--window-size=1024,{height}')
+
+        # options.add_argument('--window-size=1024,568')
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-application-cache")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-setuid-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         if self.__proxy:
             options.add_argument(f'--proxy-server={self.__proxy}')
         for arg in self.__chrome_args:
@@ -440,8 +440,8 @@ class ChatGPT:
         time.sleep(2)
         if close:
             self.driver.close()
-        # if not close:
-        #     self.driver.quit()
+        if not close:
+            self.driver.quit()
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
@@ -479,7 +479,7 @@ class ChatGPT:
             time.sleep(3)  # Wait a moment for the paste action to complete
             pyautogui.press('enter')  # Press enter to submit the dialog
             print("Pressed return.")
-        self.sleep(30)
+        self.sleep(50)
 
         # Wait for the file to be uploaded (adjust time as necessary)
         print("Waiting for the file to upload...")
@@ -552,6 +552,17 @@ class ChatGPT:
 
         self.sleep(sleep)
         # Copy the response by the shortcut Ctrl+Shift+;
+        try:
+            # Wait until the button appears, with a timeout of 10 seconds
+            button = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "btn-primary"))
+            )
+            # Click the button if it is visible
+            button.click()
+            self.sleep(sleep)
+        except Exception as e:
+            # If the button does not appear, pass
+            print("Button not found, passing. Error: ", e)
 
 
         textbox = WebDriverWait(self.driver, timeout).until(
