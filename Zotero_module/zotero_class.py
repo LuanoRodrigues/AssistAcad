@@ -323,19 +323,25 @@ class Zotero:
             print(f"Error when parsing authors: {e}")
         title = data['data'].get('title')
         date = data['data'].get('date')
+
         year_match = re.search(r'\b\d{4}\b', date)
         if year_match:
             date = year_match.group(0)
-        doi = "3457788"  # data['data'].get('DOI',"165432")
         publication_title = data['data'].get('publicationTitle', "journal")
-    
+        if date:
+            date=   f'AU=("{authors}") OR '
+        else:
+            date=""
+        doi = data['data'].get('DOI')
+
+
         query1 = (f'('
                  f'TI=("{title}")'
                  f') AND'
                  f' ('
-                 f'PY=("{date}") OR '
+                 f"{date}"
                  f'AU=("{authors}") OR '
-                 f'DO=("{doi}")'
+             
                  f')')
     
         key = data.get('key')
@@ -343,7 +349,6 @@ class Zotero:
         title = data['data'].get('title')
         abstract = data['data'].get('abstractNote')
         publication_title = data['data'].get('publicationTitle')
-        doi = data['data'].get('DOI')
         if item['data']['itemType'] in ['note', 'attachment', 'linkAttachment', 'fileAttachment']:
             return  # Exit the function as we cannot proceed
         # Format the current date and time
@@ -420,6 +425,8 @@ class Zotero:
             <h2>1.4 Shortcomings Limitations</h2>
             <hr>
             <h2>1.5 Research Gap and Future Research Directions</h2>
+            <hr>
+            <hr>
         <h1>2. Thematic Review</h1>
             <h2>2.1 Main Topics</h2>
             <hr>
@@ -430,7 +437,7 @@ class Zotero:
             <h2>2.4 Structure and Keywords</h2>
             <hr>
             <hr>
-        <h1>3. Summary</h1>
+        <h1>3.Summary</h1>
 
             <h2>Loose notes</h2>
             <hr>
@@ -538,17 +545,17 @@ class Zotero:
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
                 print(f"Section title '{section}' not found in the note content.")
-        if section =="<h2>3.1 Structure and Keywords</h2>":
+        if section =="<h2>2.4 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
             self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
-            pattern = re.compile(f'({re.escape("<h1>Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            pattern = re.compile(f'({re.escape("<h1>3.Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
             matches = pattern.search(updated_content)
             content= '<hr>\n'.join(self.schema) +"<hr>\n"
             if matches:
                 updated_section = f"{matches.group(1)}{content}"
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
-                print(f"Section title '<h1>Summary</h1>' not found in the note content.")
+                print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
 
         # Check if the content has been updated
         if updated_content != note_content:
