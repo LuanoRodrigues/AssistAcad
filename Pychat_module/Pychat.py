@@ -113,6 +113,8 @@ class ChatGPT:
         self.current = ""
         self.check_url = check_url
         self.os = os
+        self.profile_path =r"C:\Users\luano\AppData\Local\Google\Chrome\User Data\Profile 1" if self.os=="win" else r"/users/pantera/Library/Application Support/Google/Chrome/Default"
+
 
 
         if not self.__session_token and (
@@ -190,6 +192,8 @@ class ChatGPT:
         options = uc.ChromeOptions()
         # Set the window size
         options.add_argument(f'--window-size=1024,{height}')
+        options.add_argument(self.profile_path)
+        # options.add_argument("--incognito")
 
         # options.add_argument('--window-size=1024,568')
         options.add_argument("--disable-extensions")
