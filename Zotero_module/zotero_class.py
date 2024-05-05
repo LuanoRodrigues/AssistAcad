@@ -329,7 +329,7 @@ class Zotero:
             date = year_match.group(0)
         publication_title = data['data'].get('publicationTitle', "journal")
         if date:
-            date=   f'AU=("{authors}") OR '
+            date=   f'PY=("{date}")'
         else:
             date=""
         doi = data['data'].get('DOI')
@@ -337,10 +337,10 @@ class Zotero:
 
         query1 = (f'('
                  f'TI=("{title}")'
-                 f') AND'
-                 f' ('
-                 f"{date}"
-                 f'AU=("{authors}") OR '
+                 f' AND '
+                 f"({date}"
+                  f'OR '
+                 f'AU=("{authors}"))'
              
                  f')')
     
