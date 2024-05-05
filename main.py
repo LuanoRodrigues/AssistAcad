@@ -70,10 +70,10 @@ to_delete= dict.fromkeys(["<h2>2.1 Data, Analysis and Epistemologies</h2>","<h2>
 #               # article_title="Evidentiary Issues in International Disputes Related to State Responsibility for Cyber Operations",
 #               specific_section=new_section)
 
-zt.update_all("lawful evidence",update=False,
-              index=0,
-              article_title="transparent attributions of cyberattacks to states?",
-              specific_section=new_section
+zt.update_all("lawful evidence",update=True,
+              # index=0,
+              # article_title="transparent attributions of cyberattacks to states?",
+              # specific_section=new_section
               )
 
 # zt.update_all("lawful evidence",update=True,)
