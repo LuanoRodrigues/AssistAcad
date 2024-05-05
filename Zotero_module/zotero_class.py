@@ -437,7 +437,7 @@ class Zotero:
             <h2>2.4 Structure and Keywords</h2>
             <hr>
             <hr>
-        <h1>3.Summary</h1>
+         <h1>3. Summary</h1>
 
             <h2>Loose notes</h2>
             <hr>
@@ -548,7 +548,7 @@ class Zotero:
         if section =="<h2>2.4 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
             self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
-            pattern = re.compile(f'({re.escape("<h1>3.Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
             matches = pattern.search(updated_content)
             content= '<hr>\n'.join(self.schema) +"<hr>\n"
             if matches:
@@ -625,14 +625,14 @@ class Zotero:
         if section =="<h2>3.1 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
             self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
-            pattern = re.compile(f'({re.escape("<h1>Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
+            pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
             matches = pattern.search(updated_content)
             content= '<hr>\n'.join(self.schema) +"<hr>\n"
             if matches:
                 updated_section = f"{matches.group(1)}{content}"
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
-                print(f"Section title '<h1>Summary</h1>' not found in the note content.")
+                print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
 
         # Check if the content has been updated
         if updated_content != note_content:
