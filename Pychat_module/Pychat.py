@@ -459,7 +459,7 @@ class ChatGPT:
             pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
             time.sleep(5)  # Wait a moment for the paste action to complete
             print("Pasting the path in the file dialog...")
-            pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+            pyautogui.hotkey('command', 'v')  # Paste the path from the clipboard
             time.sleep(2)  # Wait a moment for the paste action to complete
             pyautogui.press('enter')  # Press enter to submit the dialog
             time.sleep(2)
