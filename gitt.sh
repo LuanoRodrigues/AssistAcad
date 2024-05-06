@@ -12,6 +12,6 @@ read -r commit_message
 git commit -m "$commit_message"
 
 # Push the changes to the remote repository
-git push origin master
+git push origin main
 
 echo "Changes pushed to GitHub."
