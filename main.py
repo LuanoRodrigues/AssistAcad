@@ -49,9 +49,7 @@ library_id = library_id,
 #     # Dynamically update the description with the current key being processed
 #     index1 = [i for i in collection_data["items"]["papers"]].index(keys)
 #     print(index1)
-note= "Take your time, review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\nnote 1: citation should be provided in a short sentence strictly extracted from the pdf exactly as it is.\nnote2:output format:all output in a single  div in a code block."
 
-to_delete= dict.fromkeys(["<h2>2.1 Data, Analysis and Epistemologies</h2>","<h2>2.2 Theoretical Framework or Models</h2>","<h2>2.3 Implications and Policy</h2>","<h2>3.3 Thematic Analysis 1</h2>","<h2>3.4 Thematic Analysis 2</h2>","<h2>3.5 Thematic Analysis 3</h2>" ],"")
 # zt.update_all("lawful evidence",update=False,
 #               index=4,
 #               #article_title="",
@@ -67,29 +65,6 @@ to_delete= dict.fromkeys(["<h2>2.1 Data, Analysis and Epistemologies</h2>","<h2>
 #               # article_title="transparent attributions of cyberattacks to states?",
 #               # specific_section="<h2>2.4 Structure and Keywords</h2>"
 #               )
-td = zt.extract_insert_article_schema("IPEHN9SC")
-print("td =",td)
-# zt.update_all("lawful evidence",update=True,)
-
-file = r"C:\Users\luano\Downloads\reformatted_classified_items.json"
-# zt.process_collections_file(file)
-# zt.getting_infoFromJson(r"C:\Users\luano\Downloads\Academic_Writing_Attributes.json")
-# zt.update_all(collection_name="lawful evidence",update=True)
-# zt.evaluate(collection_name="examens2",update=True)
-
-# zt.update_all2(collection_name="cyber deterrence",update=True)
-
-# zot =zt.connect()
-# note = zot.item("7QE3D2H6")['data']['note']
-# print(note)
-# #
-# collection =zt.get_or_update_collection(collection_name="lawful evidence",update=False)
-# data = [(t, i) for t, i in collection["items"]["papers"].items()]
-# for n,item in enumerate(data):
-#     print(n,item)
-#     print("\n")
-
-
 
 
 
