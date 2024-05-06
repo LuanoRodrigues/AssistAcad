@@ -538,13 +538,17 @@ class Zotero:
                     if type(new_prompt) == str:
 
                         new_content = api.send_message(new_prompt,sleep_duration=self.sleep).strip()
-                        if new_content==new_prompt:
+                        while new_content==new_prompt:
+                            print("content is equal")
+                            time.sleep(4)
                             new_content =api.copy_message()
                     if type(new_prompt) == list:
                         for item in new_prompt:
                             new_content += api.send_message(item,sleep_duration=self.sleep).strip()
                             if new_content == new_prompt:
+                                time.sleep(4)
                                 new_content = api.copy_message()
+                                print("content is equal")
                     self.append_training_data(prompt=new_prompt,expected_response=new_content)
 
                 # Replace the old section content with the new one
@@ -826,8 +830,8 @@ class Zotero:
                             print("Failed to update item.")
                 if note and note["headings"]:
                     print("headings", note["headings"])
-                    note_content = note["content"]
-                    self.schema = self.extract_insert_article_schema(note_content)
+                    note_id= note["note_id"]
+                    self.schema = self.extract_insert_article_schema(note_id=note_id,save=False)
 
                     if self.schema:
                         section_dict = {
@@ -978,7 +982,7 @@ class Zotero:
                 self.update_zotero_note_section2(note_id=note_id, sections={key: value},pdf=pdf,reference=reference)
                 pbar.update()
 
-    def extract_relevant_h2_blocks(self,html_content):
+    def extract_relevant_h2_blocks(self,note_id):
         """
         Extracts <h2> elements from HTML content, including their opening and closing tags, based on specific conditions
         related to the text immediately following these headings.
@@ -994,16 +998,22 @@ class Zotero:
         Returns:
             list: A list of <h2> elements (with opening and closing tags) that meet the specified conditions.
         """
-        self.schema = self.extract_insert_article_schema(html_content)
-        if self.schema:
-            section_dict = {
-                k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+        note = self.zot.item(note_id)
+        if 'data' in note and 'note' in note['data']:
+            tags = note['data'].get('tags', [])
+            note_content = note['data']['note']
+        # schema =
+        # if schema:
+        #     section_dict = {
+        #         k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+        #
+        #         for k in self.schema if k not in ["Abstract", "table of content"]}
+        #     note_update.update(section_dict)
+        soup = BeautifulSoup(note_content, 'html.parser')
 
-                for k in self.schema if k not in ["Abstract", "table of content"]}
-            note_update.update(section_dict)
-        soup = BeautifulSoup(html_content, 'html.parser')
         relevant_h2_blocks = []
         h2_elements = soup.find_all('h2')
+
         for h2_element in h2_elements:
             # Initialize a variable to iterate through siblings
             next_sibling = h2_element.next_sibling
@@ -1016,7 +1026,7 @@ class Zotero:
             if not next_sibling or next_sibling.name == 'hr' or (
                     isinstance(next_sibling, NavigableString) and not next_sibling.strip()):
                 relevant_h2_blocks.append(str(h2_element))
-        relevant_h2_blocks = [h2 for h2 in relevant_h2_blocks if h2 in note_update.keys()]
+
         return relevant_h2_blocks
 
     def html_update(self,note_id):
@@ -1097,7 +1107,7 @@ class Zotero:
 
 
             # Extract headings still needing updates
-            remaining_h2 = self.extract_relevant_h2_blocks(note_content)
+            remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
 
             # Check if the note is marked as complete
             if "note_complete" in tags:
@@ -1112,11 +1122,9 @@ class Zotero:
 
             # If there are remaining sections, return them with the note ID
             if remaining_h2:
-
-                keys =list(note_update.keys())
-
-
-                remaining_h2 = [h2 for h2 in remaining_h2 if h2 in keys]
+                remaining_h2 = [i for i in remaining_h2 if i!='<h2>Loose notes</h2>']
+                print("remaining_h2 found")
+                print(remaining_h2)
                 return {"note_id": note_id, "headings": remaining_h2,"content": note_content,"tags": tags}
 
         # If no notes meet the criteria, return None
@@ -1156,7 +1164,7 @@ class Zotero:
 
         return tags
 
-    def extract_insert_article_schema(self,note_id):
+    def extract_insert_article_schema(self,note_id,save=False):
         """
             Extracts article schema information from the given HTML content and formats it into a list of <h2> tags.
 
@@ -1196,24 +1204,27 @@ class Zotero:
         else:
             print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
 
-        updated_note = {
-            'key': note['data']['key'],
-            'version': note['data']['version'],
-            'itemType': note['data']['itemType'],
-            'note': updated_content,
-            'tags': tags
-        }
+        if save:
+            updated_note = {
+                'key': note['data']['key'],
+                'version': note['data']['version'],
+                'itemType': note['data']['itemType'],
+                'note': updated_content,
+                'tags': tags
+            }
 
-        try:
-            # Attempt to update the note in Zotero
-            response = self.zot.update_item(updated_note)
-            if response:
-                print("Note updated successfully.")
-            else:
-                print("Failed to update the note.")
-        except Exception as e:
-            print(f"An error occurred during the update: {e}")
-        return response
+            try:
+                # Attempt to update the note in Zotero
+                response = self.zot.update_item(updated_note)
+                if response:
+                    print("Note updated successfully.")
+                else:
+                    print("Failed to update the note.")
+            except Exception as e:
+                print(f"An error occurred during the update: {e}")
+            return response
+        else:
+            return schema_list
 
     def process_headings(self, title,update=False):
 
