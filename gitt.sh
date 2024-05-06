@@ -7,9 +7,8 @@ cd "/c/Users/luano/Downloads/AcAssitant" || exit
 git add .
 
 # Commit the changes with a message
-echo "Enter commit message: "
-read -r commit_message
-git commit -m "$commit_message"
+
+git commit -m "desktop"
 
 # Push the changes to the remote repository
 git push origin main
