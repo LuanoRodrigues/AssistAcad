@@ -28,7 +28,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=2
+    sleep=12
 
 
 
