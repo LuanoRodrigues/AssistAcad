@@ -62,8 +62,6 @@ class ChatGPT:
             conversation_id: str = '',
             chat_id: str = None,
             auth_type: str = None,
-            email: str = None,
-            password: str = None,
             login_cookies_path: str = '',
             captcha_solver: str = 'pypasser',
             solver_apikey: str = '',
@@ -81,8 +79,6 @@ class ChatGPT:
         :param session_token: The session token to use for authentication
         :param conversation_id: The conversation ID to use for the chat session
         :param auth_type: The authentication type to use (`google`, `microsoft`, `openai`)
-        :param email: The email to use for authentication
-        :param password: The password to use for authentication
         :param login_cookies_path: The path to the cookies file to use for authentication
         :param captcha_solver: The captcha solver to use (`pypasser`, `2captcha`)
         :param solver_apikey: The apikey of the captcha solver to use (if any)
@@ -97,8 +93,6 @@ class ChatGPT:
         self.__conversation_id = conversation_id
         self.chat_id = chat_id
         self.__auth_type = auth_type
-        self.__email = email
-        self.__password = password
         self.__login_cookies_path = login_cookies_path
         self.__captcha_solver = captcha_solver
         self.__solver_apikey = solver_apikey
@@ -114,7 +108,7 @@ class ChatGPT:
 
 
         if not self.__session_token and (
-                not self.__email or not self.__password or not self.__auth_type
+                not self.__auth_type
         ):
             raise ValueError(
                 'Please provide either a session token or login credentials'
