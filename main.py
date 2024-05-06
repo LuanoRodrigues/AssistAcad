@@ -36,11 +36,7 @@ library_id = library_id,
 
 )
 
-# cool= zt.fetch_details('zotero', update=True, fetch_type='items')
-# print(len(cool))
-# for i in cool:
-#     print(i)
-# #
+
 # collection_data =zt.get_or_update_collection(update=False,collection_name="lawful evidence")
 
 # data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()]
