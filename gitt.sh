@@ -1,32 +1,17 @@
 #!/bin/bash
 
-# Define repository URL
-repo_url="https://github.com/LuanoRodrigues/AssistAcad.git"
+# Change to the project directory
+cd "/c/Users/luano/Downloads/AcAssitant" || exit
 
-# Absolute path to the project directory
-project_path="/C/Users/luano/Downloads/AcAssitant"
-
-# Check if the project directory exists
-if [ ! -d "$project_path" ]; then
-    echo "Project directory not found: $project_path"
-    exit 1
-fi
-
-# Navigate to the project directory
-cd "$project_path" || exit 1
-
-# Add all changes
+# Add all changes to git
 git add .
 
-# Commit changes with a default message
-git commit -m "Auto commit"
+# Commit the changes with a message
+echo "Enter commit message: "
+read -r commit_message
+git commit -m "$commit_message"
 
-# Push changes to the remote repository
+# Push the changes to the remote repository
 git push origin master
 
-# Check if the push was successful
-if [ $? -eq 0 ]; then
-    echo "Push successful"
-else
-    echo "Push failed"
-fi
+echo "Changes pushed to GitHub."
