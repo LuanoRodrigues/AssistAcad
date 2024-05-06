@@ -56,10 +56,6 @@ chatgpt_chat_url = 'https://chat.openai.com/chat'
 
 
 class ChatGPT:
-    '''
-    An unofficial Python wrapper for OpenAI's ChatGPT API
-    '''
-
     def __init__(
             self,
             session_token: str = None,
@@ -76,7 +72,8 @@ class ChatGPT:
             moderation: bool = True,
             verbose: bool = False,
             check_url: bool = True,
-            os: str = 'win'
+            os: str = 'win',
+
 
     ):
         '''
@@ -114,7 +111,6 @@ class ChatGPT:
         self.check_url = check_url
         self.os = os
         self.profile_path =r"C:\Users\luano\AppData\Local\Google\Chrome\User Data\Profile 1" if self.os=="win" else r"/users/pantera/Library/Application Support/Google/Chrome/Default"
-
 
 
         if not self.__session_token and (
@@ -483,7 +479,7 @@ class ChatGPT:
             time.sleep(3)  # Wait a moment for the paste action to complete
             pyautogui.press('enter')  # Press enter to submit the dialog
             print("Pressed return.")
-        self.sleep(50)
+        self.sleep(1)
 
         # Wait for the file to be uploaded (adjust time as necessary)
         print("Waiting for the file to upload...")
@@ -503,6 +499,7 @@ class ChatGPT:
             return content
 
     def sleep(self,sleep_duration):
+        sleep_duration = sleep_duration*60
         config_handler.set_global(spinner='dots_waves2', bar='bubbles', theme='smooth')
 
         # Determine the maximum width for the progress bar to ensure it fits in the display area
@@ -518,27 +515,56 @@ class ChatGPT:
                 remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
                 bar.text(f'Remaining: {remaining_time:.2f} min')
 
-    def send_message(self, message: str, sleep=60*3) -> dict:
+    def copy_message(self):
+        # Copy the response by the shortcut Ctrl+Shift+;
+        try:
+            # Wait until the button appears, with a timeout of 10 seconds
+            button = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "btn-primary"))
+            )
+            # Click the button if it is visible
+            button.click()
+            self.sleep(sleep)
+        except Exception as e:
+            pass
+            # If the button does not appear, pass
+            # print("Button not found, passing. Error: ", e)
+
+        textbox = WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable(chatgpt_textbox)
+        )
+        print('Copying code')
+        textbox.click()
+        if self.os == "win":
+            pyautogui_arg = ['ctrl', 'shift', ';']
+        if self.os == "mac":
+            pyautogui_arg = ['command', 'shift', ';']
+
+        pyautogui.FAILSAFE = False
+        time.sleep(5)
+
+        pyautogui.click()
+        # Press Control, Shift, and ;
+        pyautogui.hotkey(*pyautogui_arg)
+        content = pyperclip.paste()
+        print("copied")
+        return content
+
+    def send_message(self, message: str,sleep_duration:int=10) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
         :return: Dictionary with keys `message` and `conversation_id`
         '''
 
-        response = None  # or "" if an empty string makes more sense in your context
-        #
         # self.logger.debug('Ensuring Cloudflare cookies...')
         # self.__ensure_cf()
-
         # self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable(chatgpt_textbox)
         )
-
         # Copy the message to the clipboard
-        # Either copy and paste the message or type it directly
         pyperclip.copy(message)
-
         # Create an ActionChain to perform a paste operation
         textbox.click()
         actions = ActionChains(self.driver)
@@ -554,41 +580,10 @@ class ChatGPT:
         self.logger.debug('Getting response...')
 
 
-        self.sleep(sleep)
-        # Copy the response by the shortcut Ctrl+Shift+;
-        try:
-            # Wait until the button appears, with a timeout of 10 seconds
-            button = WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_element_located((By.CLASS_NAME, "btn-primary"))
-            )
-            # Click the button if it is visible
-            button.click()
-            self.sleep(sleep)
-        except Exception as e:
-            # If the button does not appear, pass
-            print("Button not found, passing. Error: ", e)
+        self.sleep(sleep_duration)
 
 
-        textbox = WebDriverWait(self.driver, timeout).until(
-            EC.element_to_be_clickable(chatgpt_textbox)
-        )
-        print('Copying code')
-        textbox.click()
-        if self.os =="win":
-            pyautogui_arg= ['ctrl', 'shift', ';']
-        if self.os =="mac":
-            pyautogui_arg= ['command', 'shift', ';']
-
-        pyautogui.FAILSAFE = False
-        time.sleep(5)
-
-        pyautogui.click()
-        # Press Control, Shift, and ;
-        pyautogui.hotkey(*pyautogui_arg)
-        content = pyperclip.paste()
-        print("copied")
-
-        return content
+        return self.copy_message()
 
 
 

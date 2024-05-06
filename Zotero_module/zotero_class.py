@@ -29,7 +29,8 @@ class Zotero:
                  library_type='user',
                  api_key="<API KEY>",
                  chat_args = { "chat_id": "pdf"},
-                 os = "mac"
+                 os = "mac",
+                 sleep =10
                  ):
         """
             Initialize a new instance of the class, setting up the necessary configurations for accessing and interacting with a Zotero library.
@@ -46,6 +47,7 @@ class Zotero:
         self.library_type = library_type
         self.api_key = api_key
         self.zot = self.connect()
+        self.sleep = sleep
 
         self.chat_args = chat_args
         self.zotero_directory = "/Users/pantera/Zotero/storage/" if os=="mac" else "C:\\Users\\luano\\Zotero\\storage\\"
@@ -534,10 +536,14 @@ class Zotero:
                     # Generate new content using the API based on the provided prompt
                     if type(new_prompt) == str:
 
-                        new_content = api.send_message(new_prompt).strip()
+                        new_content = api.send_message(new_prompt,sleep_duration=self.sleep).strip()
+                        if new_content==new_prompt:
+                            new_content =api.copy_message()
                     if type(new_prompt) == list:
                         for item in new_prompt:
-                            new_content += api.send_message(item).strip()
+                            new_content += api.send_message(item,sleep_duration=self.sleep).strip()
+                            if new_content == new_prompt:
+                                new_content = api.copy_message()
                     self.append_training_data(prompt=new_prompt,expected_response=new_content)
 
                 # Replace the old section content with the new one
@@ -545,18 +551,6 @@ class Zotero:
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
                 print(f"Section title '{section}' not found in the note content.")
-        if section =="<h2>2.4 Structure and Keywords</h2>":
-            tags.extend(self.extract_unique_keywords_from_html(new_content))
-            self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
-            pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
-            matches = pattern.search(updated_content)
-            content= '<hr>\n'.join(self.schema) +"<hr>\n"
-            if matches:
-                updated_section = f"{matches.group(1)}{content}"
-                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
-            else:
-                print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
-
         # Check if the content has been updated
         if updated_content != note_content:
             updated_note = {
@@ -787,12 +781,20 @@ class Zotero:
                     and not delete
                     and  note["note_id"] is not  None
             and "note_complete" not in note["tags"]) :
+
                 note_id = note["note_id"]
-                try:
+
+
+                specific_section = {specific_section: note_update[specific_section]}
+                if len(specific_section) == 1:
+                    api =ChatGPT(**self.chat_args)
+                    api.interact_with_page(path=pdf,copy=False)
+                    self.update_zotero_note_section(note_id=note_id, api=api, updates=specific_section)
+                else:
+
                     self.update_multiple_notes(section_prompts=specific_section, note_id=note_id, pdf=pdf
-                                               )
-                except Exception as e:
-                    print("specific section update failed",e)
+                                           )
+
 
             elif delete and  note["note_id"] is not  None:
                 note_id = note["note_id"]
@@ -802,6 +804,7 @@ class Zotero:
 
                         self.update_zotero_note_section(note_id=note_id,api="api",updates=section)
                 else:
+
                     self.update_zotero_note_section(note_id=note_id, api="api", updates=specific_section,delete=True)
 
 
@@ -1148,7 +1151,7 @@ class Zotero:
 
         return tags
 
-    def extract_insert_article_schema(self,html_content):
+    def extract_insert_article_schema(self,note_id):
         """
             Extracts article schema information from the given HTML content and formats it into a list of <h2> tags.
 
@@ -1158,10 +1161,16 @@ class Zotero:
             Returns:
             - A list of strings, each representing an article schema item formatted as an <h2> tag. If the 'Article Schema:' section is not found, returns an empty list.
             """
-        soup = BeautifulSoup(html_content, 'html.parser')
+        # Retrieve the current note content
+        note = self.zot.item(note_id)
+        if 'data' in note and 'note' in note['data']:
+            tags = note['data'].get('tags', [])
+            note_content = note['data']['note']
+            tags.extend(self.extract_unique_keywords_from_html(note_content))
+        soup = BeautifulSoup(note_content, 'html.parser')
         schema_list = []
 
-        article_schema = soup.find('h3', string='Article Schema:')
+        article_schema = soup.find('h3', string='TOC:')
         if article_schema:
             # Find the next sibling that is a <ul> tag
             schema_ul = article_schema.find_next_sibling(lambda tag: tag.name == 'ul' and tag.find('li'))
@@ -1172,7 +1181,34 @@ class Zotero:
                 for item in schema_items:
                     schema_list.append(f'<h2>{item.text.strip()}</h2>')
 
-        return schema_list
+        pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)',
+                             re.DOTALL | re.IGNORECASE)
+        matches = pattern.search(note_content)
+        content = '<hr>\n'.join(schema_list) + "<hr>\n"
+        if matches:
+            updated_section = f"{matches.group(1)}{content}"
+            updated_content = note_content[:matches.start()] + updated_section + note_content[matches.end():]
+        else:
+            print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
+
+        updated_note = {
+            'key': note['data']['key'],
+            'version': note['data']['version'],
+            'itemType': note['data']['itemType'],
+            'note': updated_content,
+            'tags': tags
+        }
+
+        try:
+            # Attempt to update the note in Zotero
+            response = self.zot.update_item(updated_note)
+            if response:
+                print("Note updated successfully.")
+            else:
+                print("Failed to update the note.")
+        except Exception as e:
+            print(f"An error occurred during the update: {e}")
+        return response
 
     def process_headings(self, title,update=False):
 
@@ -1222,7 +1258,7 @@ class Zotero:
             for n in range(5):
                 message = f"{book_info}\n {initial_book}\nPlease provide Chapter {n + 1}"
                 bar.message="generating chapter " + str(n + 1)
-                html_content += api.send_message(message=message, sleep=60*2) + "\n"
+                html_content += api.send_message(message=message, sleep=self.sleep) + "\n"
             soup = BeautifulSoup(html_content, 'html.parser')
             headings = [heading.text.strip() for heading in soup.find_all(['h2', 'h3', 'h4', 'h5'])]
             api.delete_quit()
@@ -1244,7 +1280,7 @@ class Zotero:
                 pbar.set_description("processing " + key)
                 prompt = key.replace(":", " =") + "\n" + value
                 # Assuming api is a pre-initialized ChatGPT API client instance within the class
-                html_content= api.send_message(message=prompt)  # Simulated API call
+                html_content= api.send_message(message=prompt,sleep_duration=self.sleep)  # Simulated API call
 
 
                 # Append the resulting HTML content to the file
@@ -1257,7 +1293,7 @@ class Zotero:
         if type(prompt)==list:
 
             content += api.interact_with_page(path=pdf, prompt=prompt[0], copy=True)
-            content += "\n"+api.send_message(prompt[1])
+            content += "\n"+api.send_message(prompt[1],sleep_duration=self.sleep)
         if type(prompt)==str:
             content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
 
