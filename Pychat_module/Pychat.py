@@ -519,7 +519,6 @@ class ChatGPT:
             )
             # Click the button if it is visible
             button.click()
-            self.sleep(sleep)
         except Exception as e:
             pass
             # If the button does not appear, pass
