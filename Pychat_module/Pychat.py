@@ -516,6 +516,7 @@ class ChatGPT:
                 bar.text(f'Remaining: {remaining_time:.2f} min')
 
     def copy_message(self):
+
         # Copy the response by the shortcut Ctrl+Shift+;
         try:
             # Wait until the button appears, with a timeout of 10 seconds
@@ -533,6 +534,10 @@ class ChatGPT:
         textbox = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable(chatgpt_textbox)
         )
+        for i in range(3):
+            pyautogui.press('esc', 2)
+            time.sleep(2)
+            print("esc")
         print('Copying code')
         textbox.click()
         if self.os == "win":
