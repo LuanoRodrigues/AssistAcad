@@ -331,16 +331,17 @@ class Zotero:
             date = year_match.group(0)
         publication_title = data['data'].get('publicationTitle', "journal")
         if date:
-            date=   f'PY=("{date}")'
+            new_date=f'PY=("{date}")'
+
         else:
-            date=""
+            new_date=""
         doi = data['data'].get('DOI')
 
 
         query1 = (f'('
                  f'TI=("{title}")'
                  f' AND '
-                 f"({date}"
+                 f"({new_date}"
                   f'OR '
                  f'AU=("{authors}"))'
              
@@ -810,6 +811,8 @@ class Zotero:
 
 
             else:
+
+
                 if note["note_id"] is None  and pdf is not None and specific_section is None:
                     print("note is None and pdf is None")
                     note_id= self.create_note(id, pdf)
@@ -958,6 +961,8 @@ class Zotero:
                                      )
                 self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                 pbar.update()
+                if key=="<h2>2.4 Structure and Keywords</h2>":
+                    self.extract_insert_article_schema(note_id=note_id)
             api.delete_quit(close=False)
 
     def update_multiple_notes2(self, sections_prompts, note_id, pdf,reference):
