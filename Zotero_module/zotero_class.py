@@ -842,11 +842,11 @@ class Zotero:
                         note_update.update(section_dict)
 
                     note_id=note["note_id"]
-                    note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
+                    # note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
 
+                    print("updated",note_update.keys())
 
-
-                    self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+                    self.update_multiple_notes(section_prompts=note_update,pdf=pdf, note_id=note_id)
 
 
 
@@ -961,11 +961,12 @@ class Zotero:
         with tqdm(section_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
             for key, value in pbar:
+
                 pbar.set_description(f"Processing section {key}",
                                      )
                 self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                 pbar.update()
-                if key=="<h2>2.4 Structure and Keywords</h2>":
+                if key=="<h2><span style='color: #05a2ef'>2.4 Structure and Keywords</span></h2>":
                     self.extract_insert_article_schema(note_id=note_id)
             api.delete_quit(close=False)
 
@@ -1115,8 +1116,7 @@ class Zotero:
             # If there are remaining sections, return them with the note ID
             if remaining_h2:
                 remaining_h2 = [i for i in remaining_h2 if i!='<h2>Loose notes</h2>']
-                print("remaining_h2 found")
-                print(remaining_h2)
+
                 return {"note_id": note_id, "headings": remaining_h2,"content": note_content,"tags": tags}
 
         # If no notes meet the criteria, return None
