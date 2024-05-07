@@ -1006,8 +1006,6 @@ class Zotero:
 
         relevant_h2_blocks = []
         h2_elements = soup.find_all('h2')
-        print(note_content)
-
         for h2_element in h2_elements:
             # Initialize a variable to iterate through siblings
             next_sibling = h2_element.next_sibling
