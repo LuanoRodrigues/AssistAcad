@@ -555,9 +555,9 @@ class ChatGPT:
         :return: Dictionary with keys `message` and `conversation_id`
         '''
 
-        # self.logger.debug('Ensuring Cloudflare cookies...')
-        # self.__ensure_cf()
-        # self.logger.debug('Sending message...')
+        self.logger.debug('Ensuring Cloudflare cookies...')
+        self.__ensure_cf()
+        self.logger.debug('Sending message...')
         textbox = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable(chatgpt_textbox)
         )
