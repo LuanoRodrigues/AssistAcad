@@ -419,25 +419,25 @@ class Zotero:
         <hr>
         <hr>
         <h1>1. Introduction:</h1>
-            <h2>1.1 Research Framework</h2>
+            <h2><span style='color: #05a2ef'>1.1 Research Framework</span></h2>
             <hr>
-            <h2>1.2 Key Terms Definitions</h2>
+            <h2><span style='color: #05a2ef'>1.2 Key Terms Definitions</span></h2>
             <hr>
-            <h2>1.3 Key Findings</h2>
+            <h2><span style='color: #05a2ef'>1.3 Key Findings</span></h2>
             <hr>
-            <h2>1.4 Shortcomings Limitations</h2>
+            <h2><span style='color: #05a2ef'>1.4 Shortcomings Limitations</span></h2>
             <hr>
-            <h2>1.5 Research Gap and Future Research Directions</h2>
+            <h2><span style='color: #05a2ef'>1.5 Research Gap and Future Research Directions</span></h2>
             <hr>
             <hr>
         <h1>2. Thematic Review</h1>
-            <h2>2.1 Main Topics</h2>
+            <h2><span style='color: #05a2ef'>2.1 Main Topics</span></h2>
             <hr>
-            <h2>2.2 Author References</h2>
+            <h2><span style='color: #05a2ef'>2.2 Author References</span></h2>
             <hr>
-            <h2>2.3 Entity Reference</h2>
+            <h2><span style='color: #05a2ef'>2.3 Entity Reference</span></h2>
             <hr>
-            <h2>2.4 Structure and Keywords</h2>
+            <h2><span style='color: #05a2ef'>2.4 Structure and Keywords</span></h2>
             <hr>
             <hr>
          <h1>3. Summary</h1>
@@ -1002,17 +1002,11 @@ class Zotero:
         if 'data' in note and 'note' in note['data']:
             tags = note['data'].get('tags', [])
             note_content = note['data']['note']
-        # schema =
-        # if schema:
-        #     section_dict = {
-        #         k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
-        #
-        #         for k in self.schema if k not in ["Abstract", "table of content"]}
-        #     note_update.update(section_dict)
         soup = BeautifulSoup(note_content, 'html.parser')
 
         relevant_h2_blocks = []
         h2_elements = soup.find_all('h2')
+        print(note_content)
 
         for h2_element in h2_elements:
             # Initialize a variable to iterate through siblings

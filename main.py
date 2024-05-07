@@ -56,9 +56,9 @@ library_id = library_id,
 #               # article_title="Evidentiary Issues in International Disputes Related to State Responsibility for Cyber Operations",
 #               specific_section=new_section)
 #
-zt.update_all("lawful evidence",update=True,
+zt.update_all("lawful evidence",update=False,
               # index=0,
-              # article_title="transparent attributions of cyberattacks to states?",
+              article_title="Network investigations of cyber attacks: the limits of digital evidence",
               # specific_section="<h2>2.4 Structure and Keywords</h2>"
               )
 
