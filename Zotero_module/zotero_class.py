@@ -419,25 +419,25 @@ class Zotero:
         <hr>
         <hr>
         <h1>1. Introduction:</h1>
-            <h2><span style='color: #05a2ef'>1.1 Research Framework</span></h2>
+            <h2>1.1 Research Framework</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>1.2 Key Terms Definitions</span></h2>
+            <h2>1.2 Key Terms Definitions</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>1.3 Key Findings</span></h2>
+            <h2>1.3 Key Findings</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>1.4 Shortcomings Limitations</span></h2>
+            <h2>1.4 Shortcomings Limitations</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>1.5 Research Gap and Future Research Directions</span></h2>
+            <h2>1.5 Research Gap and Future Research Directions</h2>
             <hr>
             <hr>
         <h1>2. Thematic Review</h1>
-            <h2><span style='color: #05a2ef'>2.1 Main Topics</span></h2>
+            <h2>2.1 Main Topics</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>2.2 Author References</span></h2>
+            <h2>2.2 Author References</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>2.3 Entity Reference</span></h2>
+            <h2>2.3 Entity Reference</h2>
             <hr>
-            <h2><span style='color: #05a2ef'>2.4 Structure and Keywords</span></h2>
+            <h2>2.4 Structure and Keywords</h2>
             <hr>
             <hr>
          <h1>3. Summary</h1>
@@ -491,8 +491,9 @@ class Zotero:
 
 
 
-    def update_zotero_note_section(self, note_id, updates, api,delete=False):
-
+    def update_zotero_note_section(self, note_id="JFHPQ8IX", updates=note_update, api=None,delete=False):
+        if api == None:
+            api = ChatGPT(**self.chat_args)
         """
     Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
 
@@ -506,7 +507,6 @@ class Zotero:
     Note:
     - The function prints out the result of the operation, indicating success or failure of the update.
     """
-
         # Retrieve the current note content
         note = self.zot.item(note_id)
         tags = note['data'].get('tags', [])
@@ -517,9 +517,7 @@ class Zotero:
         else:
             print(f"No note content found for item ID {note_id}")
             return
-
         updated_content = note_content  # Initialize with the current note content
-
         # Process updates for each section
         for section, new_prompt in updates.items():
             # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
@@ -534,13 +532,15 @@ class Zotero:
                         updated_section = f""
 
                 else:
+                    print("section",section)
+                    print()
                     # Generate new content using the API based on the provided prompt
                     if type(new_prompt) == str:
 
                         new_content = api.send_message(new_prompt,sleep_duration=self.sleep).strip()
                         while new_content==new_prompt:
                             print("content is equal")
-                            time.sleep(4)
+                            time.sleep(2)
                             new_content =api.copy_message()
                     if type(new_prompt) == list:
                         for item in new_prompt:
@@ -744,7 +744,31 @@ class Zotero:
         except Exception as e:
             print(f"An error occurred during the update: {e}")
 
-    
+    def specific_section(self,specific_section,pdf,note_id,delete=False):
+        print("sera222")
+        specific_section = {specific_section: note_update[specific_section]}
+        if not delete:
+            if len(specific_section) == 1:
+                print("specifi section started")
+                print(specific_section)
+                api = ChatGPT(**self.chat_args)
+                api.interact_with_page(path=pdf, copy=False)
+                self.update_zotero_note_section(note_id=note_id, api=api, updates=specific_section)
+            else:
+
+                self.update_multiple_notes(section_prompts=specific_section, note_id=note_id, pdf=pdf
+                                           )
+        if delete:
+            if note_id is not None:
+
+
+                if type(specific_section) is list:
+                    for section in specific_section:
+                        self.update_zotero_note_section(note_id=note_id, api="api", updates=section,delete=True)
+                else:
+
+                    self.update_zotero_note_section(note_id=note_id, api="api", updates=specific_section, delete=True)
+
     def update_all(self,collection_name,article_title="",tag=None,update=True,specific_section=None,delete=False,index=0):
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
@@ -782,56 +806,20 @@ class Zotero:
             id = values['id']
             pdf = values['pdf']
 
-            if (specific_section
-                    and not delete
-                    and  note["note_id"] is not  None
-            and "note_complete" not in note["tags"]) :
+            if note["note_id"] is not None:
 
-                note_id = note["note_id"]
+                if specific_section  and "note_complete" not in note["tags"] :
 
+                    note_id = note["note_id"]
+                    self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,delete=delete)
 
-                specific_section = {specific_section: note_update[specific_section]}
-                if len(specific_section) == 1:
-                    api =ChatGPT(**self.chat_args)
-                    api.interact_with_page(path=pdf,copy=False)
-                    self.update_zotero_note_section(note_id=note_id, api=api, updates=specific_section)
-                else:
+                if note["headings"]:
+                    print("note_update1", note_update)
 
-                    self.update_multiple_notes(section_prompts=specific_section, note_id=note_id, pdf=pdf
-                                           )
-
-
-            elif delete and  note["note_id"] is not  None:
-                note_id = note["note_id"]
-
-                if type(specific_section) is list:
-                    for  section in specific_section:
-
-                        self.update_zotero_note_section(note_id=note_id,api="api",updates=section)
-                else:
-
-                    self.update_zotero_note_section(note_id=note_id, api="api", updates=specific_section,delete=True)
-
-
-
-            else:
-
-
-                if note["note_id"] is None  and pdf is not None and specific_section is None:
-                    print("note is None and pdf is None")
-                    note_id= self.create_note(id, pdf)
-                    if note_id:
-                        try:
-                            self.update_multiple_notes(section_prompts=note_update,note_id=note_id,pdf=pdf
-                                                       )
-                        except Exception as e:
-                            print("multiple notes function failed:",e)
-                    else:
-                            print("Failed to update item.")
-                if note and note["headings"]:
                     print("headings", note["headings"])
                     note_id= note["note_id"]
                     self.schema = self.extract_insert_article_schema(note_id=note_id,save=False)
+                    print("schema=:",self.schema)
 
                     if self.schema:
                         section_dict = {
@@ -839,22 +827,18 @@ class Zotero:
                                 f"\nnote:if you need to cite the paper during your responses, do in this format (author, date)\noutput:a HTML div in a code block")
 
                             for k in self.schema if k not in ["Abstract", "table pf"]}
+                        print(section_dict.keys())
                         note_update.update(section_dict)
 
-                    note_id=note["note_id"]
-                    # note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-
-                    print("updated",note_update.keys())
-
-                    self.update_multiple_notes(section_prompts=note_update,pdf=pdf, note_id=note_id)
-
-
-
-
-
-                if note and note["headings"] == []:
+                    note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
+                    self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+                if  note["headings"] == []:
                     note_complete -=1
-
+            if note["note_id"] is None and pdf is not None:
+                print("note is None and pdf is None")
+                note_id = self.create_note(id, pdf)
+                if note_id:
+                    self.update_multiple_notes(section_prompts=note_update, note_id=note_id, pdf=pdf)
 
         if note_complete>0:
             return True
@@ -952,7 +936,7 @@ class Zotero:
             # If not found, return None or handle the case appropriately
             return None
     
-    def update_multiple_notes(self,section_prompts,note_id,pdf=''):
+    def update_multiple_notes(self,section_prompts,note_id,pdf):
 
         api = ChatGPT(**self.chat_args)
         # if self.chat_args.get("chat_id"):
@@ -966,7 +950,7 @@ class Zotero:
                                      )
                 self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                 pbar.update()
-                if key=="<h2><span style='color: #05a2ef'>2.4 Structure and Keywords</span></h2>":
+                if key=="<h2>2.4 Structure and Keywords</h2>":
                     self.extract_insert_article_schema(note_id=note_id)
             api.delete_quit(close=False)
 
@@ -1097,7 +1081,6 @@ class Zotero:
         for note in notes:
             note_id = note['data']["key"]
             note_content = note['data']["note"]
-
 
             # Extract headings still needing updates
             remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
