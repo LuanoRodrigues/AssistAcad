@@ -104,8 +104,6 @@ class ChatGPT:
         self.current = ""
         self.check_url = check_url
         self.os = os
-        self.profile_path =r"C:\Users\luano\AppData\Local\Google\Chrome\User Data\Profile 1" if self.os=="win" else r"/users/pantera/Library/Application Support/Google/Chrome/Default"
-
 
         if not self.__session_token and (
                 not self.__auth_type
@@ -182,9 +180,14 @@ class ChatGPT:
         options = uc.ChromeOptions()
         # Set the window size
         options.add_argument(f'--window-size=1024,{height}')
-        options.add_argument(self.profile_path)
+        # options.add_argument(self.profile_path)
+        if self.os == "win":
+            options.add_argument("--user-data-dir=C:\\Users\\luano\\AppData\\Local\\Google\\Chrome\\User Data")
+            options.add_argument("--profile-directory=Profile 2")
+        if self.os=='mac':
+            options.add_argument("--user-data-dir=/users/pantera/Library/Application Support/Google/Chrome")
+            options.add_argument("--profile-directory=Default")
         # options.add_argument("--incognito")
-
         # options.add_argument('--window-size=1024,568')
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-application-cache")
@@ -192,6 +195,12 @@ class ChatGPT:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+
+        options.add_experimental_option("prefs", {
+            "profile.default_content_setting_values.notifications": 2,  # Block notifications
+            "profile.default_content_setting_values.popups": 2,  # Block pop-ups
+        })
+
         if self.__proxy:
             options.add_argument(f'--proxy-server={self.__proxy}')
         for arg in self.__chrome_args:
@@ -199,6 +208,7 @@ class ChatGPT:
         try:
 
             self.driver = uc.Chrome( options=options)
+
 
         except TypeError as e:
             if str(e) == 'expected str, bytes or os.PathLike object, not NoneType':
@@ -294,7 +304,16 @@ class ChatGPT:
 
         # Switch back to the new tab
         # self.driver.switch_to.window(self.driver.window_handles[0])
-
+    def pdf_errs(self):
+        try:
+            # Target the specific element by its unique characteristics
+            red_block_div = self.driver.find_element(By.CSS_SELECTOR, ".toast-root .bg-red-500")
+            print("The red block div is present on the page.")
+            return True
+            # Optional: Return or process the element
+        except NoSuchElementException:
+            print("The red block div is not found on the page.")
+            return False
     def __ensure_cf(self, retry: int = 3) -> None:
         '''
         Ensure Cloudflare cookies are set\n
@@ -425,6 +444,7 @@ class ChatGPT:
 
     def delete_quit(self,close=True):
         self.logger.debug('deleting the chat and quiting the browser')
+        print("deleting the chat")
         if self.os=="win":
             pyautogui_args =["ctrl","shift","delete"]
         if self.os=="mac":
@@ -439,7 +459,7 @@ class ChatGPT:
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
-        button_xpath = "//button[contains(@class,'btn')][contains(@class,'relative')][contains(@class,'p-0')][@aria-label='Attach files']"
+        button_xpath = '//button[@aria-label="Attach files"]'
         button = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable((By.XPATH, button_xpath))
         )
@@ -487,7 +507,8 @@ class ChatGPT:
         if type(path) == list:
             for pdf_path in path:
                 self.insert_pdfs(pdf_path)
-
+        if self.pdf_errs():
+            self.interact_with_page(path=path, prompt=prompt, copy=copy)
         if copy:
             content =self.send_message(message=prompt)
             return content
@@ -540,8 +561,8 @@ class ChatGPT:
 
         pyautogui.FAILSAFE = False
         time.sleep(5)
-
-        pyautogui.click()
+        #
+        # pyautogui.click()
         # Press Control, Shift, and ;
         pyautogui.hotkey(*pyautogui_arg)
         content = pyperclip.paste()
