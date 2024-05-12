@@ -314,6 +314,21 @@ class ChatGPT:
         except NoSuchElementException:
             print("The red block div is not found on the page.")
             return False
+
+    def check_brownser_errs(self):
+        button_xpath = "//button[contains(., 'Regenerate')]"
+
+        # Wait for the button to be clickable
+        try:
+            button = WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+            time.sleep(10)
+            # If the button is found, click it
+            button.click()
+            print("Button clicked successfully!")
+
+        except TimeoutException:
+            print("Button not found or not clickable within the specified timeout.")
+
     def __ensure_cf(self, retry: int = 3) -> None:
         '''
         Ensure Cloudflare cookies are set\n
@@ -598,7 +613,7 @@ class ChatGPT:
 
         self.logger.debug('Getting response...')
 
-
+        self.check_brownser_errs()
         self.sleep(sleep_duration)
 
 
