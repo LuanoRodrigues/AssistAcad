@@ -152,7 +152,7 @@ class Zotero:
                                 paper_key = item_data['key']
                                 note_data = self.get_children_notes(paper_key)
 
-                                # paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
+                                paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
                                 # Process attachments if present
                                 if 'attachment' in item['links']:
                                     attachment_link = item['links']['attachment']['href'].split("/")[-1]
@@ -744,30 +744,29 @@ class Zotero:
         except Exception as e:
             print(f"An error occurred during the update: {e}")
 
-    def specific_section(self,specific_section,pdf,note_id,delete=False):
-        print("sera222")
-        specific_section = {specific_section: note_update[specific_section]}
+    def specific_section(self,specific_section,pdf,api,note_id,delete=False):
+
+        if type(specific_section) == str:
+            specific_section = {specific_section: note_update[specific_section]}
+        if type(specific_section) == list:
+            specific_section = {i: note_update[i] for i in specific_section}
+
         if not delete:
             if len(specific_section) == 1:
-                print("specifi section started")
-                print(specific_section)
-                api = ChatGPT(**self.chat_args)
                 api.interact_with_page(path=pdf, copy=False)
+
                 self.update_zotero_note_section(note_id=note_id, api=api, updates=specific_section)
             else:
 
                 self.update_multiple_notes(section_prompts=specific_section, note_id=note_id, pdf=pdf
                                            )
         if delete:
-            if note_id is not None:
+            if type(specific_section) is list:
+                for section in specific_section:
+                    self.update_zotero_note_section(note_id=note_id, api="api", updates=section,delete=True)
+            else:
 
-
-                if type(specific_section) is list:
-                    for section in specific_section:
-                        self.update_zotero_note_section(note_id=note_id, api="api", updates=section,delete=True)
-                else:
-
-                    self.update_zotero_note_section(note_id=note_id, api="api", updates=specific_section, delete=True)
+                self.update_zotero_note_section(note_id=note_id, api="api", updates=specific_section, delete=True)
 
     def update_all(self,collection_name,article_title="",tag=None,update=True,specific_section=None,delete=False,index=0):
         """
@@ -796,6 +795,10 @@ class Zotero:
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
                     colour='green')
+        if type(specific_section) == str:
+            print("len ==1")
+            api = ChatGPT(**self.chat_args)
+
 
         for keys, values in pbar:
 
@@ -807,16 +810,8 @@ class Zotero:
             pdf = values['pdf']
 
             if note["note_id"] is not None:
+                if note["headings"] :
 
-                if specific_section  and "note_complete" not in note["tags"] :
-
-                    note_id = note["note_id"]
-                    self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,delete=delete)
-
-                if note["headings"]:
-                    print("note_update1", note_update)
-
-                    print("headings", note["headings"])
                     note_id= note["note_id"]
                     self.schema = self.extract_insert_article_schema(note_id=note_id,save=False)
                     print("schema=:",self.schema)
@@ -827,18 +822,37 @@ class Zotero:
                                 f"\nnote:if you need to cite the paper during your responses, do in this format (author, date)\noutput:a HTML div in a code block")
 
                             for k in self.schema if k not in ["Abstract", "table pf"]}
-                        print(section_dict.keys())
                         note_update.update(section_dict)
 
-                    note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                    self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+                    if specific_section and "note_complete" not in note["tags"]:
+                        note_id = note["note_id"]
+                        note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
+                        if type(specific_section) == str:
+                            if specific_section in note_update1.keys():
+                                self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                                      delete=delete, api=api)
+                        if type(specific_section) == list:
+                            specific_section= [k for k in specific_section if k in note["headings"]]
+                            if specific_section:
+                                self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                                      delete=delete, api=api)
+                    else:
+
+                        note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
+                        self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
                 if  note["headings"] == []:
                     note_complete -=1
             if note["note_id"] is None and pdf is not None:
                 print("note is None and pdf is None")
                 note_id = self.create_note(id, pdf)
                 if note_id:
-                    self.update_multiple_notes(section_prompts=note_update, note_id=note_id, pdf=pdf)
+                    if specific_section:
+
+                        self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                              delete=delete, api=api)
+                    else:
+
+                        self.update_multiple_notes(section_prompts=note_update, note_id=note_id, pdf=pdf)
 
         if note_complete>0:
             return True
@@ -1278,33 +1292,37 @@ class Zotero:
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
+    def create_one_note(self, item_id="", collection_id="", pdf="", prompt="", api="", title="note", tag="",
+                        content=""):
+        if api != "":
+            if type(prompt) == list:
+                content += api.interact_with_page(path=pdf, prompt=prompt[0], copy=True)
+                content += "\n" + api.send_message(prompt[1], sleep_duration=self.sleep)
+            if type(prompt) == str:
+                content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
 
-    def create_one_note(self,item_id,pdf,prompt,api,tag=""):
-        content =""
-        if type(prompt)==list:
-
-            content += api.interact_with_page(path=pdf, prompt=prompt[0], copy=True)
-            content += "\n"+api.send_message(prompt[1],sleep_duration=self.sleep)
-        if type(prompt)==str:
-            content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
-
-
-        new_content = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Feedback Template</title><style>body {{font-family: Arial, sans-serif;margin: 0;padding: 0;}}.container {{max-width: 800px;margin: 20px auto;padding: 20px;border: 1px solid #ccc;border-radius: 5px;background-color: #f9f9f9;}}h2 {{color: #333;}}p {{margin: 10px 0;}}</style></head><body>{content}</body></html>"""
+        new_content = f'<html><title>{title}</title></head><body><div class="container">{content}</div></body></html>'
         # Create the new note
-        new_note = self.zot.create_items([{
-            "itemType": "note",
-            'parentItem': item_id,
-            "note": new_content,
-            'tags': [{"tag": "summary_note"},{"tag": tag}]
+        if item_id:
+            new_note = self.zot.create_items([{
+                "itemType": "note",
+                'parentItem': item_id,
+                "note": new_content,
+                'tags': [{"tag": "note"}, {"tag": tag}]
 
-        }])
+            }])
+        if collection_id:
+            new_note = self.zot.create_items([{
+                "itemType": "note",
+                'collections': [collection_id],
+                "note": new_content,
+                'tags': [{"tag": "note"}, {"tag": tag}]
+
+            }])
 
         print("New note created:", new_note)
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
-
-
-
 
     def evaluate(self,collection_name,index=0,tag=None,update=True):
         api = ChatGPT(**self.chat_args)
@@ -1512,4 +1530,70 @@ class Zotero:
                 json.dump(data, file, indent=4)
             print(key,value)
 
+    def merging_notes(self, collection_name,update,section="<h2>2.1 Main Topics</h2>"):
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        collection_key = collection_data["collection_key"]  if collection_data["collection_name"] == collection_name else None
+        data = [ (t,i["note"]["note_id"]) for t, i in collection_data[("items")]["papers"].items() if "read" in i["note"]["tags"]]
+
+        html_data =""
+        for  keys,values in data:
+            # Dynamically update the description with the current key being processed
+            d= f"<h1>{keys}</h1>" +" ".join([f"<h2>{key['code']}</h2>\n{key['content']}" for key in self.get_content_after_heading(values, section, "h3")])
+            html_data +=d+"\n"
+
+        self.create_one_note(collection_id=collection_key,title=collection_name,tag=section,content=html_data)
+        # create_word_document_from_html(html_content=html_data,output_path="output.docx")
+    def get_content_after_heading(self,note_id, main_heading,sub_heading):
+        note = self.zot.item(note_id)
+        tags = note['data'].get('tags', [])
+        if "note_complete" in tags:
+            return
+        if 'data' in note and 'note' in note['data']:
+            note_content = note['data']['note']
+        else:
+            print(f"No note content found for item ID {note_id}")
+            return
+
+
+        main_heading_level = int(main_heading[2])
+
+        # Build the regex pattern dynamically to match only content under the specified main heading
+        escaped_heading = re.escape(main_heading)
+        # Match until another heading of the same level or any heading of a higher level
+        pattern = re.compile(rf'({escaped_heading})(.*?)(?=<h[1-{main_heading_level}]>|$)', re.DOTALL | re.IGNORECASE)
+        matches = pattern.search(note_content)
+
+        if matches:
+            # Extract the relevant section content
+            section_content = matches.group(2)
+
+            # Use BeautifulSoup to parse the HTML content
+            soup = BeautifulSoup(section_content, 'html.parser')
+
+            # Initialize result list
+            results = []
+
+            # Find all tags specified as sub_heading_tag
+            sub_heading_tags = soup.find_all("h3")
+
+            for tag in sub_heading_tags:
+                # Find all sibling elements until the next sub_heading_tag or higher level heading
+                sibling_content = []
+                for sibling in tag.find_next_siblings():
+                    # Ensure the tag is a heading tag and check if it's equal or more significant than the sub_heading_tag
+                    if sibling.name and sibling.name.startswith('h') and len(sibling.name) == 2 and sibling.name[
+                        1].isdigit():
+                        if int(sibling.name[1]) <= int("h3"[1]):
+                            break
+                    sibling_content.append(str(sibling))
+
+                # Store the sub_heading_tag text with its associated content
+                results.append({'code': tag.get_text(), 'content': ''.join(sibling_content)})
+
+            return results
+        else:
+            # Return an empty list if the main heading section is not found
+            return []
+
 # TODO: cosine similarity among pdfs
+
