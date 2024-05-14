@@ -18,7 +18,7 @@ token = os.environ.get("TOKEN")
 chat_args = {
     "session_token":token,
     # "conversation_id":'208296a2-adb8-4dc0-87f2-b23e23c0fc79',
-    "chat_id": "meu",
+    "chat_id": "o",
     "os":"win"
 }
 
@@ -62,7 +62,7 @@ library_id = library_id,
 # #               article_title="transparent attributions of cybera attacks to states?",
 #               specific_section="<h2>2.4 Structure and Keywords</h2>"an aqnnsjdjkshdjhsdjhs
 #               )
-zt.update_all("Law and evidence",update=True,
+zt.update_all("Law and evidence",update=False,
 # #               # index=0,
 #               article_title="transparent attributions of cybera attacks to states?",
 #               specific_section="<h2>2.1 Main Topics</h2>"

@@ -253,6 +253,8 @@ class ChatGPT:
         if self.chat_id:
             if self.chat_id == "consensus":
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
+            if self.chat_id =="o":
+                self.chat_id ="?model=gpt-4o"
             if self.chat_id == "meu":
                 self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
             if self.chat_id == "evaluator":
@@ -270,10 +272,13 @@ class ChatGPT:
 
             if self.chat_id == "pdf":
                 self.chat_id = "/g/g-l3aJUSU8K-ask-pdf"
-            self.url = f'https://chat.openai.com/{self.chat_id}?temporary-chat=true'
-            self.driver.get(self.url)
+
             if self.chat_id == "":
                 self.driver.get(f'https://chat.openai.com')
+            # self.url = f'https://chat.openai.com/{self.chat_id}?temporary-chat=true'
+
+            self.url = f'https://chat.openai.com/{self.chat_id}'
+            self.driver.get(self.url)
         else:
             self.driver.get(f'{chatgpt_chat_url}/{self.__conversation_id}')
         self.__check_blocking_elements()
@@ -331,11 +336,25 @@ class ChatGPT:
 
         # Wait for the button to be clickable
         try:
-            button = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+            button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
             # If the button is found, click it
             button.click()
             print("Button clicked successfully!")
 
+        except TimeoutException:
+            print("Button not found or not clickable within the specified timeout.")
+
+        element_xpath = "//div[@class='text-sm text-token-text-error border-token-surface-error/15 bg-token-surface-error mt-2 flex w-full items-start gap-3 border rounded-2xl p-4 bg-opacity-5 mb-8']"
+        # Wait for the button to be clickable
+        try:
+
+            # Wait until the element is present on the page
+            element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, element_xpath)))
+
+            # Check if the element is found
+            if element:
+                print("Element found!")
+                time.sleep(5)
         except TimeoutException:
             print("Button not found or not clickable within the specified timeout.")
 
