@@ -3,6 +3,9 @@ from alive_progress import alive_bar, alive_it,config_handler
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
 from selenium.webdriver.support.ui import WebDriverWait
+import pygetwindow as gw
+from pywinauto import Application
+
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import pyautogui
@@ -10,8 +13,6 @@ import pyautogui
 pyautogui.FAILSAFE = False
 
 timeout = 300
-from tqdm import tqdm
-from tqdm.auto import tqdm as auto_tqdm
 
 import undetected_chromedriver as uc
 from markdownify import markdownify
@@ -282,6 +283,15 @@ class ChatGPT:
         self.__is_active = True
         Thread(target=self.__keep_alive, daemon=True).start()
 
+    def bring_browser_to_foreground(self):
+        try:
+            # Find the browser window by title
+            window = gw.getWindowsWithTitle(self.driver.title)[0]
+            # Bring the window to the foreground
+            app = Application().connect(handle=window._hWnd)
+            app.top_window().set_focus()
+        except IndexError:
+            print(f"Window with title '{self.driver.title}' not found.")
     def open_new_tab(self,close=True):
         # Open a new tab using JavaScript
         # self.driver.execute_script("window.open('');")
