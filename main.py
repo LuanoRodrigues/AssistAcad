@@ -12,13 +12,13 @@ library_id = os.environ.get("LIBRARY_ID")
 api_key = os.environ.get("API_KEY")
 library_type = os.environ.get("LIBRARY_TYPE")
 token = os.environ.get("TOKEN")
-
+chat_name= "meu"
 
 
 chat_args = {
     "session_token":token,
     # "conversation_id":'208296a2-adb8-4dc0-87f2-b23e23c0fc79',
-    "chat_id": "o",
+    "chat_id": chat_name,
     "os":"win"
 }
 
@@ -29,7 +29,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=3
+    sleep=5
 
 
 
@@ -62,11 +62,11 @@ library_id = library_id,
 # #               article_title="transparent attributions of cybera attacks to states?",
 #               specific_section="<h2>2.4 Structure and Keywords</h2>"an aqnnsjdjkshdjhsdjhs
 #               )
-zt.update_all("Law and evidence",update=False,
-# #               # index=0,
-#               article_title="transparent attributions of cybera attacks to states?",
-#               specific_section="<h2>2.1 Main Topics</h2>"
-              )
+# zt.update_all("Law and evidence",update=True,tag=""
+# # #               # index=0,
+# #               article_title="transparent attributions of cybera attacks to states?",
+# #               specific_section="<h2>2.1 Main Topics</h2>"
+#               )
 # #
 # # data =zt.get_children_notes("AVC23QZR")
 # # print(data)
@@ -82,7 +82,7 @@ zt.update_all("Law and evidence",update=False,
 #         print(t)
 # data =zt.extract_relevant_h2_blocks(note_id="IPEHN9SC")
 #
-# data = zt.extract_insert_article_schema(note_id="IPEHN9SC",save=True)
+data = zt.extract_insert_article_schema(note_id="FZWWZ29G",save=True)
 #
 # print(data)
 # ONE ZOTERO NOTE
