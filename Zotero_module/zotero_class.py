@@ -967,7 +967,7 @@ class Zotero:
                 self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
                 pbar.update()
                 if key=="<h2>2.4 Structure and Keywords</h2>":
-                    self.extract_insert_article_schema(note_id=note_id)
+                    self.extract_insert_article_schema(note_id=note_id,save=True)
             api.delete_quit(close=False)
 
     def update_multiple_notes2(self, sections_prompts, note_id, pdf,reference):
