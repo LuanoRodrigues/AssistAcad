@@ -504,7 +504,10 @@ class ChatGPT:
 
         print("Waiting for the button to be clickable...")
         button_xpath = '//button[@aria-label="Attach files"]'
-        button_xpath="//div[@class='flex']//button[@aria-label='Anexar arquivos']"
+        if self.os=='mac':
+            button_xpath = '//div[@type="button" and @aria-haspopup="dialog"]'
+        if self.os=='win':
+            button_xpath="//div[@class='flex']//button[@aria-label='Anexar arquivos']"
         button = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable((By.XPATH, button_xpath))
         )

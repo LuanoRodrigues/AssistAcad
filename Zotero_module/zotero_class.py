@@ -787,7 +787,7 @@ class Zotero:
             """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
 
-        data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][index:]
+        data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][15:]
         if article_title != "":
             index1 = [i for i in collection_data["items"]["papers"]].index(article_title)
             data = [(t, i) for t, i in collection_data[("items")]["papers"].items()][index1:index1+1]
