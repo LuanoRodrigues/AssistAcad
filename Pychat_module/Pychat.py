@@ -186,8 +186,7 @@ class ChatGPT:
             options.add_argument("--user-data-dir=C:\\Users\\luano\\AppData\\Local\\Google\\Chrome\\User Data")
             options.add_argument("--profile-directory=Profile 2")
         if self.os=='mac':
-            options.add_argument("--user-data-dir=/users/pantera/Library/Application Support/Google/Chrome")
-            options.add_argument("--profile-directory=Default")
+            options.add_argument("--profile-directory=Profile 1")
         # options.add_argument("--incognito")
         # options.add_argument('--window-size=1024,568')
         options.add_argument("--disable-extensions")
