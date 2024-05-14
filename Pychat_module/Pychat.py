@@ -3,8 +3,7 @@ from alive_progress import alive_bar, alive_it,config_handler
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
 from selenium.webdriver.support.ui import WebDriverWait
-import pygetwindow as gw
-from pywinauto import Application
+
 
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -283,6 +282,9 @@ class ChatGPT:
         Thread(target=self.__keep_alive, daemon=True).start()
 
     def bring_browser_to_foreground(self):
+        if self.os=="win":
+            import pygetwindow as gw
+            from pywinauto import Application
         try:
             # Find the browser window by title
             window = gw.getWindowsWithTitle(self.driver.title)[0]
