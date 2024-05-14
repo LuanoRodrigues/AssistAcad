@@ -29,7 +29,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=12
+    sleep=3
 
 
 
@@ -72,7 +72,14 @@ zt.update_all("Law and evidence",update=False,
 # # print(data)
 
 
-
+# data= zt.get_or_update_collection("Law and evidence",update=False)
+# data1 =[(t,i["note"]["note_id"]) for t,i in data[("items")]["papers"].items() if i["note"]["note_id"]][4:]
+# for t,i in data1:
+#
+#     try:
+#         zt.extract_insert_article_schema(note_id=i,save=True)
+#     except:
+#         print(t)
 # data =zt.extract_relevant_h2_blocks(note_id="IPEHN9SC")
 #
 # data = zt.extract_insert_article_schema(note_id="IPEHN9SC",save=True)

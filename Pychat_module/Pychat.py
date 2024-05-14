@@ -271,7 +271,7 @@ class ChatGPT:
 
             if self.chat_id == "pdf":
                 self.chat_id = "/g/g-l3aJUSU8K-ask-pdf"
-            self.url = f'https://chat.openai.com/{self.chat_id}'
+            self.url = f'https://chat.openai.com/{self.chat_id}?temporary-chat=true'
             self.driver.get(self.url)
             if self.chat_id == "":
                 self.driver.get(f'https://chat.openai.com')
@@ -320,8 +320,7 @@ class ChatGPT:
 
         # Wait for the button to be clickable
         try:
-            button = WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-            time.sleep(10)
+            button = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
             # If the button is found, click it
             button.click()
             print("Button clicked successfully!")
@@ -475,6 +474,7 @@ class ChatGPT:
 
         print("Waiting for the button to be clickable...")
         button_xpath = '//button[@aria-label="Attach files"]'
+        button_xpath="//div[@class='flex']//button[@aria-label='Anexar arquivos']"
         button = WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable((By.XPATH, button_xpath))
         )

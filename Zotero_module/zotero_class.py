@@ -621,7 +621,7 @@ class Zotero:
                 updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
             else:
                 print(f"Section title '{section}' not found in the note content.")
-        if section =="<h2>3.1 Structure and Keywords</h2>":
+        if section =="<h2>2.4 Structure and Keywords</h2>":
             tags.extend(self.extract_unique_keywords_from_html(new_content))
             self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
             pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
