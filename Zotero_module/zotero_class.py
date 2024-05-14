@@ -540,7 +540,8 @@ class Zotero:
                         new_content = api.send_message(new_prompt,sleep_duration=self.sleep).strip()
                         while new_content==new_prompt:
                             print("content is equal")
-                            api.bring_browser_to_foreground()
+                            if api.os =="win":
+                                api.bring_browser_to_foreground()
                             time.sleep(2)
                             new_content =api.copy_message()
                     if type(new_prompt) == list:
