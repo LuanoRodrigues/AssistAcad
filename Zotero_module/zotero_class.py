@@ -787,7 +787,7 @@ class Zotero:
             """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
 
-        data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][15:]
+        data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][::-1]
         if article_title != "":
             index1 = [i for i in collection_data["items"]["papers"]].index(article_title)
             data = [(t, i) for t, i in collection_data[("items")]["papers"].items()][index1:index1+1]
@@ -1133,27 +1133,29 @@ class Zotero:
         - list: A list of unique keywords extracted from the HTML text.
         """
 
-        # Use regular expression to find all keywords within <li> tags
-        keywords = re.findall(r"<li>(.*?)</li>", html_text)
+        # Extract the content between <h2>2.4 Structure and Keywords</h2> and the next <h2>
+        section_match = re.search(r"<h2>2\.4 Structure and Keywords</h2>(.*?)<h2>", html_text, re.DOTALL)
 
-        # Process keywords to extract only the country for the "Affiliations, Countries, and Regions" section
-        processed_keywords = []
-        for keyword in keywords:
-            # Check if the keyword contains 'context:' indicating it is from the "Affiliations, Countries, and Regions" section
-            if 'context:' in keyword:
-                # Extract the country part before '(context:'
-                country = keyword.split('(context:')[0].strip()
-                processed_keywords.append(country)
-            else:
+        if section_match:
+            section_content = section_match.group(1)
+
+            # Use regular expression to find all keywords within <li> tags within the section
+            keywords = re.findall(r"<li>(.*?)</li>", section_content)
+
+            # Process keywords to extract only the country for the "Affiliations, Countries, and Regions" section
+            processed_keywords = []
+            for keyword in keywords:
                 processed_keywords.append(keyword.strip())
 
-        # Remove duplicates by converting the list to a set, then back to a list
-        unique_keywords = list(set(processed_keywords))
+            # Remove duplicates by converting the list to a set, then back to a list
+            unique_keywords = list(set(processed_keywords))
 
-        # Generate a list of dictionaries with tags
-        tags = [{"tag": tag.lower()} for tag in unique_keywords]
+            # Generate a list of dictionaries with tags
+            tags = [{"tag": tag.lower()} for tag in unique_keywords]
 
-        return tags
+            return tags
+
+        return []
 
     def extract_insert_article_schema(self,note_id,save=False):
         """
