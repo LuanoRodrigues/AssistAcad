@@ -29,7 +29,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=5
+    sleep=1
 
 
 
@@ -62,7 +62,7 @@ library_id = library_id,
 # #               article_title="transparent attributions of cybera attacks to states?",
 #               specific_section="<h2>2.4 Structure and Keywords</h2>"an aqnnsjdjkshdjhsdjhs
 #               )
-# zt.update_all("Law and evidence",update=True,tag=""
+# zt.update_all("Law and evidence",update=False
 # # #               # index=0,
 # #               article_title="transparent attributions of cybera attacks to states?",
 # #               specific_section="<h2>2.1 Main Topics</h2>"
@@ -82,7 +82,7 @@ library_id = library_id,
 #         print(t)
 # data =zt.extract_relevant_h2_blocks(note_id="IPEHN9SC")
 #
-data = zt.extract_insert_article_schema(note_id="FZWWZ29G",save=True)
+data = zt.extract_insert_article_schema(note_id="KFJR36PJ",save=True)
 #
 # print(data)
 # ONE ZOTERO NOTE
