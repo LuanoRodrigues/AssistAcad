@@ -29,7 +29,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=1
+    sleep=5*60
 
 
 
@@ -47,30 +47,22 @@ library_id = library_id,
 #     index1 = [i for i in collection_data["items"]["papers"]].index(keys)
 #     print(index1)
 
-# zt.update_all("lawful evidence",update=False,
-#               index=4,
-#               #article_title="",
-#               specific_section=to_delete,delete=True)
 
-# zt.update_all("lawful evidence",update=True,
-#               index=0,
-#               # article_title="Evidentiary Issues in International Disputes Related to State Responsibility for Cyber Operations",
-#               specific_section=new_section)
-#
-# zt.update_all("saved",update=True,
-# # #               # index=0,
-# #               article_title="transparent attributions of cybera attacks to states?",
-#               specific_section="<h2>2.4 Structure and Keywords</h2>"an aqnnsjdjkshdjhsdjhs
-#               )
-# zt.update_all("Law and evidence",update=False
-# # #               # index=0,
+zt.update_all("Law and evidence",update=False
+#               article_title="transparent attributions of cybera attacks to states?",
+#               specific_section="<h2>2.1 Main Topics</h2>"
+              )
+
+
+# zt.update_all("cyber due diligence",update=True
 # #               article_title="transparent attributions of cybera attacks to states?",
 # #               specific_section="<h2>2.1 Main Topics</h2>"
 #               )
-# #
-# # data =zt.get_children_notes("AVC23QZR")
-# # print(data)
 
+
+# data =zt.get_children_notes("AVC23QZR")
+# print(data)
+import os
 
 # data= zt.get_or_update_collection("Law and evidence",update=False)
 # data1 =[(t,i["note"]["note_id"]) for t,i in data[("items")]["papers"].items() if i["note"]["note_id"]][4:]
@@ -82,7 +74,7 @@ library_id = library_id,
 #         print(t)
 # data =zt.extract_relevant_h2_blocks(note_id="IPEHN9SC")
 #
-data = zt.extract_insert_article_schema(note_id="KFJR36PJ",save=True)
+# data = zt.extract_insert_article_schema(note_id="KFJR36PJ",save=True)
 #
 # print(data)
 # ONE ZOTERO NOTE

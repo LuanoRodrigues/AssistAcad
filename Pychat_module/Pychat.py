@@ -3,8 +3,10 @@ from alive_progress import alive_bar, alive_it,config_handler
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
 from selenium.webdriver.support.ui import WebDriverWait
-
-
+from pywinauto import Application
+from pywinauto.findwindows import ElementNotFoundError
+import win32gui
+import win32con
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import pyautogui
@@ -275,9 +277,9 @@ class ChatGPT:
 
             if self.chat_id == "":
                 self.driver.get(f'https://chat.openai.com')
-            # self.url = f'https://chat.openai.com/{self.chat_id}?temporary-chat=true'
+            self.url = f'https://chat.openai.com{self.chat_id}?temporary-chat=true'
 
-            self.url = f'https://chat.openai.com/{self.chat_id}'
+            # self.url = f'https://chat.openai.com/{self.chat_id}'
             self.driver.get(self.url)
         else:
             self.driver.get(f'{chatgpt_chat_url}/{self.__conversation_id}')
@@ -286,6 +288,42 @@ class ChatGPT:
         self.__is_active = True
         Thread(target=self.__keep_alive, daemon=True).start()
 
+    def is_file_dialog_open(self, filename):
+        def enum_windows_proc(hwnd, lParam):
+            class_name = win32gui.GetClassName(hwnd)
+            if class_name == '#32770':  # Class name for dialogs
+                title = win32gui.GetWindowText(hwnd)
+                if "Open" in title or "Save" in title or "Select" in title:
+                    lParam.append(hwnd)
+            return True
+
+        open_dialogs = []
+        win32gui.EnumWindows(enum_windows_proc, open_dialogs)
+
+        if open_dialogs:
+            dialog_hwnd = open_dialogs[0]
+            try:
+                app = Application().connect(handle=dialog_hwnd)
+                dialog = app.window(handle=dialog_hwnd)
+
+                # Print control identifiers to inspect the dialog
+                dialog.print_control_identifiers()
+
+                # Find the ComboBox and then the Edit control within it
+                combo_box = dialog.child_window(class_name="ComboBox", found_index=0)
+                edit = combo_box.child_window(class_name="Edit")
+                time.sleep(4)
+                if edit.exists():
+                    print("Found the editable text control.")
+                    edit.set_text(filename)  # Set the filename
+                    dialog.type_keys('{ENTER}')  # Press Enter to submit
+                else:
+                    print("Could not find the text box for filename input.")
+            except ElementNotFoundError:
+                print("Could not find the file dialog window.")
+
+            return True
+        return False
     def bring_browser_to_foreground(self):
         if self.os=="win":
             import pygetwindow as gw
@@ -320,15 +358,42 @@ class ChatGPT:
 
         # Switch back to the new tab
         # self.driver.switch_to.window(self.driver.window_handles[0])
-    def pdf_errs(self):
+
+    def right_click_middle(self):
+        # Get the dimensions of the entire web page
+        page_width = self.driver.execute_script("return document.documentElement.scrollWidth")
+        page_height = self.driver.execute_script("return document.documentElement.scrollHeight")
+
+        # Calculate the middle point
+        middle_x = page_width / 2
+        middle_y = page_height / 2
+
+        # Move to the middle of the page and perform a right click
+        actions = ActionChains(self.driver)
+        actions.move_by_offset(middle_x, middle_y)
+        actions.click()  # This method performs a right-click
+        actions.perform()
+        time.sleep(1)
+
+        # Press the backspace key using PyAutoGUI
+        pyautogui.press('backspace')
+
+    def check_redbox_element(self):
         try:
-            # Target the specific element by its unique characteristics
-            red_block_div = self.driver.find_element(By.CSS_SELECTOR, ".toast-root .bg-red-500")
-            print("The red block div is present on the page.")
-            return True
-            # Optional: Return or process the element
-        except NoSuchElementException:
-            print("The red block div is not found on the page.")
+            # Directly targeting the element with a combination of classes and role attribute
+            red_box = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH,
+                                                "//div[contains(@class, 'bg-red-500') and contains(@class, 'border-red-500') and @role='alert']"))
+            )
+            # Check if the specific text is present
+            if "Não foi possível carregar" in red_box.text:
+                print("The red alert box is present on the page with the specific error message.")
+                return True
+            else:
+                print("The red alert box does not contain the expected error message.")
+                return False
+        except (NoSuchElementException, TimeoutException):
+            print("The red alert box is not found on the page.")
             return False
 
     def check_brownser_errs(self):
@@ -500,69 +565,119 @@ class ChatGPT:
             self.driver.close()
         if not close:
             self.driver.quit()
+
+    def click_first_clickable_button(self):
+        xpath_list = [
+            "#radix-\\:r56\\:",  # CSS Selector for the ID
+            "#__next > div.relative.z-0.flex.h-full.w-full.overflow-hidden > div.relative.flex.h-full.max-w-full.flex-1.flex-col.overflow-hidden > main > div.flex.h-full.flex-col.focus-visible\\:outline-0 > div.w-full.md\\:pt-0.dark\\:border-white\\/20.md\\:border-transparent.md\\:dark\\:border-transparent.md\\:w-\\[calc\\(100\\%-\\.5rem\\)\\].juice\\:w-full > div.px-3.text-base.md\\:px-4.m-auto.md\\:px-5.lg\\:px-1.xl\\:px-5 > div > form > div > div.flex.w-full.items-center > div > div > div:nth-child(1)",
+            "//div[@data-state='closed']/div/input[@type='file']/following-sibling::button",
+            "//button[@aria-haspopup='menu' and @data-state='closed']",
+            "//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']/following-sibling::div/button",
+            "//div[contains(@class, 'flex')]/button[contains(@class, 'text-token-text-primary') and @aria-haspopup='menu']",
+            "//*[contains(@class, 'text-token-text-primary') and contains(@class, 'border') and contains(@class, 'inline-flex') and contains(@id, 'radix-:r56:')]",
+            '//div[@type="button" and @aria-haspopup="dialog"]',
+            # Flexible XPath with multiple attributes
+            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]"
+            # Provided XPath
+        ]
+
+        for selector in xpath_list:
+            try:
+                # Determine if the selector is an XPath or CSS Selector
+                if selector.startswith('//') or selector.startswith('('):
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    locator = (By.XPATH, selector)
+                else:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    locator = (By.CSS_SELECTOR, selector)
+
+                if not elements:
+                    print(f"No elements found for selector: {selector}")
+                    continue
+
+                # Wait until the element is clickable
+                button = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable(locator)
+                )
+                button.click()
+                print(f"Clicked button with selector: {selector}")
+                return True  # Exit after clicking the first clickable button
+            except Exception as e:
+                print(f"Button with selector {selector} not clickable. Error: {e}")
+                continue
+
+        raise Exception("File dialogue button not found.Please update the xpath list")
+
+
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
-        button_xpath = '//button[@aria-label="Attach files"]'
-        if self.os=='mac':
-            button_xpath = '//div[@type="button" and @aria-haspopup="dialog"]'
-        if self.os=='win':
-            button_xpath="//div[@class='flex']//button[@aria-label='Anexar arquivos']"
-        button = WebDriverWait(self.driver, timeout).until(
-            EC.element_to_be_clickable((By.XPATH, button_xpath))
-        )
-        button.click()
-        print("Clicked the button.")
+        self.right_click_middle()
+        time.sleep(2)
+        if self.is_file_dialog_open(path):
+            if self.check_redbox_element():
+                return False
+            else:
+                return True
+        elif self.click_first_clickable_button():
+            # Wait for the file dialog to open
+            print("Waiting for the file dialog to open...")
+            time.sleep(2)  # Adjust this delay to ensure the file dialog is open
 
-        # Wait for the file dialog to open
-        print("Waiting for the file dialog to open...")
-        time.sleep(2)  # Adjust this delay to ensure the file dialog is open
+            # Copy the 'path' value to the clipboard
 
-        # Copy the 'path' value to the clipboard
+            pyperclip.copy(path)  # Copy path to clipboard
+            print("File copied to clipboard.")
+            print("pdf",path)
+            if self.os == "mac":
+                pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
+                time.sleep(5)  # Wait a moment for the paste action to complete
+                print("Pasting the path in the file dialog...")
+                pyautogui.hotkey('command', 'v')  # Paste the path from the clipboard
+                time.sleep(2)  # Wait a moment for the paste action to complete
+                pyautogui.press('enter')  # Press enter to submit the dialog
+                time.sleep(2)
+                pyautogui.press('enter')  # Press enter to submit the dialog
+                print("submit.")
+            if self.os == "win":
+                if self.is_file_dialog_open(path):
+                    pass
+                else:
+                    raise Exception("File dialogue button not found.Please update the xpath list")
+                time.sleep(5)
+                    # The following key actions are intended for the file dialog,
+                # print("Pasting the path in the file dialog...")
+                # pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
+                # print("Pasted the path.")
+                # time.sleep(3)  # Wait a moment for the paste action to complete
+                # pyautogui.press('enter')  # Press enter to submit the dialog
+                # print("Pressed return.")
+            if self.check_redbox_element():
+                return False
+            self.sleep(50)
 
-        pyperclip.copy(path)  # Copy path to clipboard
-        print("File copied to clipboard.")
-        print("pdf",path)
-        if self.os == "mac":
-            pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
-            time.sleep(5)  # Wait a moment for the paste action to complete
-            print("Pasting the path in the file dialog...")
-            pyautogui.hotkey('command', 'v')  # Paste the path from the clipboard
-            time.sleep(2)  # Wait a moment for the paste action to complete
-            pyautogui.press('enter')  # Press enter to submit the dialog
-            time.sleep(2)
-            pyautogui.press('enter')  # Press enter to submit the dialog
-            print("submit.")
-        if self.os == "win":
-                # The following key actions are intended for the file dialog,
-            print("Pasting the path in the file dialog...")
-            pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
-            print("Pasted the path.")
-            time.sleep(3)  # Wait a moment for the paste action to complete
-            pyautogui.press('enter')  # Press enter to submit the dialog
-            print("Pressed return.")
-        self.sleep(1)
-
-        # Wait for the file to be uploaded (adjust time as necessary)
-        print("Waiting for the file to upload...")
-
+            # Wait for the file to be uploaded (adjust time as necessary)
+            print("Waiting for the file to upload...")
+        else:
+            print("waiting forever")
+            time.sleep(5000)
 
     def interact_with_page(self, path, prompt="",copy=True):
         pyautogui.press('esc', 2)
         if type(path)==str:
-            self.insert_pdfs(path)
-
+            if self.insert_pdfs(path):
+                self.interact_with_page(path=path, prompt=prompt, copy=copy)
         if type(path) == list:
             for pdf_path in path:
-                self.insert_pdfs(pdf_path)
-        if self.pdf_errs():
-            self.interact_with_page(path=path, prompt=prompt, copy=copy)
+                if not self.insert_pdfs(pdf_path):
+
+                    self.interact_with_page(path=path, prompt=prompt, copy=copy)
         if copy:
             content =self.send_message(message=prompt)
             return content
 
     def sleep(self,sleep_duration):
-        sleep_duration = sleep_duration*60
+
         config_handler.set_global(spinner='dots_waves2', bar='bubbles', theme='smooth')
 
         # Determine the maximum width for the progress bar to ensure it fits in the display area
