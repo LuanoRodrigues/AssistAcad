@@ -4,6 +4,7 @@ import ast
 import time
 import pickle
 from pathlib import Path
+import math
 import traceback
 from alive_progress import alive_bar, alive_it,config_handler
 
@@ -272,12 +273,12 @@ class Zotero:
             for file in files:
                 if file.endswith(".pdf"):
                     current_pdf_path = os.path.join(root, file)
-                    # new_pdf_path = os.path.join(root, new_filename)
-                    #
-                    # if current_pdf_path != new_pdf_path:
-                    #     os.rename(current_pdf_path, new_pdf_path)
-                    #     print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
-                    #     return new_pdf_path
+                    new_pdf_path = os.path.join(root, new_filename)
+
+                    if current_pdf_path != new_pdf_path:
+                        os.rename(current_pdf_path, new_pdf_path)
+                        print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
+                        return new_pdf_path
                     return current_pdf_path
 
 
@@ -460,7 +461,7 @@ class Zotero:
         }])
     
         print("New note created:", new_note)
-        time.sleep(15)
+        time.sleep(30)
         new_note_id =new_note['successful']['0']['data']['key']
         if new_note_id:
             note = self.zot.item(new_note_id)
@@ -491,7 +492,7 @@ class Zotero:
 
 
 
-    def update_zotero_note_section(self, note_id="JFHPQ8IX", updates=note_update, api=None,delete=False):
+    def update_zotero_note_section(self,pdf_title, note_id="JFHPQ8IX", updates=note_update, api=None,delete=False):
         if api == None:
             api = ChatGPT(**self.chat_args)
         """
@@ -517,6 +518,7 @@ class Zotero:
         else:
             print(f"No note content found for item ID {note_id}")
             return
+        author= self.get_html_info(note_content)
         updated_content = note_content  # Initialize with the current note content
         # Process updates for each section
         for section, new_prompt in updates.items():
@@ -537,7 +539,7 @@ class Zotero:
                     # Generate new content using the API based on the provided prompt
                     if type(new_prompt) == str:
 
-                        new_content = api.send_message(new_prompt,sleep_duration=self.sleep).strip()
+                        new_content = api.send_message(pdf_title+f"\nauthor name ={author}\n"+new_prompt,sleep_duration=self.sleep).strip()
                         while new_content==new_prompt:
                             print("content is equal")
                             if api.os =="win":
@@ -545,12 +547,15 @@ class Zotero:
                             time.sleep(2)
                             new_content =api.copy_message()
                     if type(new_prompt) == list:
+                        item_list=[]
                         for item in new_prompt:
-                            new_content += api.send_message(item,sleep_duration=self.sleep).strip()
-                            if new_content == new_prompt:
+
+                            item_list.append(api.send_message(pdf_title+" "+item,sleep_duration=self.sleep).strip())
+                            if item_list[-1]== item:
                                 time.sleep(4)
-                                new_content = api.copy_message()
+                                item_list[-1] = api.copy_message()
                                 print("content is equal")
+                        new_content = " ".join(item_list)
                     self.append_training_data(prompt=new_prompt,expected_response=new_content)
 
                 # Replace the old section content with the new one
@@ -819,11 +824,13 @@ class Zotero:
                     print("schema=:",self.schema)
 
                     if self.schema:
+                        pdf_title = "PDF_TITLE ATTACHED=" + os.path.split(pdf)[-1] + "\n"
                         section_dict = {
-                            k: (f"Perform an in-depth section analysis of the section: '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key finding/idea, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2,3') and provide a focused short summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. follow this structure: ```html <h3>Paragraph 1 - [key finding in one short sentence]</h3> <p>[Provide a short summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2,3 - [Next Key finding or idea in one short sentence]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or finding.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> [Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key findings or ideas until the end of the section]``` This methodical approach ensures a structured and precise examination of the section: '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key findings or ideas, all supported by direct quotations from the document for a comprehensive and insightful analysis until the end of the provided section."
-                                f"\nnote:if you need to cite the paper during your responses, do in this format (author, date)\noutput:a HTML div in a code block")
+                            k: (
+                                f"{pdf_title}Read the provided PDF carefully, paragraph by paragraph, and perform an in-depth section analysis of the section: '{self.clean_h2_title(k)}' in the attached PDF document. Carefully count each paragraph starting from the beginning of this section. For each key finding/idea, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2,3') accompanied by direct quotes from the respective paragraphs to illustrate or support the key points identified. Follow this structure: ```html <h3>Paragraph 1 - [key finding in one short sentence]</h3> <blockquote>'[Direct quote from the first paragraph in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text]'</blockquote> <h3>Paragraphs 2,3 - [Next Key finding or idea in one short sentence]</h3> <blockquote>'[Direct quote from paragraph 2 in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> [Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key findings or ideas until the end of the section]``` This methodical approach ensures a structured and precise examination of the section: '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key findings or ideas, all supported by direct quotations from the document for a comprehensive and insightful analysis until the end of the provided section. Take your time, and review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n\nnote1: Direct quotes format must be in the form of one full sentence. The full sentence must be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text. After getting the exact quote that supports your analysis, reference with the author name between ()\nnote2: Output format: HTML in a code block.")
+                            for k in self.schema if k not in ["Abstract", "table pf"]
+                        }
 
-                            for k in self.schema if k not in ["Abstract", "table pf"]}
                         note_update.update(section_dict)
 
                     if specific_section and "note_complete" not in note["tags"]:
@@ -841,7 +848,12 @@ class Zotero:
                     else:
 
                         note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                        self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+                        print("headings:",note_update1.keys())
+                        if note_update1.keys():
+                            self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
+                        if not note_update1.keys():
+                            note_complete -= 1
+
                 if  note["headings"] == []:
                     note_complete -=1
             if note["note_id"] is None and pdf is not None:
@@ -876,7 +888,7 @@ class Zotero:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
-        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::-1]
+        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::1]
         note_complete = len(collection_data["items"]["papers"].items())
         # Setting up the tqdm iterator
         pbar = tqdm(data,
@@ -910,7 +922,7 @@ class Zotero:
 
                 if self.schema:
                     section_dict = {
-                        k: f"Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+                        k: f"PDF={pdf}Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
 
                         for k in self.schema if k not in ["Abstract", "table pf"]}
                     sections_prompt.update(section_dict)
@@ -956,15 +968,24 @@ class Zotero:
 
         api = ChatGPT(**self.chat_args)
         # if self.chat_args.get("chat_id"):
+        if len(section_prompts)>5:
+            section_to =  list(sections_prompt.keys())[math.ceil(len(section_prompts.keys()) / 2)]
+
+
         api.interact_with_page(path=pdf, copy=False)
         # Assuming thematic_section is a dictionary
         with tqdm(section_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
             for key, value in pbar:
+                if len(section_prompts)>5:
+                    if key==section_to:
+                        api.interact_with_page(path=pdf, copy=False)
 
                 pbar.set_description(f"Processing section {key}",
                                      )
-                self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api)
+                pdf_title ="PDF_TITLE ATTACHED="+os.path.split(pdf)[-1]+"\n"
+
+                self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api,pdf_title=pdf_title)
                 pbar.update()
                 if key=="<h2>2.4 Structure and Keywords</h2>":
                     self.extract_insert_article_schema(note_id=note_id,save=True)
@@ -979,8 +1000,8 @@ class Zotero:
 
                 pbar.set_description(f"Processing section {key}",
                                      )
-
-                self.update_zotero_note_section2(note_id=note_id, sections={key: value},pdf=pdf,reference=reference)
+                pdf_title ="pdf="+os.path.split(pdf)[-1]
+                self.update_zotero_note_section2(note_id=note_id, sections={key: pdf_title+value},pdf=pdf,reference=reference)
                 pbar.update()
 
     def extract_relevant_h2_blocks(self,note_id):
@@ -1547,6 +1568,32 @@ class Zotero:
 
         self.create_one_note(collection_id=collection_key,title=collection_name,tag=section,content=html_data)
         # create_word_document_from_html(html_content=html_data,output_path="output.docx")
+
+    def get_html_info(self,html_string, between="li", feature="Authors"):
+        """
+        Extracts specified information from an HTML string.
+
+        This function searches for a specified feature within a specified HTML tag and
+        extracts the information following a colon (':') within that tag.
+
+        Parameters:
+        html_string (str): The HTML content as a string.
+        between (str): The HTML tag to search within (default is 'li').
+        feature (str): The text to search for within the specified HTML tag (default is 'Authors').
+
+        Returns:
+        str: The extracted information following the feature text, or None if the feature is not found.
+        """
+        soup = BeautifulSoup(html_string, 'html.parser')
+        # Find all tags of the specified type
+        tags = soup.find_all(between)
+        for tag in tags:
+            # Check if the tag contains the specified feature text
+            if feature in tag.get_text():
+                # Extract and clean the information after the colon
+                info = tag.get_text().split(':')[-1].strip()
+                return info
+        return None
     def get_content_after_heading(self,note_id, main_heading,sub_heading):
         note = self.zot.item(note_id)
         tags = note['data'].get('tags', [])
@@ -1600,4 +1647,5 @@ class Zotero:
             return []
 
 # TODO: cosine similarity among pdfs
+"take the exact sentence and extract the paragraph where it is. the block if found would be replaced by the entire paragraph, else the direct quote for the model"
 
