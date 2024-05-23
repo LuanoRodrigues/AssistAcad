@@ -21,8 +21,9 @@ import requests
 import re
 from datetime import datetime
 from Pychat_module.gpt_api import api_send
+from Word_modules.Creating_docx import  Docx_creation
 
-
+Dc = Docx_creation()
 
 class Zotero:
     def __init__(self,
@@ -278,8 +279,20 @@ class Zotero:
                     if current_pdf_path != new_pdf_path:
                         os.rename(current_pdf_path, new_pdf_path)
                         print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
-                        return new_pdf_path
-                    return current_pdf_path
+                        if os.path.exists(new_pdf_path.replace(".pdf", ".docx")):
+                            print("The DOCX file exists.")
+                            return new_pdf_path.replace(".pdf", ".docx")
+                        else:
+                           # Assume this is a method defined elsewhere in the class
+                            print("The DOCX file does not exist.")
+                            return Dc.pdf_to_docx(new_pdf_path)
+                    if os.path.exists(current_pdf_path.replace(".pdf", ".docx")):
+                        print("The DOCX file exists.")
+                        return current_pdf_path.replace(".pdf", ".docx")
+                    else:
+
+
+                        return Dc.pdf_to_docx(current_pdf_path)
 
 
     def create_note(self,item_id,path):
@@ -879,71 +892,71 @@ class Zotero:
             Parameters:
             - collection_name (str): The name of the Zotero collection to process.
             - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
-            - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
-            - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
-
-            The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
-
-            Note:
-            - The method provides feedback via print statements regarding the progress and success of note updates.
-            """
-        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
-        data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::1]
-        note_complete = len(collection_data["items"]["papers"].items())
-        # Setting up the tqdm iterator
-        pbar = tqdm(data,
-                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
-                    colour='green')
-        for keys, values in pbar:
-            # Dynamically update the description with the current key being processed
-            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
-            pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
-            note = values['note']
-            id = values['id']
-            pdf = values['pdf']
-            reference = values['reference']
-
-
-
-
-            if note is None and pdf is not None:
-                print("note is None and pdf is None")
-
-
-                note_id= self.create_note(id, pdf)
-
-                if note_id:
-                    self.update_multiple_notes2(sections_prompts=sections_prompt,note_id=note_id,pdf=pdf,reference=reference
-                                                   )
-
-            if note and note["headings"]:
-                note_content = note["content"]
-                self.schema = self.extract_insert_article_schema(note_content)
-
-                if self.schema:
-                    section_dict = {
-                        k: f"PDF={pdf}Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
-
-                        for k in self.schema if k not in ["Abstract", "table pf"]}
-                    sections_prompt.update(section_dict)
-                try:
-                    note_id=note["note_id"]
-                    note_update1 = {k: v for k, v in sections_prompt.items() if k in note["headings"]}
-                except Exception as EE:
-                    print("exception ", EE)
-
-                self.update_multiple_notes2(sections_prompts=note_update1,pdf=pdf, note_id=note_id,reference=reference)
-
-
-
-            if note and note["headings"] == []:
-                note_complete -=1
-
-
-        if note_complete>0:
-            return True
-        if note_complete ==0:
-            return False
+        #     - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+        #     - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+        #
+        #     The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+        #
+        #     Note:
+        #     - The method provides feedback via print statements regarding the progress and success of note updates.
+        #     """
+        # collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
+        # data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ][::1]
+        # note_complete = len(collection_data["items"]["papers"].items())
+        # # Setting up the tqdm iterator
+        # pbar = tqdm(data,
+        #             bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+        #             colour='green')
+        # for keys, values in pbar:
+        #     # Dynamically update the description with the current key being processed
+        #     index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+        #     pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
+        #     note = values['note']
+        #     id = values['id']
+        #     pdf = values['pdf']
+        #     reference = values['reference']
+        #
+        #
+        #
+        #
+        #     if note is None and pdf is not None:
+        #         print("note is None and pdf is None")
+        #
+        #
+        #         note_id= self.create_note(id, pdf)
+        #
+        #         if note_id:
+        #             self.update_multiple_notes2(sections_prompts=sections_prompt,note_id=note_id,pdf=pdf,reference=reference
+        #                                            )
+        #
+        #     if note and note["headings"]:
+        #         note_content = note["content"]
+        #         self.schema = self.extract_insert_article_schema(note_content)
+        #
+        #         if self.schema:
+        #             section_dict = {
+        #                 k: f"PDF={pdf}Perform an in-depth analysis of the '{self.clean_h2_title(k)}' in the attached PDF document, carefully counting each paragraph starting from the beginning of this section. For each key idea or theme identified, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2-3') and provide a focused summary of the principal ideas discussed in these paragraphs. Accompany each summary with direct quotes from the respective paragraphs to illustrate or support the key points identified. ### Guideline for Analysis Presentation: ```html <div> <h3>Paragraph 1 - [Key Idea or Theme]</h3> <p>[Provide a summary of the principal idea discussed in the first paragraph of the section.]</p> <blockquote>'[Direct quote from the first paragraph.]'</blockquote> <h3>Paragraphs 2-3 - [Next Key Idea or Theme]</h3> <p>[Summarize the principal ideas discussed across paragraphs 2 and 3, grouping them by the overarching theme or concept.]</p> <blockquote>'[Direct quote from paragraph 2.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> <!-- Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key ideas or themes --> </div> ``` This methodical approach ensures a structured and precise examination of the '{k}', organized by the specific paragraphs and their associated key ideas or themes, all supported by direct quotations from the document for a comprehensive and insightful analysis."
+        #
+        #                 for k in self.schema if k not in ["Abstract", "table pf"]}
+        #             sections_prompt.update(section_dict)
+        #         try:
+        #             note_id=note["note_id"]
+        #             note_update1 = {k: v for k, v in sections_prompt.items() if k in note["headings"]}
+        #         except Exception as EE:
+        #             print("exception ", EE)
+        #
+        #         self.update_multiple_notes2(sections_prompts=note_update1,pdf=pdf, note_id=note_id,reference=reference)
+        #
+        #
+        #
+        #     if note and note["headings"] == []:
+        #         note_complete -=1
+        #
+        #
+        # if note_complete>0:
+        #     return True
+        # if note_complete ==0:
+        #     return False
 
     def clean_h2_title(self,html_string):
         """
@@ -1645,6 +1658,52 @@ class Zotero:
         else:
             # Return an empty list if the main heading section is not found
             return []
+
+    from bs4 import BeautifulSoup
+    import re
+
+
+    def update_quotes(self, note_id,pdf,author,stop_words):
+        #ask in the structure section to get patters of number of page, water marks... to be cleaned after
+        note = self.zot.item(note_id)
+        if 'data' in note and 'note' in note['data']:
+            note_content = note['data']['note']
+            soup = BeautifulSoup(note_content, 'html.parser')
+
+            # Locate the <h1> section entitled "3. Summary"
+            section_h1 = soup.find('h1', string='3. Summary')
+            if not section_h1:
+                raise ValueError("There is no section titled '3. Summary'")
+
+            # Directly modifying blockquotes following this section
+            blockquotes = section_h1.find_all_next('blockquote')
+            for blockquote in blockquotes:
+                original_text = blockquote.get_text(strip=True)
+                processed_text = Dc.extract_paragraphs_and_footnotes(pdf_path=pdf,quote=original_text,author=author,stop_words=stop_words)
+                blockquote.clear()  # Clear existing content
+                blockquote.append(processed_text if processed_text else original_text)  # Append the new processed text
+                print(f"Updated blockquote: {blockquote}")
+
+            # Serialize the modified soup to HTML string
+            updated_note_content = str(soup)
+            updated_note = {
+                'key': note['data']['key'],
+                'version': note['data']['version'],
+                'itemType': note['data']['itemType'],
+                'note': updated_note_content,
+                'tags': note['data'].get('tags', [])
+            }
+
+            # Update the note in Zotero
+            try:
+                response = self.zot.update_item(updated_note)
+                if response:
+                    print("Note updated successfully.")
+                else:
+                    print("Failed to update the note.")
+            except Exception as e:
+                print(f"An error occurred during the update: {e}")
+            return response
 
 # TODO: cosine similarity among pdfs
 "take the exact sentence and extract the paragraph where it is. the block if found would be replaced by the entire paragraph, else the direct quote for the model"
