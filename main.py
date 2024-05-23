@@ -60,9 +60,9 @@ zt.update_all("Law and evidence",update=False
 #               )
 
 
-# data =zt.get_children_notes("AVC23QZR")
-# print(data)
-import os
+# data =zt.get_children_notes("BSRRQ7HD")
+# data =zt.update_quotes("BSRRQ7HD",pdf=r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf",author="(Schmit,2015)",stop_words="")
+
 
 # data= zt.get_or_update_collection("Law and evidence",update=False)
 # data1 =[(t,i["note"]["note_id"]) for t,i in data[("items")]["papers"].items() if i["note"]["note_id"]][4:]

@@ -1,4 +1,6 @@
 from logging.handlers import TimedRotatingFileHandler
+
+import win32api
 from alive_progress import alive_bar, alive_it,config_handler
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions as SeleniumExceptions
@@ -259,6 +261,7 @@ class ChatGPT:
                 self.chat_id ="?model=gpt-4o"
             if self.chat_id == "meu":
                 self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
+                # self.chat_id="/gpts/editor/g-8dBHrjLA4"
             if self.chat_id == "evaluator":
                 self.chat_id = "/g/g-nLpL4nvaW"
             if self.chat_id == "4":
@@ -288,7 +291,7 @@ class ChatGPT:
         self.__is_active = True
         Thread(target=self.__keep_alive, daemon=True).start()
 
-    def is_file_dialog_open(self, filename):
+    def is_file_dialog_open(self, filename="",insert=True):
         def enum_windows_proc(hwnd, lParam):
             class_name = win32gui.GetClassName(hwnd)
             if class_name == '#32770':  # Class name for dialogs
@@ -299,7 +302,8 @@ class ChatGPT:
 
         open_dialogs = []
         win32gui.EnumWindows(enum_windows_proc, open_dialogs)
-
+        if insert==False:
+            return open_dialogs
         if open_dialogs:
             dialog_hwnd = open_dialogs[0]
             try:
@@ -360,24 +364,45 @@ class ChatGPT:
         # self.driver.switch_to.window(self.driver.window_handles[0])
 
     def right_click_middle(self):
-        # Get the dimensions of the entire web page
-        page_width = self.driver.execute_script("return document.documentElement.scrollWidth")
-        page_height = self.driver.execute_script("return document.documentElement.scrollHeight")
+        while True:
+            # Get the dimensions of the entire web page
+            page_width = self.driver.execute_script("return document.documentElement.scrollWidth")
+            page_height = self.driver.execute_script("return document.documentElement.scrollHeight")
 
-        # Calculate the middle point
-        middle_x = page_width / 2
-        middle_y = page_height / 2
+            # Calculate the middle point
+            middle_x = page_width / 2
+            middle_y = page_height / 2
+            time.sleep(6)
+            try:
+                # Find the target element (specific div)
+                target_element = self.driver.find_element(By.CSS_SELECTOR,
+                                                          '.flex.h-full.flex-col.items-center.justify-center.text-token-text-primary .gizmo-shadow-stroke')
 
-        # Move to the middle of the page and perform a right click
-        actions = ActionChains(self.driver)
-        actions.move_by_offset(middle_x, middle_y)
-        actions.click()  # This method performs a right-click
-        actions.perform()
-        time.sleep(1)
+                # Move to the middle of the target element and perform a double-click
+                actions = ActionChains(self.driver)
+                actions.move_to_element(target_element).double_click().perform()
+                print("Double-click performed")
 
-        # Press the backspace key using PyAutoGUI
-        pyautogui.press('backspace')
+                # Ensure the element is focused by clicking it
+                target_element.click()
+                time.sleep(1)
 
+                # Press the backspace key using pywin32
+                win32api.keybd_event(win32con.VK_BACK, 0, 0, 0)
+                time.sleep(0.05)  # Sleep for a short duration
+                win32api.keybd_event(win32con.VK_BACK, 0, win32con.KEYEVENTF_KEYUP, 0)
+                print("Backspace pressed")
+
+                # Check if the file dialog is open
+                if self.is_file_dialog_open():
+                    input("File dialog opened")
+                    break
+
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+            # Small delay before the next iteration
+            time.sleep(5)
     def check_redbox_element(self):
         try:
             # Directly targeting the element with a combination of classes and role attribute
@@ -576,9 +601,11 @@ class ChatGPT:
             "//div[contains(@class, 'flex')]/button[contains(@class, 'text-token-text-primary') and @aria-haspopup='menu']",
             "//*[contains(@class, 'text-token-text-primary') and contains(@class, 'border') and contains(@class, 'inline-flex') and contains(@id, 'radix-:r56:')]",
             '//div[@type="button" and @aria-haspopup="dialog"]',
-            # Flexible XPath with multiple attributes
+            "//button[@class='flex items-center justify-center text-token-text-primary juice:h-8 juice:w-8 dark:text-white juice:rounded-full focus-visible:outline-black dark:focus-visible:outline-white juice:mb-1 juice:ml-[3px]' and @aria-disabled='false']",
+            "//button[contains(@class, 'flex') and contains(@class, 'items-center') and contains(@class, 'justify-center') and contains(@class, 'text-token-text-primary') and contains(@class, 'juice:h-8') and contains(@class, 'juice:w-8') and contains(@class, 'dark:text-white') and contains(@class, 'juice:rounded-full') and contains(@class, 'focus-visible:outline-black') and contains(@class, 'dark:focus-visible:outline-white') and contains(@class, 'juice:mb-1') and contains(@class, 'juice:ml-[3px]') and @aria-disabled='false']",
+            "//button[contains(@class, 'flex') and contains(@class, 'items-center') and @aria-disabled='false']//svg[@xmlns='http://www.w3.org/2000/svg' and @width='24' and @height='24']/path[@fill='currentColor' and @fill-rule='evenodd']",
+            "//button[@aria-disabled='false' and descendant::svg[@xmlns='http://www.w3.org/2000/svg' and @width='24' and @height='24']]",
             "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]"
-            # Provided XPath
         ]
 
         for selector in xpath_list:
@@ -606,13 +633,54 @@ class ChatGPT:
                 print(f"Button with selector {selector} not clickable. Error: {e}")
                 continue
 
-        raise Exception("File dialogue button not found.Please update the xpath list")
+        # Specific check for the last <div> element
+        div_xpath_list = [
+            "(//div[@role='menuitem' and contains(@class, 'flex items-center') and contains(@class, 'p-2.5') and contains(@class, 'text-token-text-secondary') and .//text()='Carregar do computador'])[last()]",
+            "(//div[@role='menuitem' and contains(@class, 'flex items-center') and contains(@class, 'cursor-pointer') and .//text()='Carregar do computador'])[last()]",
+            "//div[@role='menuitem' and .//text()='Carregar do computador']",
+            "//div[contains(@class, 'radix-state-open:bg-[#f5f5f5]') and .//text()='Carregar do computador']",
+            "//*[@id='radix-:r3e:']//div[contains(text(), 'Carregar do computador')]",
+            "//*[@id='radix-:r3e:']/div[contains(@class, 'flex items-center') and contains(text(), 'Carregar do computador')]",
+            "#radix-\\:r3e\\: > div:nth-child(5)"
+        ]
 
+        for div_selector in div_xpath_list:
+            try:
+                # Determine if the selector is an XPath or CSS Selector
+                if div_selector.startswith('//') or div_selector.startswith('('):
+                    div_element = WebDriverWait(self.driver, 5).until(
+                        EC.visibility_of_element_located((By.XPATH, div_selector))
+                    )
+                else:
+                    div_element = WebDriverWait(self.driver, 5).until(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, div_selector))
+                    )
+
+                # Scroll the element into view
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", div_element)
+                WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, div_selector))
+                )
+
+                try:
+                    div_element.click()
+                except Exception as e:
+                    print(f"Selenium click failed, using JavaScript click: {e}")
+                    self.driver.execute_script("arguments[0].click();", div_element)
+
+                print(f"Clicked on the specified <div> element with selector: {div_selector}")
+                return True
+            except Exception as e:
+                print(f"Specified <div> element with selector {div_selector} not clickable. Error: {e}")
+
+        print("No clickable button or <div> element found.")
+        raise Exception("File dialogue button not found. Please update the xpath list.")
 
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
-        self.right_click_middle()
+        # self.right_click_middle()
+        self.click_first_clickable_button()
         time.sleep(2)
         if self.is_file_dialog_open(path):
             if self.check_redbox_element():
@@ -641,7 +709,9 @@ class ChatGPT:
                 print("submit.")
             if self.os == "win":
                 if self.is_file_dialog_open(path):
-                    pass
+                    time.sleep(2)
+
+
                 else:
                     raise Exception("File dialogue button not found.Please update the xpath list")
                 time.sleep(5)
@@ -654,27 +724,34 @@ class ChatGPT:
                 # print("Pressed return.")
             if self.check_redbox_element():
                 return False
+            else:
+                return True
             self.sleep(50)
 
             # Wait for the file to be uploaded (adjust time as necessary)
             print("Waiting for the file to upload...")
         else:
             print("waiting forever")
-            time.sleep(5000)
+
 
     def interact_with_page(self, path, prompt="",copy=True):
         pyautogui.press('esc', 2)
-        if type(path)==str:
-            if self.insert_pdfs(path):
-                self.interact_with_page(path=path, prompt=prompt, copy=copy)
-        if type(path) == list:
-            for pdf_path in path:
-                if not self.insert_pdfs(pdf_path):
-
+        continue_func=False
+        while not continue_func:
+            if type(path)==str:
+                continue_func=self.insert_pdfs(path)
+                if not continue_func:
                     self.interact_with_page(path=path, prompt=prompt, copy=copy)
-        if copy:
-            content =self.send_message(message=prompt)
-            return content
+            if type(path) == list:
+                for pdf_path in path:
+                    continue_func=self.insert_pdfs(pdf_path)
+                if not continue_func:
+                    self.interact_with_page(path=path, prompt=prompt, copy=copy)
+            if copy and continue_func:
+                content =self.send_message(message=prompt)
+                return content
+            time.sleep(5)
+
 
     def sleep(self,sleep_duration):
 

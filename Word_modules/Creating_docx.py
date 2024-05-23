@@ -1,12 +1,13 @@
 import json
 import os
-
+import re
+from bs4 import BeautifulSoup
 from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.oxml import qn
 from docx.oxml import OxmlElement
 from tqdm import tqdm
-
-from word_data import  metadata
+from pdf2docx import Converter
+from Word_modules.word_data import  metadata
 from datetime import datetime
 from docx import Document
 from docx.shared import Pt, Inches
@@ -285,77 +286,166 @@ class Docx_creation():
         # run._r.append(fldSimple)
 
 
-# docx = Docx_creation()
-# docx.save_docx(directory_path="Cyber Evidence", output_path="books_data/Cyber Evidence/Cyber evidence.json")
-from docx import Document
-from bs4 import BeautifulSoup
-def create_word_document_from_html(html_content, output_path):
-    # Initialize a new Word document
-    doc = Document()
+    # docx = Docx_creation()
+    # docx.save_docx(directory_path="Cyber Evidence", output_path="books_data/Cyber Evidence/Cyber evidence.json")
 
-    # Parse HTML content
-    soup = BeautifulSoup(html_content, 'html.parser')
+    def create_word_document_from_html(self,html_content, output_path):
+        # Initialize a new Word document
+        doc = Document()
 
-    # Extract headings and paragraphs
-    headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-    paragraphs = soup.find_all('p')
+        # Parse HTML content
+        soup = BeautifulSoup(html_content, 'html.parser')
 
-    # Add headings to the document
-    for heading in headings:
-        text = heading.get_text()
-        level = int(heading.name[1])  # Extract heading level from tag name (e.g., 'h1' -> level 1)
-        doc.add_heading(text, level=level)
+        # Extract headings and paragraphs
+        headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        paragraphs = soup.find_all('p')
 
-    # Add paragraphs to the document
-    for paragraph in paragraphs:
-        text = paragraph.get_text()
-        doc.add_paragraph(text)
+        # Add headings to the document
+        for heading in headings:
+            text = heading.get_text()
+            level = int(heading.name[1])  # Extract heading level from tag name (e.g., 'h1' -> level 1)
+            doc.add_heading(text, level=level)
 
-    # Save the document
-    doc.save(output_path)
+        # Add paragraphs to the document
+        for paragraph in paragraphs:
+            text = paragraph.get_text()
+            doc.add_paragraph(text)
 
-#
-# output_path = "output.docx"
-# create_word_document_from_html(html_content, output_path)
+        # Save the document
+        doc.save(output_path)
 
-def add_texts_to_html(html_path, headings_texts_dict, start_from=None):
-    with open(html_path, 'r') as file:
-        html_content = file.readlines()
+    #
+    # output_path = "output.docx"
+    # create_word_document_from_html(html_content, output_path)
 
-    updated_html_content = []
-    processing = not start_from  # If start_from is None, start processing immediately
+    def add_texts_to_html(self,html_path, headings_texts_dict, start_from=None):
+        with open(html_path, 'r') as file:
+            html_content = file.readlines()
 
-    for line in html_content:
-        if not processing:
-            if start_from in line:
-                processing = True
+        updated_html_content = []
+        processing = not start_from  # If start_from is None, start processing immediately
+
+        for line in html_content:
+            if not processing:
+                if start_from in line:
+                    processing = True
+                else:
+                    updated_html_content.append(line.strip() + '\n')
+                    continue
+
+            for heading, text in headings_texts_dict.items():
+                if heading in line:
+                    updated_html_content.append(line.strip() + '\n')
+                    updated_html_content.append(text.strip() + '\n')
+                    break
             else:
                 updated_html_content.append(line.strip() + '\n')
+
+        with open(html_path, 'w') as file:
+            file.writelines(updated_html_content)
+
+    def pdf_to_docx(self,pdf_path):
+        import logging
+        # Setting up logging
+        logging.basicConfig(filename='pdf_conversion.log', level=logging.DEBUG)
+
+        # Extracting the file name without extension and the directory path
+        docx_path = pdf_path.rsplit('.', 1)[0] + '.docx'
+
+        # Create a Converter object and perform conversion
+        try:
+            cv = Converter(pdf_path)
+            cv.convert(docx_path, start=0, end=None)
+            cv.close()
+            return docx_path
+        except Exception as e:
+            logging.error(f"Failed to convert {pdf_path}: {e}")
+            cv.close()
+            return None
+
+    # Example usage:
+    # pdf_path = r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf" # Replace with your PDF file path
+    # pdf_to_docx(pdf_path)
+    # from docx import Document
+
+    from docx import Document
+    import os
+    def extract_paragraphs_and_footnotes(self, pdf_path, quote,author,stop_words):
+        docx_path = pdf_path.replace('.pdf', '.docx')
+        if os.path.exists(docx_path):
+            print("The DOCX file exists.")
+        else:
+            self.pdf_to_docx(pdf_path)  # Assume this is a method defined elsewhere in the class
+            print("The DOCX file does not exist.")
+
+        doc = Document(docx_path)
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+
+        merged_paragraphs = []
+        footnotes = {}
+        current_paragraph = ""
+        current_footnote_number = 0
+        current_footnote_content = ""
+
+        # Regular expressions to detect repetitive and unwanted content
+        unwanted_patterns = [
+            r'^This content downloaded from \d+\.\d+\.\d+\.\d+ on \w+, \d+ \w+ \d{4} \d{2}:\d{2}:\d{2} \+\d{4} All use subject to https://about\.jstor\.org/terms$',
+            r'This content downloaded from 92.40.169.176 on Fri, 10 May 2024 08:35:35 +00:00 All use subject to https:',  # Pagination pattern
+            r'RESPONDING TO PROXY CYBER OPERATIONS UNDER INTERNATIONAL LAW',
+            r'^\d...THE CYBER DEFENSE REVIEW',
+            r'DURWARD E. JOHNSON : MICHAEL N. SCHMITT',
+        ]
+        len_paragraphs = len(paragraphs)
+        for i, paragraph in enumerate(paragraphs):
+            # Skip unwanted repetitive lines or pagination
+            if any(re.match(pattern, paragraph) for pattern in unwanted_patterns):
                 continue
 
-        for heading, text in headings_texts_dict.items():
-            if heading in line:
-                updated_html_content.append(line.strip() + '\n')
-                updated_html_content.append(text.strip() + '\n')
-                break
-        else:
-            updated_html_content.append(line.strip() + '\n')
+            # Handle footnotes
+            if paragraph[0].isdigit() and '.' in paragraph[:3]:
+                potential_number = paragraph.split('.')[0]
+                if potential_number.isdigit():
+                    current_footnote_number = int(potential_number)
+                    current_footnote_content = paragraph[len(potential_number) + 1:].strip()
+                    if current_footnote_content.endswith('.'):
+                        footnotes[current_footnote_number] = current_footnote_content
+                        current_footnote_content = ""
+                    continue
 
-    with open(html_path, 'w') as file:
-        file.writelines(updated_html_content)
+            # Remove single-word or very short lines
+            if len(paragraph.split()) <= 2:
+                continue
 
-# Define headings and texts
-headings_texts = {
-    "<h2>Chapter 1: Introduction</h2>": "<p>This is the detailed introduction to our sample document.</p>",
-    "<h2>Chapter 3: Conclusion</h2>": "<p>This section summarizes the key points of our document.</p>"
-}
+            # Special handling for paragraphs that may end with period followed by a footnote marker
+            if i + 1 < len_paragraphs and re.search(r'\[\d+\]$', paragraph) and paragraphs[i + 1][0].isupper():
+                if current_paragraph:
+                    merged_paragraphs.append(current_paragraph)
+                current_paragraph = paragraph
+            elif current_footnote_content:
+                current_footnote_content += " " + paragraph
+                if paragraph.endswith('.'):
+                    footnotes[current_footnote_number] = current_footnote_content
+                    current_footnote_content = ""
+            else:
+                # Ensure paragraphs start with a capital and are properly ended
+                if paragraph[0].isupper() and (paragraph.endswith('.') or re.search(r'\[\d+\]$', paragraph)):
+                    if current_paragraph:
+                        merged_paragraphs.append(current_paragraph)
+                    current_paragraph = paragraph
+                else:
+                    current_paragraph += " " + paragraph
 
-# Update the HTML file
-html_file_path = 'books_data/example.html'
-add_texts_to_html(html_file_path, headings_texts, start_from="<h2>Chapter 2:")
+        # Append any remaining content
+        if current_paragraph:
+            merged_paragraphs.append(current_paragraph)
+        if current_footnote_content:
+            footnotes[current_footnote_number] = current_footnote_content
 
-# Read and display the updated HTML file
-with open(html_file_path, 'r') as file:
-    updated_html_content = file.read()
-
-print(updated_html_content)
+        # Match and interact based on a quote
+        for para in merged_paragraphs:
+            if quote[4:30].replace('"', '').replace("'", "") in para.replace('"', '').replace("'", ""):
+                print(quote[4:30])
+                print(para)
+                print("\n\n\n")
+                return para
+        # return {'paragraphs': merged_paragraphs, 'footnotes': footnotes}
