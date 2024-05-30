@@ -1,3 +1,5 @@
+import time
+
 from bs4 import BeautifulSoup
 
 from Zotero_module.zotero_data import sections_prompt,note_update
@@ -29,7 +31,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=5*60
+    sleep=3*60
 
 
 
@@ -46,23 +48,50 @@ library_id = library_id,
 #     # Dynamically update the description with the current key being processed
 #     index1 = [i for i in collection_data["items"]["papers"]].index(keys)
 #     print(index1)
+# try:
+#
+#     print(zt.update_all(
+#         "Law and evidence",
+#         # "cyber due diligence",
+#                         update=True
+#     #               article_title="transparent attributions of cybera attacks to states?",
+#     #               specific_section="<h2>2.1 Main Topics</h2>"
+#
+#                  ))
+# except:
+#     pass
+# time.sleep(60*30)
 
 
-zt.update_all("Law and evidence",update=False
+# try:
+#     print(zt.update_all(
+#
+#         "cyber due diligence",
+#                         update=True
+#     #               article_title="transparent attributions of cybera attacks to states?",
+#     #               specific_section="<h2>2.1 Main Topics</h2>"
+#
+#                  ))
+# except:
+#     pass
+# time.sleep(60*30)
+print(zt.update_all(
+    "saved",
+    # "cyber due diligence",
+                    update=True
 #               article_title="transparent attributions of cybera attacks to states?",
 #               specific_section="<h2>2.1 Main Topics</h2>"
-              )
 
-
-# zt.update_all("cyber due diligence",update=True
-# #               article_title="transparent attributions of cybera attacks to states?",
-# #               specific_section="<h2>2.1 Main Topics</h2>"
-#               )
-
+             ))
 
 # data =zt.get_children_notes("BSRRQ7HD")
 # data =zt.update_quotes("BSRRQ7HD",pdf=r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf",author="(Schmit,2015)",stop_words="")
 
+# data =zt.get_or_update_collection("Law and evidence",False)
+# data1 =[ (t,i) for t,i in data[("items")]["papers"].items()][::-1]
+# for t,i in data1:
+#     print(t)
+#     print(i["note"]["headings"])
 
 # data= zt.get_or_update_collection("Law and evidence",update=False)
 # data1 =[(t,i["note"]["note_id"]) for t,i in data[("items")]["papers"].items() if i["note"]["note_id"]][4:]
@@ -74,7 +103,7 @@ zt.update_all("Law and evidence",update=False
 #         print(t)
 # data =zt.extract_relevant_h2_blocks(note_id="IPEHN9SC")
 #
-# data = zt.extract_insert_article_schema(note_id="KFJR36PJ",save=True)
+# data = zt.extract_insert_article_schema(note_id="WQNGS522",save=True)
 #
 # print(data)
 # ONE ZOTERO NOTE
