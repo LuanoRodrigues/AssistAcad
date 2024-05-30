@@ -10,6 +10,7 @@ from alive_progress import alive_bar, alive_it,config_handler
 
 from progress.bar import Bar
 from Pychat_module.gpt_api import chat_response
+from NLP_module.Clustering_Embeddings import clustering_df
 from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
@@ -163,11 +164,15 @@ class Zotero:
                                         # Iterate through each author in the data.
                                         # Check if both 'firstName' and 'lastName' keys exist, and join them if they do.
                                         # If they don't exist, use the 'name' key directly.
-                                        authors = ", ".join([
+                                        authors =[
                                             f"{author['firstName']} {author['lastName']}" if 'firstName' in author and 'lastName' in author
                                             else author['name']
                                             for author in item['data'].get('creators', [])
-                                        ])
+                                        ]
+                                        if len(authors) > 3:
+                                            authors = authors[1]+"et al"
+                                        else:
+                                            authors = ", ".join(authors)
                                     except Exception as e:
                                         authors= "author"
                                         # If there is an error, print out the error and the format that caused it.
@@ -280,19 +285,22 @@ class Zotero:
                         os.rename(current_pdf_path, new_pdf_path)
                         print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
                         if os.path.exists(new_pdf_path.replace(".pdf", ".docx")):
-                            print("The DOCX file exists.")
                             return new_pdf_path.replace(".pdf", ".docx")
                         else:
                            # Assume this is a method defined elsewhere in the class
-                            print("The DOCX file does not exist.")
-                            return Dc.pdf_to_docx(new_pdf_path)
+                            pdf_word_path =Dc.pdf_to_docx(new_pdf_path)
+                            if pdf_word_path:
+                                return pdf_word_path
+                            else:
+                                return  new_pdf_path
                     if os.path.exists(current_pdf_path.replace(".pdf", ".docx")):
-                        print("The DOCX file exists.")
                         return current_pdf_path.replace(".pdf", ".docx")
                     else:
-
-
-                        return Dc.pdf_to_docx(current_pdf_path)
+                        pdf_word_path = Dc.pdf_to_docx(new_pdf_path)
+                        if pdf_word_path:
+                            return pdf_word_path
+                        else:
+                            return current_pdf_path
 
 
     def create_note(self,item_id,path):
@@ -547,8 +555,6 @@ class Zotero:
                         updated_section = f""
 
                 else:
-                    print("section",section)
-                    print()
                     # Generate new content using the API based on the provided prompt
                     if type(new_prompt) == str:
 
@@ -845,7 +851,6 @@ class Zotero:
                         }
 
                         note_update.update(section_dict)
-
                     if specific_section and "note_complete" not in note["tags"]:
                         note_id = note["note_id"]
                         note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
@@ -859,15 +864,16 @@ class Zotero:
                                 self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
                                                       delete=delete, api=api)
                     else:
+                        print("note headings:",note["headings"])
 
                         note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                        print("headings:",note_update1.keys())
+                        print("note_update1:",note_update1)
                         if note_update1.keys():
                             self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
                         if not note_update1.keys():
                             note_complete -= 1
 
-                if  note["headings"] == []:
+                elif  note["headings"] == []:
                     note_complete -=1
             if note["note_id"] is None and pdf is not None:
                 print("note is None and pdf is None")
@@ -981,16 +987,18 @@ class Zotero:
 
         api = ChatGPT(**self.chat_args)
         # if self.chat_args.get("chat_id"):
-        if len(section_prompts)>5:
-            section_to =  list(sections_prompt.keys())[math.ceil(len(section_prompts.keys()) / 2)]
+        if len(section_prompts.keys())>5:
+            index=math.ceil(len(section_prompts.keys()) / 2)
+            section_to =  list(section_prompts.keys())[index]
 
+            print("section:",section_to)
 
         api.interact_with_page(path=pdf, copy=False)
         # Assuming thematic_section is a dictionary
         with tqdm(section_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
                   colour='blue') as pbar:
             for key, value in pbar:
-                if len(section_prompts)>5:
+                if len(section_prompts.keys())>5:
                     if key==section_to:
                         api.interact_with_page(path=pdf, copy=False)
 
@@ -1002,7 +1010,7 @@ class Zotero:
                 pbar.update()
                 if key=="<h2>2.4 Structure and Keywords</h2>":
                     self.extract_insert_article_schema(note_id=note_id,save=True)
-            api.delete_quit(close=False)
+            api.__del__()
 
     def update_multiple_notes2(self, sections_prompts, note_id, pdf,reference):
         with tqdm(sections_prompts.items(), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
@@ -1013,7 +1021,7 @@ class Zotero:
 
                 pbar.set_description(f"Processing section {key}",
                                      )
-                pdf_title ="pdf="+os.path.split(pdf)[-1]
+                pdf_title ="Document="+os.path.split(pdf)[-1]
                 self.update_zotero_note_section2(note_id=note_id, sections={key: pdf_title+value},pdf=pdf,reference=reference)
                 pbar.update()
 
@@ -1607,64 +1615,138 @@ class Zotero:
                 info = tag.get_text().split(':')[-1].strip()
                 return info
         return None
-    def get_content_after_heading(self,note_id, main_heading,sub_heading):
+
+    def merging_notes(self, collection_name, update=True, section="<h2>2.1 Main Topics</h2>", excel=True):
+        """
+        Merges notes from a specified collection into either a single HTML note or an Excel file.
+
+        Parameters:
+        - collection_name (str): The name of the collection to process.
+        - update (bool): Whether to update the collection data before processing.
+        - section (str): HTML section tag to identify content after which to extract.
+        - excel (bool): If set to True, output is exported to an Excel file; otherwise, merges into a single HTML note.
+        """
+
+        import pandas as pd  # Ensure pandas is only used when necessary.
+
+        if os.path.exists("df_saved.xlsx"):
+            df = pd.read_excel("df_saved.xlsx")
+            keywords = ['evidence', 'proof', 'burden', 'standards', 'standard', 'circumstantial']
+
+            return clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
+                        n_clusters=28
+                        )
+
+        # Fetch or update the collection data
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        collection_key = collection_data["collection_key"] if collection_data[
+                                                                  "collection_name"] == collection_name else None
+
+        # Data preparation
+        data = [(t, i["note"]["note_id"]) for t, i in collection_data["items"]["papers"].items()
+                # if "read" in i["note"]["tags"]
+                ]
+        html_data = ""
+        rows = []
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+        # Processing items for either HTML or Excel
+        for title, note_id in pbar:
+            pbar.set_description("processing article {}".format(title))
+            if note_id is not None:
+                content = self.get_content_after_heading(note_id, section, "h3")
+                # if not content:
+                #     # input("Press Enter to")
+                if excel:
+
+                    # Append each item directly within the loop to ensure it's not skipped or misplaced
+                    for entry in content:
+                        rows.append({
+                            "Title": title,
+                            "Code": entry['code'].split("-")[-1],
+                            "Content": entry['content'],
+                            "Quotes": entry['quotes']
+                        })
+
+
+                else:
+                    d = f"<h1>{title}</h1>" + " ".join(
+                        [f"<h2>{entry['code'].split('-')[-1]}</h2>\n{entry['blockcode']}" for entry in content])
+                    html_data += d + "\n"
+
+            # Output condition based on the excel flag
+        if excel:
+            if rows:  # Ensure that rows have been collected
+                df = pd.DataFrame(rows, columns=["Title", "Code", "Content", "Quotes"])
+                df.to_excel("df_saved.xlsx", index=False)
+                clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
+                     n_clusters=68
+                     )
+
+                # df.to_excel(f"{collection_name}.xlsx", index=False)
+            else:
+                print("No data available to export to Excel.")
+        else:
+            if html_data:  # Ensure there is content to create a note
+                self.create_one_note(collection_id=collection_key, title=collection_name, tag=section,
+                                     content=html_data)
+            else:
+                print("No data available to create HTML note.")
+
+    def get_content_after_heading(self, note_id, main_heading, sub_heading):
+        """
+            Extracts all text content from specified sub_headings within a section defined by a main_heading.
+
+            Args:
+            note_content (str): HTML content to be parsed.
+            main_heading (str): Specific heading tag and title to identify the section, e.g., '<h1>1. Summary</h1>'.
+            sub_heading (str): Sub heading tag to find within the main heading section, e.g., 'h3'.
+
+            Returns:
+            list: A list of texts from all sub_heading tags within the specified main heading section.
+            """
+
         note = self.zot.item(note_id)
         tags = note['data'].get('tags', [])
         if "note_complete" in tags:
             return
+
         if 'data' in note and 'note' in note['data']:
             note_content = note['data']['note']
         else:
             print(f"No note content found for item ID {note_id}")
-            return
-
-
-        main_heading_level = int(main_heading[2])
-
-        # Build the regex pattern dynamically to match only content under the specified main heading
-        escaped_heading = re.escape(main_heading)
-        # Match until another heading of the same level or any heading of a higher level
-        pattern = re.compile(rf'({escaped_heading})(.*?)(?=<h[1-{main_heading_level}]>|$)', re.DOTALL | re.IGNORECASE)
-        matches = pattern.search(note_content)
-
-        if matches:
-            # Extract the relevant section content
-            section_content = matches.group(2)
-
-            # Use BeautifulSoup to parse the HTML content
-            soup = BeautifulSoup(section_content, 'html.parser')
-
-            # Initialize result list
-            results = []
-
-            # Find all tags specified as sub_heading_tag
-            sub_heading_tags = soup.find_all("h3")
-
-            for tag in sub_heading_tags:
-                # Find all sibling elements until the next sub_heading_tag or higher level heading
-                sibling_content = []
-                for sibling in tag.find_next_siblings():
-                    # Ensure the tag is a heading tag and check if it's equal or more significant than the sub_heading_tag
-                    if sibling.name and sibling.name.startswith('h') and len(sibling.name) == 2 and sibling.name[
-                        1].isdigit():
-                        if int(sibling.name[1]) <= int("h3"[1]):
-                            break
-                    sibling_content.append(str(sibling))
-
-                # Store the sub_heading_tag text with its associated content
-                results.append({'code': tag.get_text(), 'content': ''.join(sibling_content)})
-
-            return results
-        else:
-            # Return an empty list if the main heading section is not found
             return []
 
-    from bs4 import BeautifulSoup
-    import re
+        main_tag_name, title = re.match(r'<(h\d+)>(.*?)</\1>', main_heading).groups()
 
+        # Adjust the pattern to capture all content following the specified main heading until the next main heading of the same or higher level
+        pattern = re.compile(rf'{re.escape(main_heading)}(.*?)(?=<{main_tag_name} |$)', re.DOTALL | re.IGNORECASE)
+        matches = pattern.search(note_content)
+        if not matches:
+            print(f"No matching section found for the heading {main_heading}.")
+            print(note_content)
+            return []
 
-    def update_quotes(self, note_id,pdf,author,stop_words):
-        #ask in the structure section to get patters of number of page, water marks... to be cleaned after
+        section_content = matches.group(1)
+        soup = BeautifulSoup(section_content, 'html.parser')
+        results = []
+
+        sub_heading_tags = soup.find_all(sub_heading)
+        for tag in sub_heading_tags:
+            sibling = tag.find_next_sibling()
+            # Check if the next sibling is a blockquote and belongs to the current sub-heading
+            if sibling and sibling.name == 'blockquote':
+                results.append({
+                    'code': tag.get_text().strip(),  # title of the h3
+                    'content': sibling.get_text().strip(),  # text of the blockquote
+                    'quotes': str(sibling)  # HTML content of the blockquote
+                })
+
+        return results
+
+    def update_quotes(self, note_id, pdf, author, stop_words):
+        # ask in the structure section to get patters of number of page, water marks... to be cleaned after
         note = self.zot.item(note_id)
         if 'data' in note and 'note' in note['data']:
             note_content = note['data']['note']
@@ -1679,7 +1761,8 @@ class Zotero:
             blockquotes = section_h1.find_all_next('blockquote')
             for blockquote in blockquotes:
                 original_text = blockquote.get_text(strip=True)
-                processed_text = Dc.extract_paragraphs_and_footnotes(pdf_path=pdf,quote=original_text,author=author,stop_words=stop_words)
+                processed_text = Dc.extract_paragraphs_and_footnotes(pdf_path=pdf, quote=original_text, author=author,
+                                                                     stop_words=stop_words)
                 blockquote.clear()  # Clear existing content
                 blockquote.append(processed_text if processed_text else original_text)  # Append the new processed text
                 print(f"Updated blockquote: {blockquote}")

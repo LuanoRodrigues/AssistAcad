@@ -311,7 +311,7 @@ class ChatGPT:
                 dialog = app.window(handle=dialog_hwnd)
 
                 # Print control identifiers to inspect the dialog
-                dialog.print_control_identifiers()
+                # dialog.print_control_identifiers()
 
                 # Find the ComboBox and then the Edit control within it
                 combo_box = dialog.child_window(class_name="ComboBox", found_index=0)
@@ -321,12 +321,13 @@ class ChatGPT:
                     print("Found the editable text control.")
                     edit.set_text(filename)  # Set the filename
                     dialog.type_keys('{ENTER}')  # Press Enter to submit
+                    return True
                 else:
                     print("Could not find the text box for filename input.")
             except ElementNotFoundError:
                 print("Could not find the file dialog window.")
 
-            return True
+            return False
         return False
     def bring_browser_to_foreground(self):
         if self.os=="win":
@@ -421,33 +422,26 @@ class ChatGPT:
             print("The red alert box is not found on the page.")
             return False
 
-    def check_brownser_errs(self):
-        button_xpath = "//button[contains(., 'Regenerate')]"
+    def check_browser_errs(self):
+        selectors = [
+            (By.XPATH, "//button[contains(., 'Regenerate')]"),
+            (By.XPATH, "//button[@class='btn relative btn-primary m-auto']"),
+            (By.XPATH, "//div[@class='flex w-full gap-2 items-center justify-center']//button"),
+            (By.CSS_SELECTOR, "button.btn.relative.btn-primary.m-auto"),
+            (By.CSS_SELECTOR, "button[as='button']")
+        ]
 
-        # Wait for the button to be clickable
-        try:
-            button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
-            # If the button is found, click it
-            button.click()
-            print("Button clicked successfully!")
+        for by, selector in selectors:
+            try:
+                button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((by, selector)))
+                button.click()
+                print(f"Button clicked successfully using {by} with selector: {selector}")
+                return True
+            except TimeoutException:
+                print(f"Button not found or not clickable using {by} with selector: {selector}")
 
-        except TimeoutException:
-            print("Button not found or not clickable within the specified timeout.")
-
-        element_xpath = "//div[@class='text-sm text-token-text-error border-token-surface-error/15 bg-token-surface-error mt-2 flex w-full items-start gap-3 border rounded-2xl p-4 bg-opacity-5 mb-8']"
-        # Wait for the button to be clickable
-        try:
-
-            # Wait until the element is present on the page
-            element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, element_xpath)))
-
-            # Check if the element is found
-            if element:
-                print("Element found!")
-                time.sleep(5)
-        except TimeoutException:
-            print("Button not found or not clickable within the specified timeout.")
-
+        print("No buttons were found or clickable within the specified timeout.")
+        return False
     def __ensure_cf(self, retry: int = 3) -> None:
         '''
         Ensure Cloudflare cookies are set\n
@@ -591,15 +585,65 @@ class ChatGPT:
         if not close:
             self.driver.quit()
 
-    def click_first_clickable_button(self):
+    def click_file_Menubar(self):
+        div_xpath_list = [
+            "//div[@role='menuitem' and contains(@class, 'flex items-center') and contains(@class, 'cursor-pointer') and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and contains(@class, 'cursor-pointer') and contains(text(), 'Carregar do computador')]",
+            "//div[@role='menuitem' and contains(text(), 'Carregar do computador')]",
+            "//div[contains(@class, 'radix-state-open:bg-[#f5f5f5]') and .//text()='Carregar do computador']",
+            "//*[@id='radix-:rj:']//div[contains(text(), 'Carregar do computador')]",
+            "//*[@id='radix-:rj:']/div[contains(@class, 'flex items-center') and contains(text(), 'Carregar do computador')]",
+            "#radix-\\:rj\\: > div:nth-child(5)",
+            "//div[@role='menuitem' and @tabindex='-1' and contains(@class, 'radix-state-open:bg-[#f5f5f5]') and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and contains(@class, 'dark:hover:bg-token-main-surface-secondary') and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and @data-orientation='vertical' and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and @data-radix-collection-item and .//text()='Carregar do computador']",
+            "//div[@role='menuitem' and @tabindex='-1' and contains(@class, 'dark:hover:bg-token-main-surface-secondary') and .//text()='Carregar do computador']"
+        ]
+
+        for div_selector in div_xpath_list:
+            try:
+                # Determine if the selector is an XPath or CSS Selector
+                if div_selector.startswith('//') or div_selector.startswith('('):
+                    div_element = WebDriverWait(self.driver, 10).until(
+                        EC.visibility_of_element_located((By.XPATH, div_selector))
+                    )
+                    # Ensure the element is clickable before clicking it
+                    WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, div_selector))
+                    )
+                else:
+                    div_element = WebDriverWait(self.driver, 10).until(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, div_selector))
+                    )
+                    # Ensure the element is clickable before clicking it
+                    WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, div_selector))
+                    )
+
+                # Scroll the element into view
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", div_element)
+
+                try:
+                    div_element.click()
+                except Exception as e:
+                    print(f"Selenium click failed, using JavaScript click: {e}")
+                    self.driver.execute_script("arguments[0].click();", div_element)
+
+                print(f"Clicked on the specified <div> element with selector: {div_selector}")
+                return True  # Exit if an element is clicked successfully
+
+            except Exception as e:
+                print(f"Specified <div> element with selector {div_selector} not clickable. Error: {e}")
+
+        raise Exception("File dialogue button not found. Please update the div xpath list.")
+    def click_files_button(self):
         xpath_list = [
-            "#radix-\\:r56\\:",  # CSS Selector for the ID
-            "#__next > div.relative.z-0.flex.h-full.w-full.overflow-hidden > div.relative.flex.h-full.max-w-full.flex-1.flex-col.overflow-hidden > main > div.flex.h-full.flex-col.focus-visible\\:outline-0 > div.w-full.md\\:pt-0.dark\\:border-white\\/20.md\\:border-transparent.md\\:dark\\:border-transparent.md\\:w-\\[calc\\(100\\%-\\.5rem\\)\\].juice\\:w-full > div.px-3.text-base.md\\:px-4.m-auto.md\\:px-5.lg\\:px-1.xl\\:px-5 > div > form > div > div.flex.w-full.items-center > div > div > div:nth-child(1)",
-            "//div[@data-state='closed']/div/input[@type='file']/following-sibling::button",
-            "//button[@aria-haspopup='menu' and @data-state='closed']",
+            "#__next > div.relative.z-0.flex.h-full.w-full.overflow-hidden > div.relative.flex.h-full.max-w-full.flex-1.flex-col.overflow-hidden > main > div.flex.h-full.flex-col.focus-visible\\:outline-0 > div.w-full.md\\:pt-0.dark\\:border-white\\/20.md\\:border-transparent.md\\:dark\\:border-transparent.md\\:w-\\[calc\\(100\\%-\\.5rem\\)\\].juice\\:w-full > div.px-3.text-base.md\\:px-4.m-auto.md\\:px-5.lg\\:px-1.xl\\:px-5 > div > form > div > div.flex.w-full.items-center > div > div > div:nth-child(1) > div",
             "//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']/following-sibling::div/button",
             "//div[contains(@class, 'flex')]/button[contains(@class, 'text-token-text-primary') and @aria-haspopup='menu']",
-            "//*[contains(@class, 'text-token-text-primary') and contains(@class, 'border') and contains(@class, 'inline-flex') and contains(@id, 'radix-:r56:')]",
+            "//*[contains(@class, 'text-token-text-primary') and contains(@class, 'border') and contains(@class, 'inline-flex') and @id='radix-:ri:']",
             '//div[@type="button" and @aria-haspopup="dialog"]',
             "//button[@class='flex items-center justify-center text-token-text-primary juice:h-8 juice:w-8 dark:text-white juice:rounded-full focus-visible:outline-black dark:focus-visible:outline-white juice:mb-1 juice:ml-[3px]' and @aria-disabled='false']",
             "//button[contains(@class, 'flex') and contains(@class, 'items-center') and contains(@class, 'justify-center') and contains(@class, 'text-token-text-primary') and contains(@class, 'juice:h-8') and contains(@class, 'juice:w-8') and contains(@class, 'dark:text-white') and contains(@class, 'juice:rounded-full') and contains(@class, 'focus-visible:outline-black') and contains(@class, 'dark:focus-visible:outline-white') and contains(@class, 'juice:mb-1') and contains(@class, 'juice:ml-[3px]') and @aria-disabled='false']",
@@ -623,98 +667,69 @@ class ChatGPT:
                     continue
 
                 # Wait until the element is clickable
-                button = WebDriverWait(self.driver, 5).until(
+                button = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable(locator)
                 )
                 button.click()
                 print(f"Clicked button with selector: {selector}")
-                return True  # Exit after clicking the first clickable button
+                return True
+              # Exit after clicking the first clickable button
             except Exception as e:
                 print(f"Button with selector {selector} not clickable. Error: {e}")
-                continue
-
+            raise Exception("File dialogue button not found. Please update the div xpath list.")
+        time.sleep(4)
         # Specific check for the last <div> element
-        div_xpath_list = [
-            "(//div[@role='menuitem' and contains(@class, 'flex items-center') and contains(@class, 'p-2.5') and contains(@class, 'text-token-text-secondary') and .//text()='Carregar do computador'])[last()]",
-            "(//div[@role='menuitem' and contains(@class, 'flex items-center') and contains(@class, 'cursor-pointer') and .//text()='Carregar do computador'])[last()]",
-            "//div[@role='menuitem' and .//text()='Carregar do computador']",
-            "//div[contains(@class, 'radix-state-open:bg-[#f5f5f5]') and .//text()='Carregar do computador']",
-            "//*[@id='radix-:r3e:']//div[contains(text(), 'Carregar do computador')]",
-            "//*[@id='radix-:r3e:']/div[contains(@class, 'flex items-center') and contains(text(), 'Carregar do computador')]",
-            "#radix-\\:r3e\\: > div:nth-child(5)"
-        ]
 
-        for div_selector in div_xpath_list:
-            try:
-                # Determine if the selector is an XPath or CSS Selector
-                if div_selector.startswith('//') or div_selector.startswith('('):
-                    div_element = WebDriverWait(self.driver, 5).until(
-                        EC.visibility_of_element_located((By.XPATH, div_selector))
-                    )
-                else:
-                    div_element = WebDriverWait(self.driver, 5).until(
-                        EC.visibility_of_element_located((By.CSS_SELECTOR, div_selector))
-                    )
-
-                # Scroll the element into view
-                self.driver.execute_script("arguments[0].scrollIntoView(true);", div_element)
-                WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, div_selector))
-                )
-
-                try:
-                    div_element.click()
-                except Exception as e:
-                    print(f"Selenium click failed, using JavaScript click: {e}")
-                    self.driver.execute_script("arguments[0].click();", div_element)
-
-                print(f"Clicked on the specified <div> element with selector: {div_selector}")
-                return True
-            except Exception as e:
-                print(f"Specified <div> element with selector {div_selector} not clickable. Error: {e}")
-
-        print("No clickable button or <div> element found.")
-        raise Exception("File dialogue button not found. Please update the xpath list.")
 
     def insert_pdfs(self,path):
 
         print("Waiting for the button to be clickable...")
         # self.right_click_middle()
-        self.click_first_clickable_button()
-        time.sleep(2)
-        if self.is_file_dialog_open(path):
-            if self.check_redbox_element():
+
+
+        self.click_files_button()
+        self.click_file_Menubar()
+        dialogue = self.is_file_dialog_open(path)
+        if dialogue==True:
+
+            if self.check_redbox_element()==True:
                 return False
             else:
+                self.sleep(50)
+
+                # Wait for the file to be uploaded (adjust time as necessary)
+                print("Waiting for the file to upload...")
                 return True
-        elif self.click_first_clickable_button():
-            # Wait for the file dialog to open
-            print("Waiting for the file dialog to open...")
-            time.sleep(2)  # Adjust this delay to ensure the file dialog is open
+        else:
+            print("Not true")
+            print(dialogue)
+        # elif self.click_files_button():
+        #     # Wait for the file dialog to open
+        #     print("Waiting for the file dialog to open...")
+        #     time.sleep(2)  # Adjust this delay to ensure the file dialog is open
 
             # Copy the 'path' value to the clipboard
 
-            pyperclip.copy(path)  # Copy path to clipboard
-            print("File copied to clipboard.")
-            print("pdf",path)
-            if self.os == "mac":
-                pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
-                time.sleep(5)  # Wait a moment for the paste action to complete
-                print("Pasting the path in the file dialog...")
-                pyautogui.hotkey('command', 'v')  # Paste the path from the clipboard
-                time.sleep(2)  # Wait a moment for the paste action to complete
-                pyautogui.press('enter')  # Press enter to submit the dialog
-                time.sleep(2)
-                pyautogui.press('enter')  # Press enter to submit the dialog
-                print("submit.")
-            if self.os == "win":
-                if self.is_file_dialog_open(path):
-                    time.sleep(2)
-
-
-                else:
-                    raise Exception("File dialogue button not found.Please update the xpath list")
-                time.sleep(5)
+            # pyperclip.copy(path)  # Copy path to clipboard
+            # print("File copied to clipboard.")
+            # if self.os == "mac":
+            #     pyautogui.hotkey('command', 'shift','g')  # Paste the path from the clipboard
+            #     time.sleep(5)  # Wait a moment for the paste action to complete
+            #     print("Pasting the path in the file dialog...")
+            #     pyautogui.hotkey('command', 'v')  # Paste the path from the clipboard
+            #     time.sleep(2)  # Wait a moment for the paste action to complete
+            #     pyautogui.press('enter')  # Press enter to submit the dialog
+            #     time.sleep(2)
+            #     pyautogui.press('enter')  # Press enter to submit the dialog
+            #     print("submit.")
+            # if self.os == "win":
+            #     if self.is_file_dialog_open(path):
+            #         time.sleep(2)
+            #
+            #
+            #     else:
+            #         raise Exception("File dialogue button not found.Please update the xpath list")
+            #     time.sleep(5)
                     # The following key actions are intended for the file dialog,
                 # print("Pasting the path in the file dialog...")
                 # pyautogui.hotkey('ctrl', 'v')  # Paste the path from the clipboard
@@ -722,34 +737,33 @@ class ChatGPT:
                 # time.sleep(3)  # Wait a moment for the paste action to complete
                 # pyautogui.press('enter')  # Press enter to submit the dialog
                 # print("Pressed return.")
-            if self.check_redbox_element():
-                return False
-            else:
-                return True
-            self.sleep(50)
+            # if self.check_redbox_element():
+            #     return False
+            # else:
+            #     return True
 
-            # Wait for the file to be uploaded (adjust time as necessary)
-            print("Waiting for the file to upload...")
-        else:
-            print("waiting forever")
+
 
 
     def interact_with_page(self, path, prompt="",copy=True):
         pyautogui.press('esc', 2)
         continue_func=False
         while not continue_func:
+            print("while loop began")
             if type(path)==str:
                 continue_func=self.insert_pdfs(path)
-                if not continue_func:
+                if continue_func==False:
                     self.interact_with_page(path=path, prompt=prompt, copy=copy)
             if type(path) == list:
                 for pdf_path in path:
                     continue_func=self.insert_pdfs(pdf_path)
-                if not continue_func:
+                if continue_func==False:
                     self.interact_with_page(path=path, prompt=prompt, copy=copy)
             if copy and continue_func:
                 content =self.send_message(message=prompt)
                 return content
+            if continue_func==True:
+                break
             time.sleep(5)
 
 
@@ -838,8 +852,11 @@ class ChatGPT:
 
         self.logger.debug('Getting response...')
 
-        self.check_brownser_errs()
+
         self.sleep(sleep_duration)
+        if self.check_browser_errs():
+            print("regenerate found")
+            self.send_message(message)
 
 
         return self.copy_message()

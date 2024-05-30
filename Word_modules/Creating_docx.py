@@ -360,7 +360,7 @@ class Docx_creation():
             return docx_path
         except Exception as e:
             logging.error(f"Failed to convert {pdf_path}: {e}")
-            cv.close()
+
             return None
 
     # Example usage:
