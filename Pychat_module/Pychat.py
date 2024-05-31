@@ -263,7 +263,7 @@ class ChatGPT:
                 self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
                 # self.chat_id="/gpts/editor/g-8dBHrjLA4"
             if self.chat_id == "evaluator":
-                self.chat_id = "/g/g-nLpL4nvaW"
+                self.chat_id = "/g/g-R5g8dbYOl-assignment-evaluator"
             if self.chat_id == "4":
                 self.chat_id = "?model=gpt-4"
             if self.chat_id == "scholar":
@@ -685,8 +685,6 @@ class ChatGPT:
 
         print("Waiting for the button to be clickable...")
         # self.right_click_middle()
-
-
         self.click_files_button()
         self.click_file_Menubar()
         dialogue = self.is_file_dialog_open(path)
@@ -747,6 +745,7 @@ class ChatGPT:
 
     def interact_with_page(self, path, prompt="",copy=True):
         pyautogui.press('esc', 2)
+        print(" path:",path,"\nprompt:",prompt,"\ncopy:",copy)
         continue_func=False
         while not continue_func:
             print("while loop began")

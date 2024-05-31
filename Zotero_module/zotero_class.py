@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero, zotero_errors
-from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,feedback,overall_score,questions_addressed
+from Zotero_module.zotero_data import note_update, tag_prompt, tag_prompt, book,initial_book
 from Academic_databases.databses import get_document_info1,get_document_info2
 from tqdm import tqdm
 import requests
@@ -192,7 +192,7 @@ class Zotero:
                                         if tag == "replace" or tag == "append":
                                             if api:  # Check if API is set for non-delete aims
                                                 new_tags = ast.literal_eval(
-                                                    api.interact_with_page(prompt=tags_prompt,
+                                                    api.interact_with_page(prompt=tag_prompt,
                                                                            path=pdf_path, copy=True))
                                                 new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
 
@@ -272,8 +272,6 @@ class Zotero:
         subdirectories. If there are multiple PDF files, only the first encountered PDF file will be
         renamed, and the method will stop searching further.
         """
-        if not new_filename.endswith(".pdf"):
-            raise ValueError("The new filename must end with '.pdf'.")
 
         for root, dirs, files in os.walk(dir_path):
             for file in files:
@@ -301,6 +299,10 @@ class Zotero:
                             return pdf_word_path
                         else:
                             return current_pdf_path
+                if file.endswith(".docx"):
+                    current_pdf_path = os.path.join(root, file)
+                    return current_pdf_path
+
 
 
     def create_note(self,item_id,path):
@@ -1342,8 +1344,9 @@ class Zotero:
                         content=""):
         if api != "":
             if type(prompt) == list:
-                content += api.interact_with_page(path=pdf, prompt=prompt[0], copy=True)
-                content += "\n" + api.send_message(prompt[1], sleep_duration=self.sleep)
+                for prompts in prompt:
+
+                    content += api.interact_with_page(path=pdf, prompt=prompts, copy=True)+ "\n"
             if type(prompt) == str:
                 content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
 
@@ -1370,8 +1373,9 @@ class Zotero:
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
 
-    def evaluate(self,collection_name,index=0,tag=None,update=True):
-        api = ChatGPT(**self.chat_args)
+    def evaluate(self,collection_name,prompt_tag_dict,update=True):
+        # api = ChatGPT(**self.chat_args)
+        api=""
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
@@ -1386,8 +1390,10 @@ class Zotero:
             Note:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
-        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ]
+
+        print(data)
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
@@ -1401,21 +1407,12 @@ class Zotero:
             id = values['id']
             pdf = values['pdf']
             tags = values['note']["tags"]
-            print(f"tags:\n{tags}")
+            print(values)
+            input("Press Enter to continue...")
+            for tag,prompt in prompt_tag_dict.items():
+                if tag not in tags:
 
-            process=False
-            # if note is None and pdf is not None:
-            if "Questions_addressed" not in tags:
-                process =self.create_one_note(item_id=id, pdf=[pdf,r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf"],prompt=questions_addressed,api=api,tag="Questions_addressed")
-            if "Overall_score" not in tags:
-
-                process =self.create_one_note(item_id=id, pdf=[ pdf,r"C:\Users\luano\Downloads\MARKING RUBRIC.pdf",
-                                        r"C:\Users\luano\Downloads\Assignment 1 instruction sheet.pdf"],
-                                   prompt=overall_score, api=api,tag="Overall_score")
-            if "Feedback" not in tags:
-                process =self.create_one_note(item_id=id, pdf=[pdf,r"C:\Users\luano\Downloads\Feedbacks examples.pdf"],prompt=feedback,api=api,tag="Feedback")
-            if process:
-                api.open_new_tab()
+                    self.create_one_note(item_id=id, pdf=pdf,prompt=prompt,api=api,tag=tag,title=tag)
 
     def normalize_title(self,title):
         """ Normalize the title by removing punctuation, converting to lower case, and stripping spaces. """
