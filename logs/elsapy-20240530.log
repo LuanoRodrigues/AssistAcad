@@ -76,3 +76,9 @@
 2024-05-30 20:51:36,582 - elsapy.elsprofile - INFO - Module loaded.
 2024-05-30 20:51:36,583 - elsapy.elsdoc - INFO - Module loaded.
 2024-05-30 20:51:36,584 - elsapy.elssearch - INFO - Module loaded.
+2024-05-30 22:54:33,610 - elsapy.elsclient - INFO - Module loaded.
+2024-05-30 22:54:33,612 - elsapy.elsentity - INFO - Module loaded.
+2024-05-30 22:54:33,612 - elsapy.utils - INFO - Module loaded.
+2024-05-30 22:54:33,613 - elsapy.elsprofile - INFO - Module loaded.
+2024-05-30 22:54:33,613 - elsapy.elsdoc - INFO - Module loaded.
+2024-05-30 22:54:33,614 - elsapy.elssearch - INFO - Module loaded.

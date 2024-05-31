@@ -83,7 +83,7 @@ print(zt.update_all(
 #               specific_section="<h2>2.1 Main Topics</h2>"
 
              ))
-
+# zt.process_collections_file("saved")
 # data =zt.get_children_notes("BSRRQ7HD")
 # data =zt.update_quotes("BSRRQ7HD",pdf=r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf",author="(Schmit,2015)",stop_words="")
 
