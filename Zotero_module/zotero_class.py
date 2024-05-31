@@ -14,7 +14,7 @@ from NLP_module.Clustering_Embeddings import clustering_df
 from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
-from pyzotero import zotero
+from pyzotero import zotero, zotero_errors
 from Zotero_module.zotero_data import note_update, tags_prompt, book,initial_book, sections_prompt,feedback,overall_score,questions_addressed
 from Academic_databases.databses import get_document_info1,get_document_info2
 from tqdm import tqdm
@@ -1578,19 +1578,6 @@ class Zotero:
                 json.dump(data, file, indent=4)
             print(key,value)
 
-    def merging_notes(self, collection_name,update,section="<h2>2.1 Main Topics</h2>"):
-        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
-        collection_key = collection_data["collection_key"]  if collection_data["collection_name"] == collection_name else None
-        data = [ (t,i["note"]["note_id"]) for t, i in collection_data[("items")]["papers"].items() if "read" in i["note"]["tags"]]
-
-        html_data =""
-        for  keys,values in data:
-            # Dynamically update the description with the current key being processed
-            d= f"<h1>{keys}</h1>" +" ".join([f"<h2>{key['code']}</h2>\n{key['content']}" for key in self.get_content_after_heading(values, section, "h3")])
-            html_data +=d+"\n"
-
-        self.create_one_note(collection_id=collection_key,title=collection_name,tag=section,content=html_data)
-        # create_word_document_from_html(html_content=html_data,output_path="output.docx")
 
     def get_html_info(self,html_string, between="li", feature="Authors"):
         """
@@ -1789,6 +1776,96 @@ class Zotero:
             except Exception as e:
                 print(f"An error occurred during the update: {e}")
             return response
+
+    def find_or_create_collection_by_name(self, collection_name):
+        """
+        Finds or creates the collection key by the collection name in Zotero.
+
+        Args:
+            collection_name (str): The name of the collection to find or create.
+
+        Returns:
+            str: The key of the collection.
+        """
+        collections = self.zot.collections()
+        for collection in collections:
+            if collection['data']['name'].lower() == collection_name.lower():
+                return collection['key']
+
+        # Create a new collection if it does not exist
+        collection_data = {'name': collection_name}
+        new_collection = self.zot.create_collections([collection_data])
+        if new_collection and 'successful' in new_collection and '0' in new_collection['successful']:
+            collection_key = new_collection['successful']['0']['key']
+            print(f"Created collection '{collection_name}' with key '{collection_key}'")
+            return collection_key
+        else:
+            raise Exception(f"Failed to create collection '{collection_name}', API response: {new_collection}")
+
+    def create_item_with_attachment(self, file_path, collection_key):
+        """
+        Creates a Zotero item with an attachment and adds it to a collection.
+
+        Args:
+            file_path (str): The path to the file to attach.
+            collection_key (str): The key of the collection to add the item to.
+
+        Returns:
+            None
+        """
+        # Get file name and extension
+        file_name = os.path.basename(file_path)
+        file_title, file_ext = os.path.splitext(file_name)
+
+        # Only proceed if the file is a Word or PDF document
+        if file_ext.lower() in ['.pdf', '.doc', '.docx']:
+            # Create a basic item (e.g., document)
+            item_template = self.zot.item_template('document')
+            item_template['title'] = file_title
+            item_template['creators'] = [{'creatorType': 'author', 'firstName': 'Anonymous', 'lastName': ''}]
+            item_template['tags'] = [{'tag': 'attachment'}]  # You can customize tags if needed
+            item_template['collections'] = [collection_key]
+
+            try:
+                # Add the item to Zotero
+                created_item = self.zot.create_items([item_template])
+                print(f"Created item response: {created_item}")
+
+                if 'successful' in created_item and '0' in created_item['successful']:
+                    item_id = created_item['successful']['0']['key']
+                    # Attach the file to the item
+                    self.zot.attachment_simple([file_path], parentid=item_id)
+                    print(f"Item with attachment created: {file_name} and added to collection {collection_key}")
+                else:
+                    print(f"Failed to create item for file '{file_name}': {created_item}")
+            except zotero_errors.HTTPError as e:
+                print(f"Error uploading attachment for file '{file_name}': {e}")
+            except Exception as e:
+                print(f"Unexpected error for file '{file_name}': {e}")
+        else:
+            print(f"Skipped non-document file: {file_name}")
+
+    def process_files_in_directory(self, directory_path, collection_name):
+        """
+        Processes files in a directory, creating Zotero items with attachments
+        and adding them to a specified collection.
+
+        Args:
+            directory_path (str): The path to the directory containing files.
+            collection_name (str): The name of the collection to add items to.
+
+        Returns:
+            None
+        """
+        try:
+            collection_key = self.find_or_create_collection_by_name(collection_name)
+
+            for root, dirs, files in os.walk(directory_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    self.create_item_with_attachment(file_path, collection_key)
+        except Exception as e:
+            print(f"Failed to process directory '{directory_path}': {e}")
 
 # TODO: cosine similarity among pdfs
 "take the exact sentence and extract the paragraph where it is. the block if found would be replaced by the entire paragraph, else the direct quote for the model"
