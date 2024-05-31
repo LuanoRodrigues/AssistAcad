@@ -1477,6 +1477,7 @@ class Zotero:
         # Store the results in a file
         with open(filename, 'w') as file:
             json.dump(all_details, file, indent=4)
+            print("all details=",all_details)
         return all_details
 
     def fetch_recursively(self, collection_key, details_list, fetch_type):
@@ -1497,9 +1498,10 @@ class Zotero:
         for subcol in subcollections:
             self.fetch_recursively(subcol['key'], details_list, fetch_type)
 
-    def process_collections_file(self, filepath):
-        with open(filepath, 'r') as file:
-            data = [k for k in json.load(file) if k["items"]!=[]]
+    def process_collections_file(self, main_collection,update=False,fetch_type='items'):
+        data = self.fetch_details(main_collection, update=update, fetch_type=fetch_type)
+
+        # data = [k for k in json.load(file) if k["items"]!=[]]
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
                     colour='green')
