@@ -1,7 +1,7 @@
 
 # note= "\nNote:\n Focus on direct information from the article but if indirect evidence is found, provide an interpretation based on the above instructions and the paper content. if no relevant information is found, return a None div. output:HTML div in a code block"
 note= "Take your time, review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n\nnote1:Direct quotes format must be in form of one full sentence. The full sentence must be exactly as it is in the document, strictly unmodified. before getting it, check if there is a full match in the sentence and the word text. After getting the exacly quote that supports you analysis, reference with the author name between () like (author)\nnote:2output format:html in a code block."
-note_assign= "Take your time, review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n\nnote: output format:html in a code block."
+note_assign= "Take your time, review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n \nnote1: output format:html in one single code block.\nnote2:Act like a Professor talking to the student, then use the second person(You demonstrate) instead of third(the student demonstrates). "
 
 note_update =\
     {
@@ -153,7 +153,7 @@ sections_prompt ={
 
 }
 
-
+updgrade = {"introduction": "a",}
 # overall_score ="""
 # now  evaluate the student assignment(first document)  thoroughly and then provide scores(based on the second document:marking rubric), list of weeknesses,strengths, directions
 # in the following format:
@@ -178,63 +178,136 @@ sections_prompt ={
 #     f"""likewise for:
 #     <div><h2>3. Structure of Analytic Process</h2><h3>Outline of Analytic Activities</h3><ol><li>Activity 1: [Evaluate the student’s proposed structure of analytic activities needed for UAE Science 2035, including their purpose and outcomes, with direct citation or return NA if none found (section, page)].</li><li>Activity 2: [Further evaluation details with direct citation or return NA if none found (section, page)].</li><li>Activity 3: [Additional activity details with direct citation or return NA if none found (section, page)].</li></ol><h3>Rationale for Data Sources</h3><ol><li>Data Source Rationale 1: [Review the student's rationale for choosing specific data sources and how they align with the project's needs, with direct citation or return NA if none found (section, page)].</li></ol><h3>Mitigation of Project Failure</h3><ol><li>Mitigation Step 1: [Assess student's proposed steps to avoid or mitigate potential failures in the project, with direct citation or return NA if none found (section, page)].</li></ol><h3>Contribution of the Elsevier Bibliometric Analysis</h3><ol><li>Contribution 1: [Check the student’s understanding of how the Elsevier report contributes to the UAE Science 2035 framework, with direct citation or return NA if none found (section, page)].</li></ol><h2>4. Additional Analysis</h2><h3>Purpose and Objectives</h3><ol><li>Purpose 1: [Ensure the student clearly defines the purpose and objectives of any suggested additional analyses, showing how they support the main framework, with direct citation or return NA if none found (section, page)].</li></ol><h3>Data Collection Methods</h3><h4>Data Sources</h4><ol><li>Data Source 1: [Review the appropriateness of the data sources/types suggested by the student for additional analysis, with direct citation or return NA if none found (section, page)].</li></ol><h4>Methods</h4><ol><li>Method 1: [Examine the student's identification and rationale for the methods chosen for data analysis, considering their strengths and weaknesses, with direct citation or return NA if none found (section, page)].</li></ol><h3>Reflection on Biases</h3><ol><li>Bias Consideration 1: [Evaluate the student's reflections on potential biases in data collection, analysis, and interpretation, with direct citation or return NA if none found (section, page)].</li></ol><h3>Criteria for Judging Quality of Analysis</h3><ol><li>Quality Criterion 1: [Assess the student’s criteria for evaluating the quality of additional analysis, with direct citation or return NA if none found (section, page)].</li></ol><h2>5. Reusability and Reproducibility</h2><h3>Adoption of Open Science Principles</h3><ol><li>Open Science Principle 1: [Review the student’s recommendation on Open Science principles to be adopted, ensuring they are suitable for enhancing the project's reusability and reproducibility, with direct citation or return NA if none found (section, page)].</li></ol></div>
 #     {note}"""
-# ]
+# ]How do these phenomena (air quality and citizen health) interact or interrelate?
 
 responses = [
-    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h1>Part 1. Exploratory Data Analysis</h1> <h2>Q1</h2> <h3>How do these phenomena (air quality and citizen health) interact or interrelate?</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>How do these differ between cities with different characteristics (e.g. population size, exercise levels or modal split)?</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>How does London compare to other cities around the world?</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>A short opening or closing summary</h3> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}",
+    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h1>Part 1. Exploratory Data Analysis</h1> <h2>Q1. Produce for the Mayor</h2> <h3>How do these phenomena (air quality and citizen health) interact or interrelate?</h3> <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <h3>How do these differ between cities with different characteristics (e.g. population size, exercise levels or modal split)?</h3> <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <h3>How does London compare to other cities around the world?</h3>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <h3>A short opening or closing summary</h3> <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence for supporting your response",
 
-    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h1>Part 2: Informing Policy Decisions</h1> <h2>Q2. Based on the two total expected cost profiles in Figure 1, which of the two air quality mitigation options being considered would you advise the Mayor to go with? Why? [~5%]</h2> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}",
+    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h1>Part 2: Informing Policy Decisions</h1> <h2>Q2. Based on the two total expected cost profiles in Figure 1, which of the two air quality mitigation options being considered would you advise the Mayor to go with? Why? [~5%]</h2>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence for supporting your response",
 
-    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q3. The Mayor seems happy and expresses her intent to use the consultants’ analysis to justify her decision. What additional advice might you want to give her before she makes a final decision? [~5%]</h2> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}",
+    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q3. The Mayor seems happy and expresses her intent to use the consultants’ analysis to justify her decision. What additional advice might you want to give her before she makes a final decision? [~5%]</h2>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence for supporting your response",
 
-    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q4. You have been asked to provide the mayor with a short text on how the expert advisory board might inform the mayor’s ultimate decision. Your contribution should include: [~15%]</h2> <h3>Advice on the use of the expert advisory board in terms of analysis of policy options, or what not to use it for (i.e. it has been decided that having a board is a desirable thing for public image, but what exactly should they do, instead of e.g. if a citizen forum had been created instead).</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Advice on the criteria for selecting the membership of the expert advisory board, including your rationale for how these criteria are relevant to the analytical integrity of the board’s work.</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Recommendation for the specific use and role of MCA methods in support the board’s work (note: the Mayor is not asking you to explain the MCA methodology – she is in need of understanding how it can be used to support her upcoming decision making).</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Any further reflections and recommendations on alternative ways that participatory methods and processes could usefully contribute to the analysis informing this air quality enhancement programme you have for the mayor.</h3> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}",
+    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q4. You have been asked to provide the mayor with a short text on how the expert advisory board might inform the mayor’s ultimate decision. Your contribution should include: [~15%]</h2> <h3>Advice on the use of the expert advisory board in terms of analysis of policy options, or what not to use it for (i.e. it has been decided that having a board is a desirable thing for public image, but what exactly should they do, instead of e.g. if a citizen forum had been created instead).</h3>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <h3>Advice on the criteria for selecting the membership of the expert advisory board, including your rationale for how these criteria are relevant to the analytical integrity of the board’s work.</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Recommendation for the specific use and role of MCA methods in support the board’s work (note: the Mayor is not asking you to explain the MCA methodology – she is in need of understanding how it can be used to support her upcoming decision making).</h3>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote> <h3>Any further reflections and recommendations on alternative ways that participatory methods and processes could usefully contribute to the analysis informing this air quality enhancement programme you have for the mayor.</h3>  <p>[provide the response given if the student answered]</p> <blockquote>[provide the direct passage from the the assignment supporting your analysis]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence for supporting your response",
 
-    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q5. You have been asked to provide the mayor with a briefing note with your thoughts on three questions she currently has. Please provide her with a summary of key points you think of greatest relevance: [~25%]</h2> <h3>Embedded values in analysis:</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Use of scenarios:</h3> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}"
+    f"Evaluate the attached assignment providing responses to the assignment with direct citation in the following format: <h2>Q5. You have been asked to provide the mayor with a briefing note with your thoughts on three questions she currently has. Please provide her with a summary of key points you think of greatest relevance: [~25%]</h2> <h3>Embedded values in analysis:</h3> <p>[provide the response with direct quotes if the student answered]</p> <h3>Use of scenarios:</h3> <p>[provide the response with direct quotes if the student answered]</p>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence for supporting your response"
 ]
+
 Marking = [
-    f"""Evaluate the attached assignment providing marking and explanations in the following format: 
-    <h1>Marking</h1>
-    <h1>Part 1: Exploratory Data Analysis</h1>  
-    <h2>Concept (40%)</h2>  <h3>Marking: [marking score]</h3> 
-    <h3>Explanation: [explain why the assignment got the marking score]</h3> <h2>Critical (40%)</h2>
+    f"""Evaluate the attached assignment providing marking and explanations. The marking scheme is in the UK is: lower second class: satisfactory>50-52, fair>53-55, good>56-59, upper second class satisfactory>60-62, good>63-65, very good>66-69, first class:good>70-74 very good>75-79. The rubric is in the following format: 
+    <h1>Marking (Total: [total score])</h1>
+    <h1>Part 1: Exploratory Data Analysis (Total: [total score])</h1>  
+    <h2>Conceptual Understanding (40%)</h2>  
+    <h3>Marking: [marking score]</h3> 
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>
+    <h2>Reasoning & Critical Analysis (40%)</h2>
     <h3>Marking: [marking score]</h3>
-    <h3>Explanation: [explain why the assignment got the marking score]</h3>
-    <h2>Clarity (20%)</h2>
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>
+    <h2>Communication, Structure and Clarity (20%)</h2>
     <h3>Marking: [marking score]</h3>
-    <h3>Explanation: [explain why the assignment got the marking score]</h3>{note_assign}""",
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence by explanation. """,
 
     f"""Evaluate the attached assignment providing marking and explanations in the following format:
 
-    <h1>Part 2: Informing Policy Decisions</h1>
-    <h2>Concept (40%)</h2>
+    <h1>Marking (Total: [total score])</h1>
+    <h1>Part 2: Informing Policy Decisions (Total: [total score])</h1>
+    <h2>Conceptual Understanding (40%)</h2>
     <h3>Marking: [marking score]</h3>
-    <h3>Explanation: [explain why the assignment got the marking score]</h3>
-    <h2>Critical (40%)</h2>
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>
+    <h2>Reasoning & Critical Analysis (40%)</h3>
     <h3>Marking: [marking score]</h3>
-    <h3>Explanation: [explain why the assignment got the marking score]</h3>
-    <h2>Clarity (20%)</h2>
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>
+    <h2>Communication, Structure and Clarity (20%)</h2>
     <h3>Marking: [marking score]</h3>
-    <h3>Explanation: [explain why the assignment got the marking score]</h3>{note_assign}"""
+    <h3>Explanation</h3> :
+    <p>[explain with at least 3 examples why the assignment got the marking score]</p>
+    <blockquote>[direct quote from the assignment to support the explanation]</blockquote>{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence by explanation."""
 ]
-Feedback_assign = f"""
-    "Evaluate the attached assignment and provide feedback strictly from the feedback notes in your knowledge. Ensure the feedback follows the three steps already mentioned: 1) congratulate and give an overview of the assignment, 2) provide positive feedback justifying what was well done, and 3) provide constructive suggestions on what could be improved. Cite assignment passages directly to explain both positive aspects and areas for improvement. Ensure the feedback is around 350 words in the following format:
 
-     <--Overall Feedback-->
-    <p>[Congratulate and give an overall view of the assignment]</p>
 
-    <--Positive Feedback-->
-    <p>[Highlight what the student did well, justifying the marking with direct citations ]</p>
 
-    <--Constructive Feedback-->
-    <p>[Present what should be improved in the future with direct citations]</p>{note_assign}"
-"""
+feedback_guidelines = [f"""Feedback for Part A:
+You are tasked with evaluating the student's assignment on exploratory data analysis (EDA) concerning air quality and citizen health. Your feedback should be detailed, specific, directly tied to the student's submission, not exceed 250 words, and match the style from the provided feedback examples document. Follow the structured feedback format below, ensuring to cite relevant parts of the assignment. Avoid generic comments and focus on the content provided. Know that the first document is the student assignment entitled anonymous. Read the later line by line before providing feedback. the second  is the Assignment Feedback Summary document containing positive feedback and recommendations which serves as a reference for you.
+
+**Assignment Expectations and Feedback Points:**
+
+**What was asked:**
+- Undertake exploratory data analysis (EDA) with a broad topic: briefing the mayor on the relationship between air quality and citizen health to lead a global policy knowledge community.
+- Report key findings and considerations for the mayor, including key aspects of how the EDA generated those findings.
+- Include a discussion of how London compares to other cities around the world.
+- Discuss how air quality and health interact and differ between cities with different characteristics (e.g., population size, exercise levels, or modal split).
+
+**Guidelines for Specific Feedback:**
+- Focus on the student's responses to the key questions and the assignment rubric.
+- If the student does not explore the mayor’s stated interest in air quality and citizen health or comparison with other cities or regions, note this and advise them to always be guided by the intended uses of their work. Where not feasible, they should clarify why.
+
+**Intended Learning Reinforcement:**
+- Understand the iterative approach of exploratory analysis.
+- Recognize the role of multiple data types/sources and/or methods in eliciting ‘information’ from ‘data’.
+- Demonstrate use of analytic methods introduced throughout the course.
+- Understand the importance of clearly labeling analysis and figures and reporting sources/types of uncertainty.
+- Appreciate the significance of individual judgment in appraising the relevance of the reported analysis.
+- Use visualization to effectively communicate analytic insights.
+
+**Feedback Structure:**
+
+<h1> Feedback:[total marking score here]</h1>
+**Positive Feedback and Recommendations:**
+- Use the "Assignment Feedback Summary" document to provide specific positive feedback and recommendations.
+- Select appropriate points from the summary document to integrate into your feedback based on the student's work.
+- Ensure the positive feedback highlights strengths related to the assignment guidelines and the recommendations are actionable and clear.
+return two paragraphs in the following format:
+<p>For part A,[Insert positive feedback from the summary document that aligns with the student's work with 250 words as a limit.this paragraph should be stricly related to the assingment and every key point should be supported with direct quotes as stated below. it should contain highest accucary.]:</p>
+<blockquote>[direct quote from the assignment to support the  Positive Feedback]</blockquote>
+<p>[Insert recommendations from the summary document that are relevant to the student's work.this paragraph should be stricly related to the assingment and every recommendatoin should be supported with direct quotes with the passage in the assingment that triggers it. it should contain highest accucary.]:</p>
+<blockquote>[direct quote from the assignment to support the need for Recommendations ]</blockquote>
+before returning the two paragraphs, check accuracy to make sure that every fact stated is consistent with the assigment. For example, it should not be stated a type of analysis, if not found in the assingment. similarly, it should not recommended something if weekness not observed in the assignment.
+{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence. \nnote4: make sure that positive and recommendations are tailored specifically to my assignment and are not general, but specific for me to acknowledge whaat I did well and how/where to improve.""",
+f"""Feedback for Part B:
+You are tasked with evaluating the student's assignment on informing policy decisions concerning air quality and citizen health. Your feedback should be detailed, specific, directly tied to the student's submission, not exceed 250 words, and match the style from the provided feedback examples document. Follow the structured feedback format below, ensuring to cite relevant parts of the assignment. Avoid generic comments and focus on the content provided. Know that the first document is  the student assignment entitled anonymous. Read the later line by line before providing feedback. the second is the Assignment Feedback Summary document containing positive feedback and recommendations.
+
+**Assignment Expectations and Feedback Points:**
+
+**What was asked:**
+- Evaluate two air quality mitigation options and provide recommendations to the mayor.
+- Address additional advice the mayor might need before making a final decision.
+- Provide a detailed analysis of the expert advisory board's role in informing the mayor’s decision.
+- Offer a summary of key points regarding embedded values in analysis, use of scenarios, and other relevant considerations.
+
+**Guidelines for Specific Feedback:**
+- Ensure the student addresses all parts of the questions comprehensively.
+- Provide specific examples and cite relevant parts of the assignment to support your feedback.
+- Offer constructive criticism to guide improvements in future assignments.
+
+**Intended Learning Reinforcement:**
+- Use and reflect upon multiple analytic methods.
+- Judge the suitability of analytic methods used for analysis.
+- Design and undertake an analytic process to inform complex decisions (consider participatory value and exploration of uncertainties).
+return two paragraphs in the following format:
+
+<p>For part B,[Insert positive feedback from the summary document that aligns with the student's work with 250 words as a limit.this paragraph should be stricly related to the assingment and every key point should be supported with direct quotes as stated below. it should contain highest accucary.]:</p>
+<blockquote>[direct quote from the assignment to support the  Positive Feedback]</blockquote>
+<p>[Insert recommendations from the summary document that are relevant to the student's work.this paragraph should be stricly related to the assingment and every recommendatoin should be supported with direct quotes with the passage in the assingment that triggers it. it should contain highest accucary.]:</p>
+<blockquote>[direct quote from the assignment to support the need for Recommendations ]</blockquote>
+before returning the two paragraphs, check accuracy to make sure that every fact stated is consistent with the assigment. For example, it should not be stated a type of analysis, if not found in the assingment. similarly, it should not recommended something if weekness not observed in the assignment.
+{note_assign}\nnote3:direct citation within blockquote should be exactly as it is in the student assignment and the size should be one direct citation sentence. \nnote4: make sure that positive and recommendations are tailored specifically to my assignment and are not general, but specific for me to acknowledge what I did well and where/how to improve."""]
+
 
 
 initial_prompt =' Your response should always be formatted in HTML block code with no exception. '
 
 tag_prompt = {"responses":responses,
               "Marking":Marking,
-              "Feedback":Feedback_assign}
+              "Feedback":feedback_guidelines}
 
 stop_words = """
  [
