@@ -31,7 +31,7 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=3*60
+    sleep=1*60
 
 
 
@@ -83,9 +83,10 @@ library_id = library_id,
 # #               specific_section="<h2>2.1 Main Topics</h2>"
 #
 #              ))
-zt.evaluate("marking",tag_prompt,update=True)
+# zt.evaluate("marking",tag_prompt,update=True)
 # zt.rename_files_in_directory(r"C:\Users\luano\Downloads\17841037","-")
 # zt.process_files_in_directory(r"C:\Users\luano\Downloads\17841037","marking")
+
 # zt.process_collections_file("saved")
 # data =zt.get_children_notes("BSRRQ7HD")
 # data =zt.update_quotes("BSRRQ7HD",pdf=r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf",author="(Schmit,2015)",stop_words="")

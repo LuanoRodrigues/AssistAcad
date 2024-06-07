@@ -276,6 +276,7 @@ class Zotero:
         for root, dirs, files in os.walk(dir_path):
             for file in files:
                 if file.endswith(".pdf"):
+                    print("pdf")
                     current_pdf_path = os.path.join(root, file)
                     new_pdf_path = os.path.join(root, new_filename)
 
@@ -300,6 +301,8 @@ class Zotero:
                         else:
                             return current_pdf_path
                 if file.endswith(".docx"):
+                    print(".docx")
+
                     current_pdf_path = os.path.join(root, file)
                     return current_pdf_path
 
@@ -1124,14 +1127,17 @@ class Zotero:
         children = self.zot.children(item_id)
         tags=["tag"]
         # Filter out only notes that contain headings
+        # notes = [child for child in children if
+        #          child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
+        #                                                            re.IGNORECASE)]
         notes = [child for child in children if
-                 child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
-                                                                   re.IGNORECASE)]
+                 child['data']['itemType'] == 'note' ]
         # Check the number of notes and print them if more than one
         if len(notes) > 1:
             print("more than one note")
 
             tags = [tag["tag"] for note in notes for  tag in note['data']['tags'] ]
+
         else:
             if len(notes) == 1:
                 tags = [tag["tag"] for  tag in notes[0]['data']['tags']]
@@ -1340,24 +1346,27 @@ class Zotero:
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
-    def create_one_note(self, item_id="", collection_id="", pdf="", prompt="", api="", title="note", tag="",
+    def create_one_note(self,api, item_id="", collection_id="", prompt="", title="note", tag="",
                         content=""):
-        if api != "":
-            if type(prompt) == list:
-                for prompts in prompt:
 
-                    content += api.interact_with_page(path=pdf, prompt=prompts, copy=True)+ "\n"
-            if type(prompt) == str:
-                content = api.interact_with_page(path=pdf, prompt=prompt, copy=True)
+        if type(prompt) == list:
 
-        new_content = f'<html><title>{title}</title></head><body><div class="container">{content}</div></body></html>'
+            for prompts in prompt:
+                print("varias mensages")
+                print(prompts)
+                content += api.send_message(message=prompts,sleep_duration=self.sleep)+ "\n"
+        if type(prompt) == str:
+            print(prompt)
+            content = api.send_message(message=prompt,sleep_duration=self.sleep)
+
+        new_content = f'<html><head><title>{title}</title></head><body><div class="container">{content}</div></body></html>'
         # Create the new note
         if item_id:
             new_note = self.zot.create_items([{
                 "itemType": "note",
                 'parentItem': item_id,
                 "note": new_content,
-                'tags': [{"tag": "note"}, {"tag": tag}]
+                'tags': [{"tag": "evaluation"}, {"tag": tag}]
 
             }])
         if collection_id:
@@ -1365,7 +1374,7 @@ class Zotero:
                 "itemType": "note",
                 'collections': [collection_id],
                 "note": new_content,
-                'tags': [{"tag": "note"}, {"tag": tag}]
+                'tags': [{"tag": "evaluation"}, {"tag": tag}]
 
             }])
 
@@ -1374,8 +1383,9 @@ class Zotero:
         new_note_id = new_note['successful']['0']['data']['key']
 
     def evaluate(self,collection_name,prompt_tag_dict,update=True):
-        # api = ChatGPT(**self.chat_args)
-        api=""
+
+        api = ChatGPT(**self.chat_args)
+
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
@@ -1393,12 +1403,12 @@ class Zotero:
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ]
 
-        print(data)
+
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
                     colour='green')
-
+        open =False
         for keys, values in pbar:
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
@@ -1407,12 +1417,24 @@ class Zotero:
             id = values['id']
             pdf = values['pdf']
             tags = values['note']["tags"]
-            print(values)
-            input("Press Enter to continue...")
-            for tag,prompt in prompt_tag_dict.items():
-                if tag not in tags:
 
-                    self.create_one_note(item_id=id, pdf=pdf,prompt=prompt,api=api,tag=tag,title=tag)
+
+            for tag,prompt in prompt_tag_dict.items():
+
+                if tag not in tags and  pdf is not None:
+                    if tag =="Feedback":
+                        pdf = [pdf, r"C:\Users\luano\Downloads\Assignment_Feedback_Summary.docx"]
+                    api.interact_with_page(path=pdf, copy=False)
+
+
+                    open=True
+                    self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,title=tag)
+            if open:
+                time.sleep(5)
+                api.open_new_tab(open_new=False,close=True)
+
+
+
 
     def normalize_title(self,title):
         """ Normalize the title by removing punctuation, converting to lower case, and stripping spaces. """
