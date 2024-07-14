@@ -75,14 +75,17 @@ library_id = library_id,
 # except:
 #     pass
 # # time.sleep(60*30)
+zt.statements_citations("lawful evidence")
+# zt.create_one_note(item_id="7CJPMXT8",tag="testinho",content="content content content",api="")
 # print(zt.update_all(
-#     "saved",
+#     "lawful evidence",
+#     tag="statements",
 #     # "cyber due diligence",
 #                     update=True
-# #               article_title="transparent attributions of cybera attacks to states?",
-# #               specific_section="<h2>2.1 Main Topics</h2>"
-#
-#              ))
+#               article_title="transparent attributions of cybera attacks to states?",
+#               specific_section="<h2>2.1 Main Topics</h2>"
+
+             # ))
 # zt.evaluate("marking",tag_prompt,update=True)
 # zt.rename_files_in_directory(r"C:\Users\luano\Downloads\17841037","-")
 # zt.process_files_in_directory(r"C:\Users\luano\Downloads\17841037","marking")
@@ -92,10 +95,9 @@ library_id = library_id,
 # data =zt.update_quotes("BSRRQ7HD",pdf=r"C:\Users\luano\Zotero\storage\LHZRBA2H\Johnson and Schmitt - 2021 - Responding to proxy cyber operations under international law.pdf",author="(Schmit,2015)",stop_words="")
 
 # data =zt.get_or_update_collection("Law and evidence",False)
-# data1 =[ (t,i) for t,i in data[("items")]["papers"].items()][::-1]
-# for t,i in data1:
-#     print(t)
-#     print(i["note"]["headings"])
+# data1 =[ (t,i) for t,i in data[("items")]["papers"].items()][3:5]
+# print(data["items"]["papers"]['Evidentiary issues in international disputes related to state responsibility for cyber operations']["reference"])
+# author = zt.get_html_info(note_content)
 
 # data= zt.get_or_update_collection("Law and evidence",update=False)
 # data1 =[(t,i["note"]["note_id"]) for t,i in data[("items")]["papers"].items() if i["note"]["note_id"]][4:]
@@ -113,3 +115,9 @@ library_id = library_id,
 # ONE ZOTERO NOTE
 # zt.update_zotero_note_section(updates=        {f'<h2><span style="color: #05a2ef">2.4 Structure and Keywords</span></h2>': f"""Guidelines:Please perform a thorough analysis of the document based on the following guidelines and format the results in HTML as detailed. Ensure that the format is scalable and applicable to any PDF document for analysis.", "TOC": "Extract the Table of Contents from the document. List only the main headings as they appear in the document, without adding or assuming subheadings unless explicitly mentioned in the document.", "Keyword Extraction": "Identify and list academic keywords or phrases crucial for systematic review coding, with a limit of three words per phrase.", "Detailed Analysis": [{{"Category": "Academic Fields and Research Areas", "Instruction": "Identify the three primary disciplines or fields discussed in the document."}}, {{"Category": "Themes and Topics", "Instruction": "Extract up to seven detailed themes or topics discussed in the document, ensuring each theme or topic does not exceed four words."}}, {{"Category": "Research Types", "Instruction": "List the main type of research found in the document under appropriate subcategories:", "Subcategories": [{{"Type": "Data Collection Methods", "List": ["Primary Research", "Secondary Research"]}}, {{"Type": "Data Types", "List": ["Qualitative Data", "Quantitative Data", "Mixed Methods"]}}]}}, {{"Category": "Research Designs", "Instruction": "Identify and list the research designs mentioned in the document, including but not limited to:", "List": ["Experimental", "Evaluation", "Exploratory", "Descriptive", "Case Study"]}}, {{"Category": "Countries and Regions", "Instruction": "List significant countries or regions discussed, specifying only the names as they appear in the document."}}, {{"Category": "Affiliations", "Instruction": "List any significant affiliations mentioned in the document, providing only the name of the institutions without additional context."}}], "Example Output Structure": "<h3>TOC:</h3><ul><li>[Main Heading from the document]</li><!-- More main headings as found in the document --></ul><h4>Academic Fields and Research Areas:</h4><ul><li>[Field 1]</li><li>[Field 2]</li><li>[Field 3]</li></ul><h4>Themes and Topics:</h4><ul><li>[Theme 1]</li><li>[Theme 2]</li><!-- More themes as needed --></ul><h4>Data Collection Methods:</h4><ul><li>[Primary Research or Secondary Research ]</li></ul><h4>Data Types:</h4><ul><li>[Qualitative Data OR Quantitative Data OR Mixed Methods]</li></ul><h4>Research Designs:</h4><ul><li>[one or two of the research designs]</li><!-- More designs as needed --></ul><h4>Countries and Regions:</h4><ul><li>[Country Name 1]</li><!-- More countries as needed --></ul><h4>Affiliations:</h4><ul><li>[Affiliation Name 1]</li><!-- More affiliations as needed --></ul>"""},
 # )
+# zt.merging_notes("Law and evidence", update=False, section="<h1>3. Summary</h1>",filter_words=None, function="")
+
+# content = zt.get_content_after_heading("4UGZNIHB", "<h1>3. Summary</h1>", "h3")
+# print(content)
+# content = zt.get_children_notes("3HQI2D4A")
+# print(content)

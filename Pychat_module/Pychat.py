@@ -258,7 +258,10 @@ class ChatGPT:
             if self.chat_id == "consensus":
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id =="o":
-                self.chat_id ="?model=gpt-4o"
+                self.chat_id = "?model=gpt-4o"
+            if self.chat_id == "statements":
+                self.chat_id = "/g/g-8z1QerZeo-academic-citation-extractor"
+
             if self.chat_id == "meu":
                 self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
                 # self.chat_id="/gpts/editor/g-8dBHrjLA4"
@@ -436,6 +439,28 @@ class ChatGPT:
         except (NoSuchElementException, TimeoutException):
             self.logger.debug("The red alert box is not found on the page.")
             return False
+    def contintue_generating(self):
+        selectors = [
+        (By.XPATH, "//button[.//div[text()='Continue generating']]"),
+        (By.CSS_SELECTOR, "button.btn.relative.btn-secondary.whitespace-nowrap.border-0.md\\:border"),
+        (By.CSS_SELECTOR, "button.btn.relative.btn-secondary div svg.icon-xs"),
+        (By.CSS_SELECTOR, "button.btn.relative.btn-secondary.whitespace-nowrap.border-0.md\\:border[as='button']"),
+        (By.XPATH,
+         "//button[contains(@class, 'btn relative btn-secondary') and contains(@class, 'whitespace-nowrap') and @as='button']"),
+        (By.XPATH, "//button[.//div[text()='Continue generating']]"), (By.CSS_SELECTOR, "button[as='button']"),
+]
+        for by, selector in selectors:
+            try:
+                button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((by, selector)))
+                button.click()
+                self.logger.debug(f"Button clicked successfully using {by} with selector: {selector}")
+                return True
+            except TimeoutException:
+                self.logger.debug(f"Button not found or not clickable using {by} with selector: {selector}")
+
+        self.logger.debug("No buttons were found or clickable within the specified timeout.")
+        return False
+
 
     def check_browser_errs(self):
         selectors = [
@@ -443,7 +468,10 @@ class ChatGPT:
             (By.XPATH, "//button[@class='btn relative btn-primary m-auto']"),
             (By.XPATH, "//div[@class='flex w-full gap-2 items-center justify-center']//button"),
             (By.CSS_SELECTOR, "button.btn.relative.btn-primary.m-auto"),
-            (By.CSS_SELECTOR, "button[as='button']")
+            # (By.CSS_SELECTOR, "button[as='button']"),
+            # (By.XPATH,"//button[contains(@class, 'btn relative btn-secondary') and contains(@class, 'whitespace-nowrap')]"),
+
+
         ]
 
         for by, selector in selectors:
@@ -458,7 +486,7 @@ class ChatGPT:
         self.logger.debug("No buttons were found or clickable within the specified timeout.")
         return False
 
-    def __ensure_cf(self, retry: int = 5) -> None:
+    def __ensure_cf(self, retry: int = 3) -> None:
         '''
         Ensure Cloudflare cookies are set
         :param retry: Number of retries
@@ -914,7 +942,8 @@ class ChatGPT:
             self.logger.debug('regenerate button found and clicked: resending message.')
 
             self.send_message(message)
-
+        if self.contintue_generating():
+            time.sleep(30)
         self.logger.debug('__' * 20)
         return self.copy_message()
 

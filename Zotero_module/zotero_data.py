@@ -153,7 +153,16 @@ sections_prompt ={
 
 }
 
-updgrade = {"introduction": "a",}
+updgrade = {"introduction":
+                {"Definitions":"""
+1.Cyber Operations: The employment of cyber capabilities with the primary purpose of achieving objectives in or by the use of cyberspace tallin glossary,"
+2. 'Article 2 of the International Law Commission’s Articles on State Responsibility clarifies the two elements constituting internationally wrongful acts: There is an internationally wrongful act of a State when conduct consisting of an action or omission: (a) is attributable to the State under international law; and (b) constitutes a breach of an international obligation of the State' (T Mikanagi, 2021)"""
+                 }}
+
+
+
+
+
 # overall_score ="""
 # now  evaluate the student assignment(first document)  thoroughly and then provide scores(based on the second document:marking rubric), list of weeknesses,strengths, directions
 # in the following format:
@@ -305,9 +314,31 @@ before returning the two paragraphs, check accuracy to make sure that every fact
 
 initial_prompt =' Your response should always be formatted in HTML block code with no exception. '
 
-tag_prompt = {"responses":responses,
-              "Marking":Marking,
-              "Feedback":feedback_guidelines}
+tag_prompt = [
+    {
+        "statements_note": [
+            "Please analyze this document thoroughly and extract ALL key arguments, main ideas, and citable statements in an HTML format. Ensure 100% accuracy by extracting exact statements as found in the document, without any modification or paraphrasing. Focus on capturing statements that represent the author's core arguments and ideas, and prioritize those from the introduction, conclusion, and key sections. The number of extracted statements should be approximately three times the number of pages in the document. If the content is too large to handle at once, provide a continuation option. Output is div html code block: h2 [key argument/idea in three or four words] and <blockquote> statements.",
+            "More. [Do not repeat the statements of the previous ones. I want you now to provide the most relevant ones only in the same HTML format.]"
+        ]
+    }
+    ,
+    {
+        "cited_note": [
+            "Please analyze this document thoroughly and extract all statements from cited works in an HTML format, along with the full context in which they appear. Follow these steps: 1. **Identify Citation Style:** Determine if the document uses parenthetical, numerical, or note citation style. 2. **Extract and Convert Citations:** - For **parenthetical citations** (e.g., APA, MLA): Extract statements with citation references and ensure they are in APA format. - For **numerical citations** (e.g., IEEE, Vancouver): Replace the citation footnote number with the corresponding author's name and year from the footnote, converting it to APA format. - For **note citations** (e.g., Chicago, Bluebook): Extract the note and convert it to APA format. 3. **Format Output in HTML:** - Use <h2> tags for cited authors and the year. - Use <blockquote> tags for the exact statements with citations. 4. **Ensure 100% Accuracy:** Extract the exact statements with their citation references and details as found in the document. Ensure the cited author, not the document author, is in the <h2> tag. **Example Output:** <div><h2>[author cited, year]</h2><blockquote>[the statement that preceded the author cited according to the citation style found]</blockquote></div> Output is div html code block",
+            "More. [Do not repeat the statements of the previous ones. I want you now to provide the most relevant ones only in the same HTML format.]"
+        ]
+    }
+    ,
+    {
+        "cited_note_name": [
+            "Please read the document thoroughly and extract all citation statements where the author references another author, organization, or entity by name, using phrases such as 'according to', 'as stated by', 'as [Author] points out', etc. The idea is to capture statements where other authors/entities are mentioned Ensure 100% accuracy by extracting the exact statements and their citation details as found in the document. Provide these statements in an HTML format. Example output: <h2>Smith</h2><blockquote>According to Smith, the methodology needs improvement.</blockquote> output format: html",
+            "More. [Do not repeat the statements of the previous ones. I want you now to provide the most relevant ones only in the same HTML format.]"
+        ]
+    }
+
+]
+
+
 
 stop_words = """
  [

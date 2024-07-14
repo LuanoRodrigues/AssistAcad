@@ -66,7 +66,7 @@ class Zotero:
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
 
-    def get_or_update_collection(self, collection_name=None, update=False,tag=None):
+    def get_or_update_collection(self, collection_name=None, update=False,tag=None,convert=True):
         """
         Fetches or updates a specified collection's data from Zotero.
 
@@ -185,7 +185,7 @@ class Zotero:
                                     if year_match:
                                         date = year_match.group(0)
                                     new_path = f"({authors}, {date}).pdf"
-                                    pdf_path=self.get_pdf_path(directory,new_path)
+                                    pdf_path=self.get_pdf_path(directory,new_path,convert=convert)
                                     paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data,}
 
                                     if pdf_path is not None and tag:
@@ -240,7 +240,7 @@ class Zotero:
                 collection_name = None  # Reset collection_name to prompt again
 
 
-    def get_pdf_path(self, dir_path, new_filename):
+    def get_pdf_path(self, dir_path, new_filename, convert):
         """
         Renames the first encountered PDF file in the specified directory to a new filename,
         if the current filename does not match the new filename. It assumes there's only one
@@ -276,7 +276,6 @@ class Zotero:
         for root, dirs, files in os.walk(dir_path):
             for file in files:
                 if file.endswith(".pdf"):
-                    print("pdf")
                     current_pdf_path = os.path.join(root, file)
                     new_pdf_path = os.path.join(root, new_filename)
 
@@ -287,22 +286,23 @@ class Zotero:
                             return new_pdf_path.replace(".pdf", ".docx")
                         else:
                            # Assume this is a method defined elsewhere in the class
-                            pdf_word_path =Dc.pdf_to_docx(new_pdf_path)
-                            if pdf_word_path:
-                                return pdf_word_path
-                            else:
-                                return  new_pdf_path
+                           if convert:
+
+                                pdf_word_path =Dc.pdf_to_docx(new_pdf_path)
+                                if pdf_word_path:
+                                    return pdf_word_path
+                                else:
+                                    return  new_pdf_path
                     if os.path.exists(current_pdf_path.replace(".pdf", ".docx")):
                         return current_pdf_path.replace(".pdf", ".docx")
                     else:
-                        pdf_word_path = Dc.pdf_to_docx(new_pdf_path)
-                        if pdf_word_path:
-                            return pdf_word_path
-                        else:
-                            return current_pdf_path
+                        if convert:
+                            pdf_word_path = Dc.pdf_to_docx(new_pdf_path)
+                            if pdf_word_path:
+                                return pdf_word_path
+                            else:
+                                return current_pdf_path
                 if file.endswith(".docx"):
-                    print(".docx")
-
                     current_pdf_path = os.path.join(root, file)
                     return current_pdf_path
 
@@ -814,7 +814,7 @@ class Zotero:
             Note:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
-        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,tag=tag)
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
 
         data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][::-1]
         if article_title != "":
@@ -1107,7 +1107,7 @@ class Zotero:
 
 
 
-    def get_children_notes(self, item_id):
+    def get_children_notes(self, item_id,target_tag="all"):
         """
         Retrieves and processes child notes for a specified item from the Zotero library.
 
@@ -1125,13 +1125,31 @@ class Zotero:
         """
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
+        # print([v for p in children[0]["data"]["tags"] for v in p.values()])
         tags=["tag"]
         # Filter out only notes that contain headings
         # notes = [child for child in children if
         #          child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
         #                                                            re.IGNORECASE)]
-        notes = [child for child in children if
-                 child['data']['itemType'] == 'note' ]
+        # Define the list of valid tags to check
+        valid_tags = ["statements_note", "cited_note", "cited_note_name"]
+
+        # Filter the children
+        if target_tag =="all":
+
+            notes = [
+                child for child in children
+                if child['data']['itemType'] == 'note' and any(
+                    tag in valid_tags for tag in (v for p in child['data']['tags'] for v in p.values())
+                )
+            ]
+        else:
+
+            notes = [
+                child for child in children
+                if child['data']['itemType'] == 'note' and target_tag in (v for p in child['data']['tags'] for v in p.values())]
+
+
         # Check the number of notes and print them if more than one
         if len(notes) > 1:
             print("more than one note")
@@ -1346,35 +1364,33 @@ class Zotero:
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
-    def create_one_note(self,api, item_id="", collection_id="", prompt="", title="note", tag="",
+    def create_one_note(self,api, item_id="", collection_id="", prompt=None, tag="",reference=None,
                         content=""):
+        if prompt is not None:
+            if type(prompt) == list:
+                for prompts in prompt:
 
-        if type(prompt) == list:
+                    content += api.send_message(message=prompts,sleep_duration=self.sleep)
+            if type(prompt) == str:
 
-            for prompts in prompt:
-                print("varias mensages")
-                print(prompts)
-                content += api.send_message(message=prompts,sleep_duration=self.sleep)+ "\n"
-        if type(prompt) == str:
-            print(prompt)
-            content = api.send_message(message=prompt,sleep_duration=self.sleep)
+                content = api.send_message(message=prompt,sleep_duration=self.sleep)
 
-        new_content = f'<html><head><title>{title}</title></head><body><div class="container">{content}</div></body></html>'
+            content = f'<html><head><title>{tag}</title></head><body><div class="container">{content}</div></body></html>'
         # Create the new note
         if item_id:
             new_note = self.zot.create_items([{
                 "itemType": "note",
                 'parentItem': item_id,
-                "note": new_content,
-                'tags': [{"tag": "evaluation"}, {"tag": tag}]
+                "note": content,
+                'tags': [ {"tag": tag}]
 
             }])
         if collection_id:
             new_note = self.zot.create_items([{
                 "itemType": "note",
                 'collections': [collection_id],
-                "note": new_content,
-                'tags': [{"tag": "evaluation"}, {"tag": tag}]
+                "note": content,
+                'tags': [ {"tag": tag}]
 
             }])
 
@@ -1382,9 +1398,10 @@ class Zotero:
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
 
-    def evaluate(self,collection_name,prompt_tag_dict,update=True):
-
+    def statements_citations(self,collection_name,update=True):
+        self.chat_args["chat_id"] = "statements"
         api = ChatGPT(**self.chat_args)
+        # api=""
 
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
@@ -1417,21 +1434,22 @@ class Zotero:
             id = values['id']
             pdf = values['pdf']
             tags = values['note']["tags"]
+            reference = values["reference"]
 
 
-            for tag,prompt in prompt_tag_dict.items():
 
-                if tag not in tags and  pdf is not None:
-                    if tag =="Feedback":
-                        pdf = [pdf, r"C:\Users\luano\Downloads\Assignment_Feedback_Summary.docx"]
-                    api.interact_with_page(path=pdf, copy=False)
+            for dicionations in tag_prompt:
+                for tag, prompt in dicionations.items():
+                    if tag not in tags and  pdf is not None:
+                        if tag=="statement_note":
+                            prompt = f" {prompt} \n Author = {reference}"
+                        api.interact_with_page(path=pdf, copy=False)
+                        open=True
 
-
-                    open=True
-                    self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,title=tag)
-            if open:
-                time.sleep(5)
-                api.open_new_tab(open_new=False,close=True)
+                        self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference)
+                if open:
+                    time.sleep(5)
+                    api.open_new_tab(open_new=False,close=True)
 
 
 
@@ -1624,7 +1642,7 @@ class Zotero:
                 return info
         return None
 
-    def merging_notes(self, collection_name, update=True, section="<h2>2.1 Main Topics</h2>", excel=True):
+    def merging_notes(self, collection_name, update=True, section="<h1>3. Summary</h1>",filter_words:list=None, function="excel"):
         """
         Merges notes from a specified collection into either a single HTML note or an Excel file.
 
@@ -1636,17 +1654,17 @@ class Zotero:
         """
 
         import pandas as pd  # Ensure pandas is only used when necessary.
+        if function =="cluster":
+            if os.path.exists(f"{collection_name}.xlsx"):
+                df = pd.read_excel("df_saved.xlsx")
+                keywords = ['evidence', 'proof', 'burden', 'standards', 'standard', 'circumstantial']
 
-        if os.path.exists("df_saved.xlsx"):
-            df = pd.read_excel("df_saved.xlsx")
-            keywords = ['evidence', 'proof', 'burden', 'standards', 'standard', 'circumstantial']
-
-            return clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
+                return clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
                         n_clusters=28
                         )
 
         # Fetch or update the collection data
-        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update,convert=False)
         collection_key = collection_data["collection_key"] if collection_data[
                                                                   "collection_name"] == collection_name else None
 
@@ -1663,44 +1681,53 @@ class Zotero:
         for title, note_id in pbar:
             pbar.set_description("processing article {}".format(title))
             if note_id is not None:
+
                 content = self.get_content_after_heading(note_id, section, "h3")
+                # print("note id", note_id)
+                # print("content", content)
+                # input("press enter to continue")
+
                 # if not content:
                 #     # input("Press Enter to")
-                if excel:
 
-                    # Append each item directly within the loop to ensure it's not skipped or misplaced
-                    for entry in content:
-                        rows.append({
-                            "Title": title,
-                            "Code": entry['code'].split("-")[-1],
-                            "Content": entry['content'],
-                            "Quotes": entry['quotes']
-                        })
 
+                # Append each item directly within the loop to ensure it's not skipped or misplaced
+                for entry in content:
+                    rows.append({
+                        "Title": title,
+                        "Code": entry['code'].split("-")[-1],
+                        "Content": entry['content'],
+                        "Quotes": entry['quotes']
+                    })
+                if rows:  # Ensure that rows have been collected
+                    df = pd.DataFrame(rows, columns=["Title", "Code", "Content", "Quotes"])
+                    if filter_words:
+                        keyword_regex = '|'.join(filter_words)
+                        df = df[
+                            df['Code'].str.contains(keyword_regex, case=False, na=False)]
+
+                    df.to_excel(f"{collection_name}.xlsx", index=False)
 
                 else:
                     d = f"<h1>{title}</h1>" + " ".join(
-                        [f"<h2>{entry['code'].split('-')[-1]}</h2>\n{entry['blockcode']}" for entry in content])
+                        [f"<h2>{entry['code'].split('-')[-1]}</h2>\n{entry['content']}" for entry in content])
+                    print(d)
                     html_data += d + "\n"
 
             # Output condition based on the excel flag
-        if excel:
-            if rows:  # Ensure that rows have been collected
-                df = pd.DataFrame(rows, columns=["Title", "Code", "Content", "Quotes"])
-                df.to_excel("df_saved.xlsx", index=False)
-                clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
+        if function =="cluster":
+            clustering_df(dataframe=df, output_path=f"{collection_name}.xlsx", keywords=False,
                      n_clusters=68
                      )
 
                 # df.to_excel(f"{collection_name}.xlsx", index=False)
-            else:
-                print("No data available to export to Excel.")
         else:
-            if html_data:  # Ensure there is content to create a note
-                self.create_one_note(collection_id=collection_key, title=collection_name, tag=section,
+            print("No data available to export to Excel.")
+
+        if function =="note":
+            self.create_one_note(collection_id=collection_key, title=collection_name, tag=section,
                                      content=html_data)
-            else:
-                print("No data available to create HTML note.")
+
 
     def get_content_after_heading(self, note_id, main_heading, sub_heading):
         """
