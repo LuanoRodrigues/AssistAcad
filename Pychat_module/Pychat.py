@@ -703,19 +703,29 @@ class ChatGPT:
                 self.logger.debug(f"Specified <div> element with selector {div_selector} not clickable. Error: {e}")
 
         raise Exception("File dialogue button not found. Please update the div xpath list.")
+
     def click_files_button(self):
         xpath_list = [
-            "#__next > div.relative.z-0.flex.h-full.w-full.overflow-hidden > div.relative.flex.h-full.max-w-full.flex-1.flex-col.overflow-hidden > main > div.flex.h-full.flex-col.focus-visible\\:outline-0 > div.w-full.md\\:pt-0.dark\\:border-white\\/20.md\\:border-transparent.md\\:dark\\:border-transparent.md\\:w-\\[calc\\(100\\%-\\.5rem\\)\\].juice\\:w-full > div.px-3.text-base.md\\:px-4.m-auto.md\\:px-5.lg\\:px-1.xl\\:px-5 > div > form > div > div.flex.w-full.items-center > div > div > div:nth-child(1)",
-            "//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']/following-sibling::div/button",
-            "//div[contains(@class, 'flex')]/button[contains(@class, 'text-token-text-primary') and @aria-haspopup='menu']",
-            "//*[contains(@class, 'text-token-text-primary') and contains(@class, 'border') and contains(@class, 'inline-flex') and @id='radix-:ri:']",
-            '//div[@type="button" and @aria-haspopup="dialog"]',
-            "//button[@class='flex items-center justify-center text-token-text-primary juice:h-8 juice:w-8 dark:text-white juice:rounded-full focus-visible:outline-black dark:focus-visible:outline-white juice:mb-1 juice:ml-[3px]' and @aria-disabled='false']",
-            "//button[contains(@class, 'flex') and contains(@class, 'items-center') and contains(@class, 'justify-center') and contains(@class, 'text-token-text-primary') and contains(@class, 'juice:h-8') and contains(@class, 'juice:w-8') and contains(@class, 'dark:text-white') and contains(@class, 'juice:rounded-full') and contains(@class, 'focus-visible:outline-black') and contains(@class, 'dark:focus-visible:outline-white') and contains(@class, 'juice:mb-1') and contains(@class, 'juice:ml-[3px]') and @aria-disabled='false']",
-            "//button[contains(@class, 'flex') and contains(@class, 'items-center') and @aria-disabled='false']//svg[@xmlns='http://www.w3.org/2000/svg' and @width='24' and @height='24']/path[@fill='currentColor' and @fill-rule='evenodd']",
-            "//button[@aria-disabled='false' and descendant::svg[@xmlns='http://www.w3.org/2000/svg' and @width='24' and @height='24']]",
-            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]",
-            "//button[@id='radix-:rj:' and @aria-haspopup='menu']"  # New XPath added for the specific button element
+            # Precise XPath for the main div containing the button
+            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/div",
+
+            # XPath for the button with specific ID within the flex flex-col div
+            "//div[contains(@class, 'flex flex-col')]//button[@id='radix-:ra:' and @aria-haspopup='menu']",
+
+            # XPath for the button with specific class attributes within the flex flex-col div
+            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary focus-visible:outline-black dark:text-white dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']",
+
+            # XPath for the div with specific attributes within the flex flex-col div
+            "//div[contains(@class, 'flex flex-col')]//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']",
+
+            # Additional XPath for the SVG path within the button
+            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary focus-visible:outline-black dark:text-white dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']/svg/path[@fill='currentColor' and @fill-rule='evenodd']",
+
+            # XPath for any button within the specified main div path
+            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/div/button",
+
+            # XPath for any element with aria-haspopup attribute set to menu
+            "//*[@aria-haspopup='menu']"
         ]
 
         for selector in xpath_list:
@@ -738,11 +748,11 @@ class ChatGPT:
                 )
                 button.click()
                 self.logger.debug(f"Clicked button with selector: {selector}")
-                return True
-              # Exit after clicking the first clickable button
+                return True  # Exit after clicking the first clickable button
             except Exception as e:
                 self.logger.debug(f"Button with selector {selector} not clickable. Error: {e}")
-            raise Exception("File dialogue button not found. Please update the div xpath list.")
+
+        raise Exception("File dialogue button not found. Please update the div xpath list.")
         time.sleep(4)
 
 
@@ -762,7 +772,7 @@ class ChatGPT:
                 self.logger.debug('__' * 20)
                 return False
             else:
-                self.sleep(10)
+                self.sleep(20)
     
                 # Wait for the file to be uploaded (adjust time as necessary)
                 self.logger.debug("Waiting for the file to upload...")
@@ -908,7 +918,7 @@ class ChatGPT:
 
         return content
 
-    def send_message(self, message: str,sleep_duration:int=60*4) -> dict:
+    def send_message(self, message: str,sleep_duration:int=60*5) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send

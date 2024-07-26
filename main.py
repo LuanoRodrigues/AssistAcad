@@ -8,7 +8,7 @@ from Pychat_module.Pychat import  ChatGPT
 from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
 import os
-
+from Pychat_module.gpt_api import process_pdf
 # Accessing environment variables
 library_id = os.environ.get("LIBRARY_ID")
 api_key = os.environ.get("API_KEY")
@@ -39,7 +39,50 @@ library_id = library_id,
 
 )
 
+# pdf_path = r"C:\Users\luano\Zotero\storage\NREIF9TL\(Sharngan Aravindakshan, 2021).pdf" # Replace with your PDF file path
+# # prompt = "1. Analyze the text to identify note and numerical citations. This includes statements followed by a number or a number in brackets/parentheses (e.g., 'international relations theories such as realism and neoliberalism are mainstream¹' or 'international relations theories such as realism and neoliberalism are mainstream (1)'). 2. Check if the same number corresponds to a statement preceded by the same number (e.g., '1. John S Davis II and others, ‘Stateless Attribution: Toward International Accountability in Cyberspace’ (RAND Corporation 2017) 21.'). If a sentence is preceded by a number and this number is found following a sentence, it means this is an in-text citation and a corresponding footnote. 3. Handle 'ibid' and similar terms: For 'ibid', repeat the last citation in <h1>, <h2>, and <h3>, updating the <blockquote> with the new statement. Maintain an internal index for footnotes to track references. 4. When a statement is followed by a number, treat it as body text and include it in a <blockquote> with the number highlighted in <strong> tags and the rest of the sentence or other citations not highlighted. 5. When a statement is preceded by a number, treat it as a footnote and include it in an <h2> tag. 6. For each citation, extract the author and year from the footnote information and use it in the <h3> tag. If no author is found, set the value to 'None'. 7. Format the output in HTML: - Use <h1> for the footnote number. - Use <blockquote> for the full sentence with the citation highlighted and other citations not highlighted. - Use <h2> for the footnote information in full. - Use <h3> for the author and year, or 'None' if not available. 8. Ensure 100% accuracy by extracting exact sentences and corresponding footnotes. 9. Handle multiple citations in a sentence by highlighting each citation individually and retrieving them separately. 10. If no citation is found, return '<div>N/A</div>'. 11. Output as a single HTML code block. Note 1: Do not return incomplete <h1>, <blockquote>, <h2>, or <h3> tags. Note 2: Highlight in bold only the corresponding in-text citation statement with the <h2> author and <h3>. Do not highlight every number, only the specific citation."
+#
+# # prompt = "1. Analyze the text to identify author citations, including variations like (Author, Year), (Author, Year, Page), and any direct mentions of authors or companies by name (e.g., 'Smith's conclusion is...', 'Author defends...', 'United Nations advocates...'). 2. Extract all statements where an author or company is mentioned. 3. Format the output in HTML: - Use <h2> for the citation in the format (Author, Year). - Use <blockquote> for the full sentence or statement where the author or company is cited, highlighting the author's name or company name in <strong> tags. 4. Ensure 100% accuracy by extracting exact sentences where authors or companies are cited and include their respective statements. 5. Handle multiple author citations or mentions within a sentence by extracting and highlighting each citation separately. 6. If no author or company citation is found, return '<div>N/A</div>'. 7. Output as a single HTML code block. Note 1: Do not return incomplete <h2> or <blockquote> tags. Note 2: Highlight only the specific author's or company's name within the <blockquote> tag."
+# prompt = "Analyze the text to extract key terms and definitions using phrases like 'can be defined by', 'is described as', or 'means'; identify lists, typographic cues (e.g., bold or italics), and contextual keywords (e.g., 'definition', 'concept'); note citations following definitions; use <h3> for key terms and <blockquote> for exact definitions with citations; ensure accuracy and include multiple definitions if present; format output as a single HTML block, and return '<div>N/A</div>' if no definitions are found. Example output: <div><h3>[Key Term]</h3><blockquote>[Definition]</blockquote></div>."
+#
 
+
+
+
+# prompt = """
+# Please analyze this document thoroughly and extract all key arguments, main ideas, and entire paragraphs containing the author's original points in an HTML format. Ensure 100% accuracy by extracting exact paragraphs as found in the document, without any modification or paraphrasing. Focus on capturing paragraphs that represent the author's core arguments and ideas.
+#
+# Output the results in a single code block using the following HTML structure:
+# - Use <h2> tags for key arguments or main ideas, summarizing them in three or four words.
+# - Use <blockquote> tags for entire paragraphs exactly as found in the text, with references (author, year, page).
+#
+# Exclude any paragraph that contains cited statements with superscript numbers, in-text citations (e.g., author, year), or any other form of reference to external sources.
+#
+# Example Output:
+# <h2>Key Argument One</h2>
+# <blockquote>
+# Exact paragraph text from the document without any modifications, including proper citation formatting (author, year, page).
+# </blockquote>
+# """
+
+# 1. Analyze the text to identify the citation type (parenthetical, numerical, or note).
+# 2. For numerical and note citations, retrieve all statements followed by a number or a number in brackets/parentheses. Identify if these numbers correspond to footnotes by checking for a statement preceded by the same number.
+# 3. For 'ibid' and similar terms, repeat the last citation in <h2> and <h3>, updating the blockquote with the new statement. Maintain an internal index for footnotes to track references.
+# 4. For parenthetical citations (e.g., (Author, Year)), extract the entire sentence containing the citation, highlight the citation in <strong> tags, and set <h3> to N/A.
+# 5. Format the output in HTML:
+#    - Use <h2> for cited authors and year.
+#    - Use <blockquote> for complete sentences with highlighted citations.
+#    - Use <h3> for full footnote information or complete bibliographic references.
+# 6. Ensure 100% accuracy by extracting exact sentences with their citation references and details, ensuring they are complete and unbroken.
+# 7. Handle multiple citations in a sentence by highlighting each citation individually.
+# 8. If no citation is found, return "<div>N/A</div>".
+# 9. Output as a single HTML code block.
+#  """
+
+# result = process_pdf(pdf_path, prompt,page_parsing=1)
+# # result = chat_response(pdf_path=pdf_path, query=prompt)
+#
+# zt.create_one_note(content=result,item_id="76DQPE49",api="",tag="chat.citation")
 # collection_data =zt.get_or_update_collection(update=False,collection_name="lawful evidence")
 
 # data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()]
@@ -75,7 +118,8 @@ library_id = library_id,
 # except:
 #     pass
 # # time.sleep(60*30)
-zt.statements_citations("lawful evidence")
+zt.statements_citations("Law and evidence",update=True,chat=True)
+
 # zt.create_one_note(item_id="7CJPMXT8",tag="testinho",content="content content content",api="")
 # print(zt.update_all(
 #     "lawful evidence",

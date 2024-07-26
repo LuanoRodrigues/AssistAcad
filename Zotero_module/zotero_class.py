@@ -7,21 +7,20 @@ from pathlib import Path
 import math
 import traceback
 from alive_progress import alive_bar, alive_it,config_handler
-
+from Zotero_module.zotero_data import note_update,book,initial_book
 from progress.bar import Bar
-from Pychat_module.gpt_api import chat_response
+from Pychat_module.gpt_api import process_pdf
 from NLP_module.Clustering_Embeddings import clustering_df
 from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
 import pyzotero
 from pyzotero import zotero, zotero_errors
-from Zotero_module.zotero_data import note_update, tag_prompt, tag_prompt, book,initial_book
 from Academic_databases.databses import get_document_info1,get_document_info2
 from tqdm import tqdm
 import requests
 import re
 from datetime import datetime
-from Pychat_module.gpt_api import api_send
+
 from Word_modules.Creating_docx import  Docx_creation
 
 Dc = Docx_creation()
@@ -187,37 +186,6 @@ class Zotero:
                                     new_path = f"({authors}, {date}).pdf"
                                     pdf_path=self.get_pdf_path(directory,new_path,convert=convert)
                                     paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data,}
-
-                                    if pdf_path is not None and tag:
-                                        if tag == "replace" or tag == "append":
-                                            if api:  # Check if API is set for non-delete aims
-                                                new_tags = ast.literal_eval(
-                                                    api.interact_with_page(prompt=tag_prompt,
-                                                                           path=pdf_path, copy=True))
-                                                new_tags = [{"tag": tag.strip().lower()} for tag in new_tags]
-
-                                                if tag == "append":
-                                                    item['data']['tags'].extend(
-                                                        new_tags)  # Extend existing tags with new ones
-                                                elif tag == "replace":
-                                                    item['data'][
-                                                        'tags'] = new_tags  # Replace existing tags with new ones
-
-                                        if tag == "delete":
-                                            item['data']['tags'] = []  # Remove all tags
-
-                                        # Update the item on the server
-                                        try:
-                                            updated_item = self.zot.update_item(item)
-
-                                            print(f"Item updated: {item['data']['title']}")
-                                        except pyzotero.zotero_errors.PreConditionFailed as e:
-                                            print(
-                                                f"Item version conflict detected for '{item['data']['title']}'. Retrieving the latest version and retrying.",
-                                                e)
-                                            latest_item = self.zot.item(item['key'])
-                                            updated_item = self.zot.update_item(latest_item)
-                                             # Add the updated item to the list
                                 target_collection['items']['papers'][paper_title] = paper_data
                                 pbar.update()
 
@@ -607,83 +575,7 @@ class Zotero:
                 print(f"An error occurred during the update: {e}")
         else:
             print("No changes were made to the note content.")
-    def update_zotero_note_section2(self, note_id, sections,pdf,reference):
 
-        """
-    Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
-
-    Parameters:
-    - note_id (str): The unique identifier of the Zotero note to update.
-    - updates (dict): A dictionary where keys are section headings and values are the new content to update those sections with.
-    - api: An external API object used to generate new content based on the updates.
-
-    This method also handles adding new tags and updating the 'Structure and Keywords' section with unique keywords extracted from the updated content. If the content is successfully updated, it attempts to post the changes back to Zotero.
-
-    Note:
-    - The function prints out the result of the operation, indicating success or failure of the update.
-    """
-        # Retrieve the current note content
-        note = self.zot.item(note_id)
-        tags = note['data'].get('tags', [])
-        if 'data' in note and 'note' in note['data']:
-            note_content = note['data']['note']
-        else:
-            print(f"No note content found for item ID {note_id}")
-            return
-        updated_content = note_content  # Initialize with the current note content
-        # Process updates for each section
-        for section, new_prompt in sections.items():
-            # input(" enter")
-            # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
-            pattern = re.compile(f'({re.escape(section)})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
-            matches = pattern.search(updated_content)
-
-            if matches:
-                note1 = f"\nnote:fill the placeholders `[]` with real data\n reference format should be: {reference} add the real page to it and not annotations format"
-                new_content = chat_response(pdf_path=pdf,
-                                            query=new_prompt+note1
-                                                                    )
-                # new_content = api_send(pdf,
-                #                             new_prompt + note1
-                #                             )
-
-                # # Replace the old section content with the new one
-                updated_section = f"{matches.group(1)}{new_content}"
-                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
-            else:
-                print(f"Section title '{section}' not found in the note content.")
-        if section =="<h2>2.4 Structure and Keywords</h2>":
-            tags.extend(self.extract_unique_keywords_from_html(new_content))
-            self.schema = [i for i in self.extract_insert_article_schema(updated_content) if i not in ["Abstract","abstract"]]
-            pattern = re.compile(f'({re.escape("<h1>3. Summary</h1>")})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
-            matches = pattern.search(updated_content)
-            content= '<hr>\n'.join(self.schema) +"<hr>\n"
-            if matches:
-                updated_section = f"{matches.group(1)}{content}"
-                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
-            else:
-                print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
-
-        # Check if the content has been updated
-        if updated_content != note_content:
-            updated_note = {
-                'key': note['data']['key'],
-                'version': note['data']['version'],
-                'itemType': note['data']['itemType'],
-                'note': updated_content,
-                'tags': tags
-            }
-            try:
-                # Attempt to update the note in Zotero
-                response = self.zot.update_item(updated_note)
-                if response:
-                    print("Note updated successfully.")
-                else:
-                    print("Failed to update the note.")
-            except Exception as e:
-                print(f"An error occurred during the update: {e}")
-        else:
-            print("No changes were made to the note content.")
 
     def append_training_data(self,prompt, expected_response, file_path="training_data.json"):
         """
@@ -926,19 +818,6 @@ class Zotero:
         #     id = values['id']
         #     pdf = values['pdf']
         #     reference = values['reference']
-        #
-        #
-        #
-        #
-        #     if note is None and pdf is not None:
-        #         print("note is None and pdf is None")
-        #
-        #
-        #         note_id= self.create_note(id, pdf)
-        #
-        #         if note_id:
-        #             self.update_multiple_notes2(sections_prompts=sections_prompt,note_id=note_id,pdf=pdf,reference=reference
-        #                                            )
         #
         #     if note and note["headings"]:
         #         note_content = note["content"]
@@ -1364,24 +1243,43 @@ class Zotero:
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
-    def create_one_note(self,api, item_id="", collection_id="", prompt=None, tag="",reference=None,
-                        content=""):
-        if prompt is not None:
-            if type(prompt) == list:
-                for prompts in prompt:
+    def create_one_note(self,api="",content="", item_id="", collection_id="", prompt=None, tag="",reference=None, follow_up=True,
+                        ):
+        if content=="":
 
-                    content += api.send_message(message=prompts,sleep_duration=self.sleep)
-            if type(prompt) == str:
+            follow_up_prompt ="More. [Do not repeat the statements of the previous ones. I want you now to provide the most relevant ones in the same HTML format. If None, return just a python string in code block exactly:\"<div>N/A</div>\"]"
+            content_2 = ""
+            if prompt is not None:
+                if type(prompt) == list:
+                    for prompts in prompt:
 
-                content = api.send_message(message=prompt,sleep_duration=self.sleep)
+                        content += api.send_message(message=prompts,sleep_duration=self.sleep)
+                if type(prompt) == str:
 
-            content = f'<html><head><title>{tag}</title></head><body><div class="container">{content}</div></body></html>'
+                    if follow_up:
+                        content = api.send_message(message=prompt, sleep_duration=self.sleep)
+
+                        while follow_up:
+                            content_2 = api.send_message(message=follow_up_prompt, sleep_duration=self.sleep)
+                            print("content 2")
+                            print(content_2)
+
+                            if "N/A" in content_2:
+                                follow_up = False
+                            else:
+                                content += content_2
+
+
+
+
+
+        new_content = f'<html><head><title>{tag}</title></head><body><div class="container">{content}{reference}</div></body></html>'
         # Create the new note
         if item_id:
             new_note = self.zot.create_items([{
                 "itemType": "note",
                 'parentItem': item_id,
-                "note": content,
+                "note": new_content,
                 'tags': [ {"tag": tag}]
 
             }])
@@ -1398,10 +1296,26 @@ class Zotero:
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
 
-    def statements_citations(self,collection_name,update=True):
-        self.chat_args["chat_id"] = "statements"
-        api = ChatGPT(**self.chat_args)
-        # api=""
+    def statements_citations(self,collection_name,update=True,chat=False):
+        tag_prompt = [
+            {
+                "<h2>Key Terms Definitions</h2>": "Analyze the text to extract key terms and definitions using phrases like 'can be defined by', 'is described as', or 'means'; identify lists, typographic cues (e.g., bold or italics), and contextual keywords (e.g., 'definition', 'concept'); note citations following definitions; use <h3> for key terms and <blockquote> for exact definitions with citations extracting full sentences; ensure accuracy and include multiple definitions if present; format output as a single HTML block, and return '<div>N/A</div>' if no definitions are found. Example output: <div><h3>[Key Term]</h3><blockquote>[Definition with the whole paragraph, where the definition is in strong highlighted]</blockquote></div>."
+                ,
+                "<h2>Authors cited</h2>": "1. Analyze the text to identify note and numerical citations. This includes statements followed by a number or a number in brackets/parentheses (e.g., 'international relations theories such as realism and neoliberalism are mainstream¹' or 'international relations theories such as realism and neoliberalism are mainstream (1)'). 2. Check if the same number corresponds to a statement preceded by the same number (e.g., '1. John S Davis II and others, ‘Stateless Attribution: Toward International Accountability in Cyberspace’ (RAND Corporation 2017) 21.'). If a sentence is preceded by a number and this number is found following a sentence, it means this is an in-text citation and a corresponding footnote. 3. Handle 'ibid' and similar terms: For 'ibid', repeat the last citation in <h1>, <h2>, and <h3>, updating the <blockquote> with the new statement. Maintain an internal index for footnotes to track references. 4. When a statement is followed by a number, treat it as body text and include it in a <blockquote> with the number highlighted in <strong> tags and the rest of the sentence or other citations not highlighted. 5. When a statement is preceded by a number, treat it as a footnote and include it in an <h2> tag. 6. For each citation, extract the author and year from the footnote information and use it in the <h3> tag. If no author is found, set the value to 'None'. 7. Format the output in HTML: - Use <h1> for the footnote number. - Use <blockquote> for the full sentence with the citation highlighted and other citations not highlighted. - Use <h2> for the footnote information in full. - Use <h3> for the author and year, or 'None' if not available. 8. Ensure 100% accuracy by extracting exact sentences and corresponding footnotes. 9. Handle multiple citations in a sentence by highlighting each citation individually and retrieving them separately. 10. If no citation is found, return '<div>N/A</div>'. 11. Output as a single HTML code block. Note 1: Do not return incomplete <h1>, <blockquote>, <h2>, or <h3> tags. Note 2: Highlight in bold only the corresponding in-text citation statement with the <h2> author and <h3>. Do not highlight every number, only the specific citation.",
+                # "<h2>Statements database</h2>":"Please analyze this document thoroughly and extract all key arguments, main ideas, and entire paragraphs containing the author's original points in an HTML format. Ensure 100% accuracy by extracting exact paragraphs as found in the document, without any modification or paraphrasing. Focus on capturing paragraphs that represent the author's core arguments and ideas."
+
+            }
+        ] if chat==False else [ {
+        "statements_note":
+            "Please analyze this document thoroughly and extract ALL key arguments, main ideas, and citable statements in an HTML format. Ensure 100% accuracy by extracting exact statements as found in the document, without any modification or paraphrasing. Focus on capturing statements that represent the author's core arguments and ideas, and prioritize those from the introduction, conclusion, and key sections. The number of extracted statements should be approximately three times the number of pages in the document. If the content is too large to handle at once, provide a continuation option. Output is div html in one single code block: h2 [key argument/idea in three or four words] and <blockquote> [statements exact as found in the text with references (author, year, page). but this statement should not be refering to other authors. Exclude any statement followed by in-text citation (parenthetical, numerical, note] note 1:Statements should be referenced with author, year, page \n note 2:output always in code block single html div"
+
+    }]
+
+        if chat:
+            self.chat_args["chat_id"] = "statements"
+            api = ChatGPT(**self.chat_args)
+
+        # # api=""
 
         """
             Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
@@ -1440,14 +1354,21 @@ class Zotero:
 
             for dicionations in tag_prompt:
                 for tag, prompt in dicionations.items():
-                    if tag not in tags and  pdf is not None:
-                        if tag=="statement_note":
-                            prompt = f" {prompt} \n Author = {reference}"
-                        api.interact_with_page(path=pdf, copy=False)
-                        open=True
 
-                        self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference)
-                if open:
+                    if tag not in tags and  pdf is not None:
+                        if chat:
+                            if tag=="statement_note":
+                                prompt = f" {prompt} \n Author = {reference}"
+                            api.interact_with_page(path=pdf, copy=False)
+                            open=True
+                            self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference)
+
+                        else:
+                            content = process_pdf(pdf_path=pdf, prompt=prompt, page_parsing=1)
+                            self.create_one_note(item_id=id,tag=tag,content=content,reference=reference)
+                        input("Press Enter to continue...")
+
+                if open and chat:
                     time.sleep(5)
                     api.open_new_tab(open_new=False,close=True)
 
