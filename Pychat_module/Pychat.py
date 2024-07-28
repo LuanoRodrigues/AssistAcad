@@ -261,9 +261,10 @@ class ChatGPT:
                 self.chat_id = "?model=gpt-4o"
             if self.chat_id == "statements":
                 self.chat_id = "/g/g-8z1QerZeo-academic-citation-extractor"
-
+            if self.chat_id == "summary":
+                self.chat_id = "/g/g-PM8cJsFgY-academic-summary-assistant"
             if self.chat_id == "meu":
-                self.chat_id = "/g/g-8dBHrjLA4-academic-pdf-reviewer"
+                self.chat_id = "/g/g-8dBHrjLA4"
                 # self.chat_id="/gpts/editor/g-8dBHrjLA4"
             if self.chat_id == "evaluator":
                 self.chat_id = "/g/g-R5g8dbYOl-assignment-evaluator"

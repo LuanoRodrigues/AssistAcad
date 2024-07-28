@@ -9,7 +9,7 @@ import traceback
 from alive_progress import alive_bar, alive_it,config_handler
 from Zotero_module.zotero_data import note_update,book,initial_book
 from progress.bar import Bar
-from Pychat_module.gpt_api import process_pdf
+from Pychat_module.gpt_api import process_pdf, write_batch_requests_to_file,create_batch,upload_batch_file,save_batch_object,get_batch_ids,check_save_batch_status,retrieve_batch_results,read_or_download_batch_output
 from NLP_module.Clustering_Embeddings import clustering_df
 from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
@@ -184,8 +184,9 @@ class Zotero:
                                     if year_match:
                                         date = year_match.group(0)
                                     new_path = f"({authors}, {date}).pdf"
+
                                     pdf_path=self.get_pdf_path(directory,new_path,convert=convert)
-                                    paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data,}
+                                    paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data}
                                 target_collection['items']['papers'][paper_title] = paper_data
                                 pbar.update()
 
@@ -416,23 +417,14 @@ class Zotero:
         <h1>1. Introduction:</h1>
             <h2>1.1 Research Framework</h2>
             <hr>
-            <h2>1.2 Key Terms Definitions</h2>
+            <h2>1.2 Key Findings</h2>
             <hr>
-            <h2>1.3 Key Findings</h2>
+            <h2>1.3 Shortcomings Limitations</h2>
             <hr>
-            <h2>1.4 Shortcomings Limitations</h2>
-            <hr>
-            <h2>1.5 Research Gap and Future Research Directions</h2>
+            <h2>1.4 Research Gap and Future Research Directions</h2>
             <hr>
             <hr>
-        <h1>2. Thematic Review</h1>
-            <h2>2.1 Main Topics</h2>
-            <hr>
-            <h2>2.2 Author References</h2>
-            <hr>
-            <h2>2.3 Entity Reference</h2>
-            <hr>
-            <h2>2.4 Structure and Keywords</h2>
+            <h2>1.5 Structure and Keywords</h2>
             <hr>
             <hr>
          <h1>3. Summary</h1>
@@ -1295,21 +1287,29 @@ class Zotero:
         print("New note created:", new_note)
         time.sleep(15)
         new_note_id = new_note['successful']['0']['data']['key']
+    def creating_note_from_batch(self):
+        batch_id = get_batch_ids()['id']
+        results = read_or_download_batch_output(batch_id=batch_id)
+        if results is None:
+            print("No results available.")
+            return
 
-    def statements_citations(self,collection_name,update=True,chat=False):
-        tag_prompt = [
-            {
-                "<h2>Key Terms Definitions</h2>": "Analyze the text to extract key terms and definitions using phrases like 'can be defined by', 'is described as', or 'means'; identify lists, typographic cues (e.g., bold or italics), and contextual keywords (e.g., 'definition', 'concept'); note citations following definitions; use <h3> for key terms and <blockquote> for exact definitions with citations extracting full sentences; ensure accuracy and include multiple definitions if present; format output as a single HTML block, and return '<div>N/A</div>' if no definitions are found. Example output: <div><h3>[Key Term]</h3><blockquote>[Definition with the whole paragraph, where the definition is in strong highlighted]</blockquote></div>."
-                ,
-                "<h2>Authors cited</h2>": "1. Analyze the text to identify note and numerical citations. This includes statements followed by a number or a number in brackets/parentheses (e.g., 'international relations theories such as realism and neoliberalism are mainstream¹' or 'international relations theories such as realism and neoliberalism are mainstream (1)'). 2. Check if the same number corresponds to a statement preceded by the same number (e.g., '1. John S Davis II and others, ‘Stateless Attribution: Toward International Accountability in Cyberspace’ (RAND Corporation 2017) 21.'). If a sentence is preceded by a number and this number is found following a sentence, it means this is an in-text citation and a corresponding footnote. 3. Handle 'ibid' and similar terms: For 'ibid', repeat the last citation in <h1>, <h2>, and <h3>, updating the <blockquote> with the new statement. Maintain an internal index for footnotes to track references. 4. When a statement is followed by a number, treat it as body text and include it in a <blockquote> with the number highlighted in <strong> tags and the rest of the sentence or other citations not highlighted. 5. When a statement is preceded by a number, treat it as a footnote and include it in an <h2> tag. 6. For each citation, extract the author and year from the footnote information and use it in the <h3> tag. If no author is found, set the value to 'None'. 7. Format the output in HTML: - Use <h1> for the footnote number. - Use <blockquote> for the full sentence with the citation highlighted and other citations not highlighted. - Use <h2> for the footnote information in full. - Use <h3> for the author and year, or 'None' if not available. 8. Ensure 100% accuracy by extracting exact sentences and corresponding footnotes. 9. Handle multiple citations in a sentence by highlighting each citation individually and retrieving them separately. 10. If no citation is found, return '<div>N/A</div>'. 11. Output as a single HTML code block. Note 1: Do not return incomplete <h1>, <blockquote>, <h2>, or <h3> tags. Note 2: Highlight in bold only the corresponding in-text citation statement with the <h2> author and <h3>. Do not highlight every number, only the specific citation.",
-                # "<h2>Statements database</h2>":"Please analyze this document thoroughly and extract all key arguments, main ideas, and entire paragraphs containing the author's original points in an HTML format. Ensure 100% accuracy by extracting exact paragraphs as found in the document, without any modification or paraphrasing. Focus on capturing paragraphs that represent the author's core arguments and ideas."
+            # Read the content of the downloaded batch output file
+        with open(results, 'r', encoding='utf-8') as file:
+            for line in file:
+                # Parse the JSON line
+                result = json.loads(line)
 
-            }
-        ] if chat==False else [ {
-        "statements_note":
-            "Please analyze this document thoroughly and extract ALL key arguments, main ideas, and citable statements in an HTML format. Ensure 100% accuracy by extracting exact statements as found in the document, without any modification or paraphrasing. Focus on capturing statements that represent the author's core arguments and ideas, and prioritize those from the introduction, conclusion, and key sections. The number of extracted statements should be approximately three times the number of pages in the document. If the content is too large to handle at once, provide a continuation option. Output is div html in one single code block: h2 [key argument/idea in three or four words] and <blockquote> [statements exact as found in the text with references (author, year, page). but this statement should not be refering to other authors. Exclude any statement followed by in-text citation (parenthetical, numerical, note] note 1:Statements should be referenced with author, year, page \n note 2:output always in code block single html div"
+                # Extract the custom_id and split it
+                custom_id = result['custom_id']
+                item_id, tag = custom_id.split('-')[0], custom_id.split('-')[1]
 
-    }]
+                # Extract the message
+                message = result['response']['body']['choices'][0]['message']['content']
+
+                # Call the create_one_note method with the extracted variables
+                self.create_one_note(content=message, item_id=item_id, tag=tag)
+    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True):
 
         if chat:
             self.chat_args["chat_id"] = "statements"
@@ -1333,8 +1333,7 @@ class Zotero:
             """
         collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
         data =[ (t,i) for t,i in collection_data["items"]["papers"].items() ]
-
-
+        batch_requests = []
         # Setting up the tqdm iterator
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
@@ -1350,9 +1349,11 @@ class Zotero:
             tags = values['note']["tags"]
             reference = values["reference"]
 
+            if "citation style: Numerical" in tags:
+                pass
 
 
-            for dicionations in tag_prompt:
+            for dicionations in sections:
                 for tag, prompt in dicionations.items():
 
                     if tag not in tags and  pdf is not None:
@@ -1364,16 +1365,26 @@ class Zotero:
                             self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference)
 
                         else:
-                            content = process_pdf(pdf_path=pdf, prompt=prompt, page_parsing=1)
-                            self.create_one_note(item_id=id,tag=tag,content=content,reference=reference)
-                        input("Press Enter to continue...")
+                            result = process_pdf(file_path=pdf, prompt=prompt, id=id, tag=tag, reference=reference,
+                                                 batch=batch,store_only=store_only)
+                            if batch and result:
+                                batch_requests.extend(result)
+                            elif result:
+                                self.create_one_note(item_id=id, tag=tag, content=result, reference=reference)
 
-                if open and chat:
-                    time.sleep(5)
-                    api.open_new_tab(open_new=False,close=True)
+            if open and chat:
+                        time.sleep(5)
+                        api.open_new_tab(open_new=False,close=True)
 
+        if batch and batch_requests and not store_only:
+            file_name = write_batch_requests_to_file(batch_requests,
+                                                     file_name=rf"C:\Users\luano\Downloads\AcAssitant\Batching_files\{collection_name}_batch.jsonl")
+            batch_input_file_id = upload_batch_file(file_name)
+            batch_id = create_batch(batch_input_file_id)
+            check_save_batch_status(batch_id)
 
-
+        else:
+            print("[DEBUG] Batch processing failed or no results returned.")
 
     def normalize_title(self,title):
         """ Normalize the title by removing punctuation, converting to lower case, and stripping spaces. """
@@ -1604,12 +1615,8 @@ class Zotero:
             if note_id is not None:
 
                 content = self.get_content_after_heading(note_id, section, "h3")
-                # print("note id", note_id)
-                # print("content", content)
-                # input("press enter to continue")
 
-                # if not content:
-                #     # input("Press Enter to")
+
 
 
                 # Append each item directly within the loop to ensure it's not skipped or misplaced
@@ -1834,6 +1841,27 @@ class Zotero:
         except Exception as e:
             print(f"Failed to process directory '{directory_path}': {e}")
 
+
+def creating_training_data(filepath, system_content, user_content, assistant_response):
+    # Construct the message dictionary
+    filepath =r"C:\Users\luano\Downloads\AcAssitant\Training_data\\"+filepath
+    message = {
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+            {"role": "assistant", "content": assistant_response}
+        ]
+    }
+
+    # Check if the file exists
+    if not os.path.exists(filepath):
+        # Create the file and write the message as the first line
+        with open(filepath, 'w') as file:
+            file.write(json.dumps(message) + '\n')
+    else:
+        # Append the message to the existing file
+        with open(filepath, 'a') as file:
+            file.write(json.dumps(message) + '\n')
 # TODO: cosine similarity among pdfs
 "take the exact sentence and extract the paragraph where it is. the block if found would be replaced by the entire paragraph, else the direct quote for the model"
 
