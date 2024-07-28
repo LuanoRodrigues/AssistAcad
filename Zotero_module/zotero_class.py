@@ -1235,7 +1235,7 @@ class Zotero:
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
 
-    def create_one_note(self,api="",content="", item_id="", collection_id="", prompt=None, tag="",reference=None, follow_up=True,
+    def create_one_note(self,api="",content="", item_id="", collection_id="", prompt=None, tag="",reference=None, follow_up=True,training_instructions=""
                         ):
         if content=="":
 
@@ -1245,7 +1245,9 @@ class Zotero:
                 if type(prompt) == list:
                     for prompts in prompt:
 
-                        content += api.send_message(message=prompts,sleep_duration=self.sleep)
+                        message= api.send_message(message=prompts,sleep_duration=self.sleep)
+                        creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompt)
+                        content += message
                 if type(prompt) == str:
 
                     if follow_up:
@@ -1253,8 +1255,6 @@ class Zotero:
 
                         while follow_up:
                             content_2 = api.send_message(message=follow_up_prompt, sleep_duration=self.sleep)
-                            print("content 2")
-                            print(content_2)
 
                             if "N/A" in content_2:
                                 follow_up = False
@@ -1309,7 +1309,7 @@ class Zotero:
 
                 # Call the create_one_note method with the extracted variables
                 self.create_one_note(content=message, item_id=item_id, tag=tag)
-    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True):
+    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True,training_instructions=""):
 
         if chat:
             self.chat_args["chat_id"] = "statements"
@@ -1362,7 +1362,7 @@ class Zotero:
                                 prompt = f" {prompt} \n Author = {reference}"
                             api.interact_with_page(path=pdf, copy=False)
                             open=True
-                            self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference)
+                            self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference,training_instructions=training_instructions)
 
                         else:
                             result = process_pdf(file_path=pdf, prompt=prompt, id=id, tag=tag, reference=reference,
@@ -1844,7 +1844,7 @@ class Zotero:
 
 def creating_training_data(filepath, system_content, user_content, assistant_response):
     # Construct the message dictionary
-    filepath =r"C:\Users\luano\Downloads\AcAssitant\Training_data\\"+filepath
+    filepath =r"C:\Users\luano\Downloads\AcAssitant\Training_data\\"+filepath+".jsonl"
     message = {
         "messages": [
             {"role": "system", "content": system_content},
