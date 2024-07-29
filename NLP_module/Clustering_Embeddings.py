@@ -143,7 +143,7 @@ def clustering_df(dataframe, output_path, keywords=None, n_clusters=None, update
 
        This will filter the DataFrame for rows containing 'cyber' or 'law', update the embeddings, perform KMeans clustering with 5 clusters, visualize the clusters, and save the results to 'output.xlsx'.
        """
-    storage_path = 'tored_embeddings.csv'
+    storage_path = 'tored_embeddis.csv'
 
     if keywords:
         df = filter_rows_by_keywords(dataframe, keywords)
