@@ -426,7 +426,8 @@ class ChatGPT:
     def check_redbox_element(self):
         try:
             # Directly targeting the element with a combination of classes and role attribute
-            red_box = WebDriverWait(self.driver, 10).until(
+            red_box = WebDriverWait(self.driver, 2
+).until(
                 EC.presence_of_element_located((By.XPATH,
                                                 "//div[contains(@class, 'bg-red-500') and contains(@class, 'border-red-500') and @role='alert']"))
             )
@@ -452,7 +453,8 @@ class ChatGPT:
 ]
         for by, selector in selectors:
             try:
-                button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((by, selector)))
+                button = WebDriverWait(self.driver, 2
+).until(EC.element_to_be_clickable((by, selector)))
                 button.click()
                 self.logger.debug(f"Button clicked successfully using {by} with selector: {selector}")
                 return True
@@ -477,7 +479,8 @@ class ChatGPT:
 
         for by, selector in selectors:
             try:
-                button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((by, selector)))
+                button = WebDriverWait(self.driver, 2
+).until(EC.element_to_be_clickable((by, selector)))
                 button.click()
                 self.logger.debug(f"Button clicked successfully using {by} with selector: {selector}")
                 return True
@@ -672,19 +675,23 @@ class ChatGPT:
             try:
                 # Determine if the selector is an XPath or CSS Selector
                 if div_selector.startswith('//') or div_selector.startswith('('):
-                    div_element = WebDriverWait(self.driver, 10).until(
+                    div_element = WebDriverWait(self.driver, 2
+).until(
                         EC.visibility_of_element_located((By.XPATH, div_selector))
                     )
                     # Ensure the element is clickable before clicking it
-                    WebDriverWait(self.driver, 10).until(
+                    WebDriverWait(self.driver, 2
+).until(
                         EC.element_to_be_clickable((By.XPATH, div_selector))
                     )
                 else:
-                    div_element = WebDriverWait(self.driver, 10).until(
+                    div_element = WebDriverWait(self.driver, 2
+).until(
                         EC.visibility_of_element_located((By.CSS_SELECTOR, div_selector))
                     )
                     # Ensure the element is clickable before clicking it
-                    WebDriverWait(self.driver, 10).until(
+                    WebDriverWait(self.driver, 2
+).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, div_selector))
                     )
 
@@ -744,7 +751,8 @@ class ChatGPT:
                     continue
 
                 # Wait until the element is clickable
-                button = WebDriverWait(self.driver, 10).until(
+                button = WebDriverWait(self.driver, 2
+).until(
                     EC.element_to_be_clickable(locator)
                 )
                 button.click()
@@ -874,8 +882,8 @@ class ChatGPT:
                 time.sleep(1)  # Sleep for a second
                 bar()  # Update the progress bar by one unit
                 # Dynamic message showing remaining time in minutes, using 'i' to track progress
-                remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
-                bar.text(f'Remaining: {remaining_time:.2f} min')
+                # remaining_time = (sleep_duration - (i + 1)) / 60  # '+ 1' because 'i' starts from 0
+                # bar.text(f'Remaining: {remaining_time:.2f} min')
 
     def copy_message(self):
         self.logger.debug('Start copy message function...')
@@ -883,7 +891,8 @@ class ChatGPT:
         # Copy the response by the shortcut Ctrl+Shift+;
         try:
             # Wait until the button appears, with a timeout of 10 seconds
-            button = WebDriverWait(self.driver, 10).until(
+            button = WebDriverWait(self.driver, 2
+).until(
                 EC.visibility_of_element_located((By.CLASS_NAME, "btn-primary"))
             )
             # Click the button if it is visible
@@ -919,7 +928,7 @@ class ChatGPT:
 
         return content
 
-    def send_message(self, message: str,sleep_duration:int=60*5) -> dict:
+    def send_message(self, message: str,sleep_duration:int=5) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send
