@@ -5,6 +5,8 @@ import time
 import pickle
 from pathlib import Path
 import math
+from collections import defaultdict
+
 import traceback
 from alive_progress import alive_bar, alive_it,config_handler
 from Zotero_module.zotero_data import note_update,book,initial_book
@@ -1286,7 +1288,7 @@ class Zotero:
 
         print("New note created:", new_note)
         time.sleep(15)
-        new_note_id = new_note['successful']['0']['data']['key']
+
     def creating_note_from_batch(self):
         batch_id = get_batch_ids()['id']
         results = read_or_download_batch_output(batch_id=batch_id)
@@ -1296,16 +1298,21 @@ class Zotero:
 
             # Read the content of the downloaded batch output file
         with open(results, 'r', encoding='utf-8') as file:
+            messages_by_id_tag = defaultdict(str)
             for line in file:
                 # Parse the JSON line
                 result = json.loads(line)
 
                 # Extract the custom_id and split it
                 custom_id = result['custom_id']
-                item_id, tag = custom_id.split('-')[0], custom_id.split('-')[1]
-
+                item_id, tag,page = custom_id.split('-')[0], custom_id.split('-')[1], custom_id.split('-')[-1]
                 # Extract the message
-                message = result['response']['body']['choices'][0]['message']['content']
+                messages = result['response']['body']['choices'][0]['message']['content'].replace("</blockquote>",
+                                                            f"(p.{int(page) + 1})</blockquote>")
+                # Accumulate the message content in the dictionary
+                messages_by_id_tag[f"{item_id}-{tag}"] += messages
+            for id_tag, message in messages_by_id_tag.items():
+                item_id, tag = id_tag.split('-')
 
                 # Call the create_one_note method with the extracted variables
                 self.create_one_note(content=message, item_id=item_id, tag=tag)
