@@ -1,1 +1,2 @@
 /path/to/directory/stored_embeddings.csv filter=lfs diff=lfs merge=lfs -text
+stored_embeddings.csv filter=lfs diff=lfs merge=lfs -text
