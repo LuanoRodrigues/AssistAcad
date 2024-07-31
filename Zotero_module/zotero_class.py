@@ -67,7 +67,7 @@ class Zotero:
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
 
-    def get_or_update_collection(self, collection_name=None, update=False,tag=None,convert=True):
+    def get_or_update_collection(self, collection_name=None, update=False,tag=None,convert=False):
         """
         Fetches or updates a specified collection's data from Zotero.
 
@@ -115,7 +115,7 @@ class Zotero:
 
             collection_found = False
             # Check if we found the right collection
-
+            pdf_path =None
             for collection in all_collections:
                 if collection['data']['name'].lower() == collection_name.lower():
                     print(f'Found the collection "{collection_name}".')
@@ -141,7 +141,7 @@ class Zotero:
                                                                      limit=items_per_request)
                         if not collection_items:
                             break  # Exit loop if no more items are returned
-                        note_data = None
+                        note_info = None
                         collection_items= [papers for papers in collection_items if papers['data']['itemType'] not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
                                                        'annotation']]
 
@@ -154,17 +154,18 @@ class Zotero:
                                 paper_title = item_data.get('title', 'No Title')
                                 pbar.set_description(f"processing {paper_title}")
                                 paper_key = item_data['key']
-                                note_data = self.get_children_notes(paper_key)
+                                note_info = self.get_children_notes(paper_key)
 
-                                paper_data = {'id': paper_key, 'pdf': None, "note":note_data}
+                                paper_data = {'item_id': paper_key, 'pdf': pdf_path, "note":note_info, "reference":None}
                                 # Process attachments if present
                                 if 'attachment' in item['links']:
+
+
                                     attachment_link = item['links']['attachment']['href'].split("/")[-1]
                                     directory = self.zotero_directory + attachment_link
+
                                     try:
-                                        # Iterate through each author in the data.
-                                        # Check if both 'firstName' and 'lastName' keys exist, and join them if they do.
-                                        # If they don't exist, use the 'name' key directly.
+
                                         authors =[
                                             f"{author['firstName']} {author['lastName']}" if 'firstName' in author and 'lastName' in author
                                             else author['name']
@@ -185,10 +186,12 @@ class Zotero:
                                     year_match = re.search(r'\b\d{4}\b', date)
                                     if year_match:
                                         date = year_match.group(0)
+
                                     new_path = f"({authors}, {date}).pdf"
 
                                     pdf_path=self.get_pdf_path(directory,new_path,convert=convert)
-                                    paper_data = {'id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_data}
+
+                                    paper_data = {'item_id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_info}
                                 target_collection['items']['papers'][paper_title] = paper_data
                                 pbar.update()
 
@@ -211,7 +214,7 @@ class Zotero:
                 collection_name = None  # Reset collection_name to prompt again
 
 
-    def get_pdf_path(self, dir_path, new_filename, convert):
+    def get_pdf_path(self, dir_path, new_filename, convert=False):
         """
         Renames the first encountered PDF file in the specified directory to a new filename,
         if the current filename does not match the new filename. It assumes there's only one
@@ -253,29 +256,21 @@ class Zotero:
                     if current_pdf_path != new_pdf_path:
                         os.rename(current_pdf_path, new_pdf_path)
                         print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
+                    if convert:
                         if os.path.exists(new_pdf_path.replace(".pdf", ".docx")):
                             return new_pdf_path.replace(".pdf", ".docx")
                         else:
-                           # Assume this is a method defined elsewhere in the class
-                           if convert:
-
-                                pdf_word_path =Dc.pdf_to_docx(new_pdf_path)
-                                if pdf_word_path:
-                                    return pdf_word_path
-                                else:
-                                    return  new_pdf_path
-                    if os.path.exists(current_pdf_path.replace(".pdf", ".docx")):
-                        return current_pdf_path.replace(".pdf", ".docx")
-                    else:
-                        if convert:
                             pdf_word_path = Dc.pdf_to_docx(new_pdf_path)
                             if pdf_word_path:
-                                return pdf_word_path
-                            else:
                                 return current_pdf_path
-                if file.endswith(".docx"):
-                    current_pdf_path = os.path.join(root, file)
-                    return current_pdf_path
+                            else:
+                                return new_pdf_path
+                    if os.path.exists(new_pdf_path):
+                        return new_pdf_path
+                if convert:
+                    if file.endswith(".docx"):
+                        current_pdf_path = os.path.join(root, file)
+                        return current_pdf_path
 
 
 
@@ -700,7 +695,7 @@ class Zotero:
             Note:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
-        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,convert=False)
 
         data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][::-1]
         if article_title != "":
@@ -722,17 +717,17 @@ class Zotero:
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
             pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
-            note = values['note']
-            id = values['id']
+            print(values)
+            input("Press Enter to continue...")
+
+            note=values["note"]
+            id = values['item_id']
             pdf = values['pdf']
 
-            if note["note_id"] is not None:
+            if note["note_info"] is not None:
                 if note["headings"] :
-
-                    note_id= note["note_id"]
+                    note_id= [i["note_info"]['note_id'] for i in values['note_info'] if i['note_info']["note_info"]['tags'] == "summary_note" ]
                     self.schema = self.extract_insert_article_schema(note_id=note_id,save=False)
-                    print("schema=:",self.schema)
-
                     if self.schema:
                         pdf_title = "PDF_TITLE ATTACHED=" + os.path.split(pdf)[-1] + "\n"
                         section_dict = {
@@ -766,7 +761,7 @@ class Zotero:
 
                 elif  note["headings"] == []:
                     note_complete -=1
-            if note["note_id"] is None and pdf is not None:
+            if note["note_info"] is None and pdf is not None:
                 print("note is None and pdf is None")
                 note_id = self.create_note(id, pdf)
                 if note_id:
@@ -940,7 +935,7 @@ class Zotero:
                     isinstance(next_sibling, NavigableString) and not next_sibling.strip()):
                 relevant_h2_blocks.append(str(h2_element))
 
-        return relevant_h2_blocks
+        return [i for i in relevant_h2_blocks if i!='<h2>Loose notes</h2>']
 
     def html_update(self,note_id):
     # Your HTML content
@@ -980,7 +975,7 @@ class Zotero:
 
 
 
-    def get_children_notes(self, item_id,target_tag="all"):
+    def get_children_notes(self, item_id):
         """
         Retrieves and processes child notes for a specified item from the Zotero library.
 
@@ -996,71 +991,40 @@ class Zotero:
         Returns:
             dict or None: A dictionary containing the 'note_id' and 'headings' if there are incomplete notes, otherwise None.
         """
+        note_info =[]
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
-        # print([v for p in children[0]["data"]["tags"] for v in p.values()])
-        tags=["tag"]
-        # Filter out only notes that contain headings
-        # notes = [child for child in children if
-        #          child['data']['itemType'] == 'note' and re.search(r'<h\d>(.*?)<\/h\d>', child['data']["note"],
-        #                                                            re.IGNORECASE)]
         # Define the list of valid tags to check
-        valid_tags = ["statements_note", "cited_note", "cited_note_name"]
-
-        # Filter the children
-        if target_tag =="all":
-
-            notes = [
+        valid_tags = ["statements_note", "cited_note", "cited_note_name","summary","summary_note"]
+        remaining_h2 =None
+        notes = [
                 child for child in children
                 if child['data']['itemType'] == 'note' and any(
                     tag in valid_tags for tag in (v for p in child['data']['tags'] for v in p.values())
                 )
             ]
-        else:
-
-            notes = [
-                child for child in children
-                if child['data']['itemType'] == 'note' and target_tag in (v for p in child['data']['tags'] for v in p.values())]
-
-
         # Check the number of notes and print them if more than one
-        if len(notes) > 1:
-            print("more than one note")
+        tags = [tag["tag"] for note in notes for  tag in note['data']['tags'] ]
+        if notes:
+            # Process each note
+            for note in notes:
+                note_id = note['data']["key"]
+                note_content = note['data']["note"]
+                tags_note =[i['tag'] for  i in note['data']['tags']]
+                note_info.append({"note_id":note_id,"note_content":note_content,"tag":tags_note})
+                if "summary_note" in tags_note:
 
-            tags = [tag["tag"] for note in notes for  tag in note['data']['tags'] ]
+                    remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
+                # Check if there are no remaining sections and the note is not marked complete
+                if not remaining_h2 and "note_complete" not in tags:
+                    note['data']['tags'].append({"tag": "note_complete"})
+                    self.zot.update_item(note)
+                # If there are remaining sections, return them with the note ID
 
+            # If no notes meet the criteria, return None
+            return {"note_info": note_info, "headings": remaining_h2, "tags": tags}
         else:
-            if len(notes) == 1:
-                tags = [tag["tag"] for  tag in notes[0]['data']['tags']]
-
-
-        # Process each note
-        for note in notes:
-            note_id = note['data']["key"]
-            note_content = note['data']["note"]
-
-            # Extract headings still needing updates
-            remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
-
-            # Check if the note is marked as complete
-            if "note_complete" in tags:
-                return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
-
-            # Check if there are no remaining sections and the note is not marked complete
-            if not remaining_h2 and "note_complete" not in tags:
-
-                note['data']['tags'].append({"tag": "note_complete"})
-                self.zot.update_item(note)
-                return {"note_id": note_id, "headings": [],"content": note_content,"tags": tags}
-
-            # If there are remaining sections, return them with the note ID
-            if remaining_h2:
-                remaining_h2 = [i for i in remaining_h2 if i!='<h2>Loose notes</h2>']
-
-                return {"note_id": note_id, "headings": remaining_h2,"content": note_content,"tags": tags}
-
-        # If no notes meet the criteria, return None
-        return {"note_id": None, "headings":[],"content": "","tags": []}
+            return {"note_info": None, "headings": None, "tags": None}
 
     def extract_unique_keywords_from_html(self, html_text):
         """
@@ -1245,12 +1209,14 @@ class Zotero:
             content_2 = ""
             if prompt is not None:
                 if type(prompt) == list:
+
                     for prompts in prompt:
 
-                        message= api.send_message(message=prompts,sleep_duration=self.sleep)
-                        creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompt)
+                        message= api.send_message(message=prompts+"\n"+reference,sleep_duration=self.sleep)
+                        # self.creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompts)
                         content += message
                 if type(prompt) == str:
+
 
                     if follow_up:
                         content = api.send_message(message=prompt, sleep_duration=self.sleep)
@@ -1316,10 +1282,10 @@ class Zotero:
 
                 # Call the create_one_note method with the extracted variables
                 self.create_one_note(content=message, item_id=item_id, tag=tag)
-    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True,training_instructions=""):
+    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True,training_instructions="",follow_up=False):
 
         if chat:
-            self.chat_args["chat_id"] = "statements"
+            # self.chat_args["chat_id"] = "statements"
             api = ChatGPT(**self.chat_args)
 
         # # api=""
@@ -1350,15 +1316,13 @@ class Zotero:
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
             pbar.set_description(f"Processing index:{index1},paper:{keys}  ")
-            note = values['note']
-            id = values['id']
+
+            id = values['item_id']
             pdf = values['pdf']
-            tags = values['note']["tags"]
-            reference = values["reference"]
-
-            if "citation style: Numerical" in tags:
-                pass
-
+            tags =values['note']["tags"] or []
+            reference ="Author=" +  (values["reference"] or "")
+            # if "citation style: Numerical" in tags:
+            #     pass
 
             for dicionations in sections:
                 for tag, prompt in dicionations.items():
@@ -1366,7 +1330,7 @@ class Zotero:
                     if tag not in tags and  pdf is not None:
                         if chat:
                             if tag=="statement_note":
-                                prompt = f" {prompt} \n Author = {reference}"
+                                prompt = f" {prompt} \n {reference}"
                             api.interact_with_page(path=pdf, copy=False)
                             open=True
                             self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference,training_instructions=training_instructions)
@@ -1377,7 +1341,7 @@ class Zotero:
                             if batch and result:
                                 batch_requests.extend(result)
                             elif result:
-                                self.create_one_note(item_id=id, tag=tag, content=result, reference=reference)
+                                self.create_one_note(item_id=id, tag=tag, content=result, reference=reference,follow_up=follow_up)
 
             if open and chat:
                         time.sleep(5)
@@ -1849,26 +1813,26 @@ class Zotero:
             print(f"Failed to process directory '{directory_path}': {e}")
 
 
-def creating_training_data(filepath, system_content, user_content, assistant_response):
-    # Construct the message dictionary
-    filepath =r"C:\Users\luano\Downloads\AcAssitant\Training_data\\"+filepath+".jsonl"
-    message = {
-        "messages": [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-            {"role": "assistant", "content": assistant_response}
-        ]
-    }
+    def creating_training_data(self,filepath, system_content, user_content, assistant_response):
+        # Construct the message dictionary
+        filepath =r"C:\Users\luano\Downloads\AcAssitant\Training_data\\"+filepath+".jsonl"
+        message = {
+            "messages": [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+                {"role": "assistant", "content": assistant_response}
+            ]
+        }
 
-    # Check if the file exists
-    if not os.path.exists(filepath):
-        # Create the file and write the message as the first line
-        with open(filepath, 'w') as file:
-            file.write(json.dumps(message) + '\n')
-    else:
-        # Append the message to the existing file
-        with open(filepath, 'a') as file:
-            file.write(json.dumps(message) + '\n')
+        # Check if the file exists
+        if not os.path.exists(filepath):
+            # Create the file and write the message as the first line
+            with open(filepath, 'w') as file:
+                file.write(json.dumps(message) + '\n')
+        else:
+            # Append the message to the existing file
+            with open(filepath, 'a') as file:
+                file.write(json.dumps(message) + '\n')
 # TODO: cosine similarity among pdfs
 "take the exact sentence and extract the paragraph where it is. the block if found would be replaced by the entire paragraph, else the direct quote for the model"
 

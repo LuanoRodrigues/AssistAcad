@@ -37,7 +37,7 @@ def prepare_batch_requests(text_to_send, index, id, tag):
     }
 
 def call_openai_api(client, text):
-    response = client.chat_completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided HTML and return an HTML <div> string after analyzing the text. If no citation is found, wait for the next chunk of text. The response should not be between ```html and ```, it should be a plain text response with HTML tags."},
@@ -46,7 +46,8 @@ def call_openai_api(client, text):
         max_tokens=2048,
         temperature=0.7
     )
-    message = response.choices[0].message['content'].strip()
+
+    message = response.choices[0].message.content.strip()
     return message, response.id
 
 def extract_text_from_pdf(file_path):
