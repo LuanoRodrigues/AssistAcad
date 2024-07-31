@@ -1216,16 +1216,17 @@ class Zotero:
                         # self.creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompts)
                         content += message
                 if type(prompt) == str:
-
+                    count = 0
 
                     if follow_up:
                         content = api.send_message(message=prompt, sleep_duration=self.sleep)
 
                         while follow_up:
                             content_2 = api.send_message(message=follow_up_prompt, sleep_duration=self.sleep)
-
-                            if "N/A" in content_2:
+                            count+=1
+                            if "N/A" in content_2 or count>6:
                                 follow_up = False
+
                             else:
                                 content += content_2
 
