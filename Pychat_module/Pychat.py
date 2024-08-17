@@ -9,6 +9,9 @@ from pywinauto import Application
 from pywinauto.findwindows import ElementNotFoundError
 import win32gui
 import win32con
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import pyautogui
@@ -259,8 +262,8 @@ class ChatGPT:
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id =="o":
                 self.chat_id = "?model=gpt-4o"
-            if self.chat_id == "statements":
-                self.chat_id = "/g/g-8z1QerZeo-academic-citation-extractor"
+            if self.chat_id == "Statements Database":
+                self.chat_id = "/g/g-zc9XeRbjL"
             if self.chat_id == "summary":
                 self.chat_id = "/g/g-PM8cJsFgY-academic-summary-assistant"
             if self.chat_id == "meu":
@@ -490,7 +493,30 @@ class ChatGPT:
         self.logger.debug("No buttons were found or clickable within the specified timeout.")
         return False
 
-    def __ensure_cf(self, retry: int = 3) -> None:
+    def download_file_with_resume(self,url, filename, retries=5, chunk_size=8192):
+        session = requests.Session()
+        retry = Retry(
+            total=retries,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+
+        # Determine if we already have a partial download
+        file_mode = 'ab' if os.path.exists(filename) else 'wb'
+        resume_header = {'Range': f'bytes={os.path.getsize(filename)}-'} if file_mode == 'ab' else {}
+
+        with session.get(url, headers=resume_header, stream=True) as response:
+            response.raise_for_status()
+            with open(filename, file_mode) as f:
+                for chunk in response.iter_content(chunk_size=chunk_size):
+                    if chunk:
+                        f.write(chunk)
+        return filename
+
+    def __ensure_cf(self, retry: int = 5) -> None:
         '''
         Ensure Cloudflare cookies are set
         :param retry: Number of retries

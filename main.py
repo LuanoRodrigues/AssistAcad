@@ -15,7 +15,7 @@ api_key = os.environ.get("API_KEY")
 library_type = os.environ.get("LIBRARY_TYPE")
 token = os.environ.get("TOKEN")
 # chat_name= "summary"
-chat_name= "statements"
+chat_name= "summary"
 
 
 
@@ -33,15 +33,20 @@ library_id = library_id,
 
     chat_args=chat_args,
     os="win",
-    sleep=5*60
+    sleep=4*71
 
 
 
 
 
 )
-# zt.update_all("nova",update=True)
-zt.statements_citations(collection_name="Law and evidence",batch=False,update=True  ,store_only=False,chat=True,sections=tag_prompt,follow_up=True)
+# zt.creating_training_data_from_statements("Law and evidence",False)
+prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
+ note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
+# zt.multilple_prompts(prompt=prompt)
+# zt.extract_insert_article_schema(note_id="7WI5RJFA",save=True)
+zt.update_all("Law and evidence",update=True)
+# zt.statements_citations(collection_name="Law and evidence",batch=False,update=True  ,store_only=False,chat=True,section=tag_prompt[0],follow_up=True)
 
 # zt.statements_citations(collection_name="nova",batch=False,update=True,store_only=False,chat=False,sections=note_api,)
 # print(zt.get_children_notes("76DQPE49"))
@@ -59,7 +64,4 @@ zt.statements_citations(collection_name="Law and evidence",batch=False,update=Tr
 # zt.create_one_note(content=result,item_id="76DQPE49",api="",tag="citation")
 
 # content = zt.get_content_after_heading("4UGZNIHB", "<h1>3. Summary</h1>", "h3")
-# print(content)
-# content = zt.get_children_notes("3HQI2D4A")
-# print(content)
 

@@ -491,8 +491,11 @@ class Zotero:
     Note:
     - The function prints out the result of the operation, indicating success or failure of the update.
     """
+
         # Retrieve the current note content
+
         note = self.zot.item(note_id)
+
         tags = note['data'].get('tags', [])
         if "note_complete" in tags:
             return
@@ -710,33 +713,39 @@ class Zotero:
         if type(specific_section) == str:
             print("len ==1")
             api = ChatGPT(**self.chat_args)
-
-
         for keys, values in pbar:
 
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
             pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
-            print(values)
-            input("Press Enter to continue...")
+
 
             note=values["note"]
             id = values['item_id']
             pdf = values['pdf']
+            note_id = None
+            try:
+                note_id = " ".join([i['note_id'] for i in note['note_info'] if
+                           "summary_note" in i['tag'] ])
+            except:
+                pass
 
-            if note["note_info"] is not None:
+            sections_titles = note["sections"]
+
+
+            if note_id:
                 if note["headings"] :
-                    note_id= [i["note_info"]['note_id'] for i in values['note_info'] if i['note_info']["note_info"]['tags'] == "summary_note" ]
-                    self.schema = self.extract_insert_article_schema(note_id=note_id,save=False)
-                    if self.schema:
+
+                    if sections_titles:
                         pdf_title = "PDF_TITLE ATTACHED=" + os.path.split(pdf)[-1] + "\n"
                         section_dict = {
                             k: (
-                                f"{pdf_title}Read the provided PDF carefully, paragraph by paragraph, and perform an in-depth section analysis of the section: '{self.clean_h2_title(k)}' in the attached PDF document. Carefully count each paragraph starting from the beginning of this section. For each key finding/idea, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2,3') accompanied by direct quotes from the respective paragraphs to illustrate or support the key points identified. Follow this structure: ```html <h3>Paragraph 1 - [key finding in one short sentence]</h3> <blockquote>'[Direct quote from the first paragraph in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text]'</blockquote> <h3>Paragraphs 2,3 - [Next Key finding or idea in one short sentence]</h3> <blockquote>'[Direct quote from paragraph 2 in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> [Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key findings or ideas until the end of the section]``` This methodical approach ensures a structured and precise examination of the section: '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key findings or ideas, all supported by direct quotations from the document for a comprehensive and insightful analysis until the end of the provided section. Take your time, and review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n\nnote1: Direct quotes format must be in the form of one full sentence. The full sentence must be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text. After getting the exact quote that supports your analysis, reference with the author name between ()\nnote2: Output format: HTML in a code block.")
-                            for k in self.schema if k not in ["Abstract", "table pf"]
+                                f"{pdf_title} Read the PDF, especially the section titled '{self.clean_h2_title(k)}'. Number each paragraph from the start, focusing on formatting cues like indentation and spacing. Summarize the main idea of each paragraph in a succint declarative sentence in h3. Reference the paragraph number and include the full paragraph text, highlighting the key statement with <strong> tags in blockquote. Use HTML for structured output: <h3>Paragraph 1 - [Main idea in a form of a short declarative statement here without []]</h3><blockquote>'[Full paragraph with highlighted key statement not enclosed by []]'</blockquote><h3>Paragraphs 2,3 - [Main idea in a form of a short declarative statement here without []]</h3><blockquote>'[Full paragraph with highlighted key statement not enclosed by []]'</blockquote><blockquote>'[Full paragraph with highlighted key statement not enclosed by []]'</blockquote> <!-- Continue for additional paragraphs --> Ensure accuracy by verifying logical flow and formatting consistency.\n\nnote1: follow the instructions between [] \nnote 2: blockquote paragraphs are provided in full, as whole, exactly as it found in the document.\nnote 3:output format: code block html div, I repeat, CODE BLOCK HTML```")
+                            for k in sections_titles if k not in ["Abstract", "table pf"]
                         }
 
                         note_update.update(section_dict)
+
                     if specific_section and "note_complete" not in note["tags"]:
                         note_id = note["note_id"]
                         note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
@@ -749,11 +758,10 @@ class Zotero:
                             if specific_section:
                                 self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
                                                       delete=delete, api=api)
-                    else:
-                        print("note headings:",note["headings"])
+                    if not specific_section:
 
                         note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
-                        print("note_update1:",note_update1)
+                        print("note_update1:",note_update1.keys())
                         if note_update1.keys():
                             self.update_multiple_notes(section_prompts=note_update1,pdf=pdf, note_id=note_id)
                         if not note_update1.keys():
@@ -761,7 +769,8 @@ class Zotero:
 
                 elif  note["headings"] == []:
                     note_complete -=1
-            if note["note_info"] is None and pdf is not None:
+            if not note_id and pdf is not None:
+
                 print("note is None and pdf is None")
                 note_id = self.create_note(id, pdf)
                 if note_id:
@@ -881,7 +890,7 @@ class Zotero:
 
                 self.update_zotero_note_section(note_id=note_id, updates={key:value},api=api,pdf_title=pdf_title)
                 pbar.update()
-                if key=="<h2>2.4 Structure and Keywords</h2>":
+                if key=="<h2>1.5 Structure and Keywords</h2>":
                     self.extract_insert_article_schema(note_id=note_id,save=True)
             api.__del__()
 
@@ -991,11 +1000,12 @@ class Zotero:
         Returns:
             dict or None: A dictionary containing the 'note_id' and 'headings' if there are incomplete notes, otherwise None.
         """
+        sections=None
         note_info =[]
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
         # Define the list of valid tags to check
-        valid_tags = ["statements_note", "cited_note", "cited_note_name","summary","summary_note"]
+        valid_tags = ["statements_note", "cited_note", "cited_note_name","summary","summary_note","Statements Database","Authors Cited"]
         remaining_h2 =None
         notes = [
                 child for child in children
@@ -1013,6 +1023,9 @@ class Zotero:
                 tags_note =[i['tag'] for  i in note['data']['tags']]
                 note_info.append({"note_id":note_id,"note_content":note_content,"tag":tags_note})
                 if "summary_note" in tags_note:
+                    sections = self.extract_insert_article_schema(save=False,note_id=note_id)
+                    # if sections_title is not None:
+                    #     sections = [BeautifulSoup(section, 'html.parser').find('h2').get_text() for section in sections_title ]
 
                     remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
                 # Check if there are no remaining sections and the note is not marked complete
@@ -1022,9 +1035,9 @@ class Zotero:
                 # If there are remaining sections, return them with the note ID
 
             # If no notes meet the criteria, return None
-            return {"note_info": note_info, "headings": remaining_h2, "tags": tags}
+            return {"note_info": note_info, "headings": remaining_h2, "tags": tags,"sections":sections}
         else:
-            return {"note_info": None, "headings": None, "tags": None}
+            return {"note_info": None, "headings": None, "tags": None,"sections":None}
 
     def extract_unique_keywords_from_html(self, html_text):
         """
@@ -1082,6 +1095,7 @@ class Zotero:
         schema_list = []
 
         article_schema = soup.find('h3', string='TOC:')
+
         if article_schema:
             # Find the next sibling that is a <ul> tag
             schema_ul = article_schema.find_next_sibling(lambda tag: tag.name == 'ul' and tag.find('li'))
@@ -1098,7 +1112,9 @@ class Zotero:
         content = '<hr>\n'.join(schema_list) + "<hr>\n"
         if matches:
             updated_section = f"{matches.group(1)}{content}"
+
             updated_content = note_content[:matches.start()] + updated_section + note_content[matches.end():]
+
         else:
             print(f"Section title '<h1>3. Summary</h1>' not found in the note content.")
 
@@ -1121,8 +1137,10 @@ class Zotero:
             except Exception as e:
                 print(f"An error occurred during the update: {e}")
             return response
-        else:
+        if schema_list:
             return schema_list
+        else:
+            return None
 
     def process_headings(self, title,update=False):
 
@@ -1200,41 +1218,55 @@ class Zotero:
                 # Append the resulting HTML content to the file
                 with open(book_file, "a+", encoding="utf-8") as fp:
                     fp.write(html_content + "\n\n")  # Adding a newline for separation between entries
+    def creating_training_data_from_statements(self,collection_name,update=True):
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        data = [(t, i) for t, i in collection_data["items"]["papers"].items()]
+        # Setting up the tqdm iterator
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
 
-    def create_one_note(self,api="",content="", item_id="", collection_id="", prompt=None, tag="",reference=None, follow_up=True,training_instructions=""
+        for keys, values in pbar:
+            # Dynamically update the description with the current key being processed
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys}  ")
+
+            id = values['item_id']
+            pdf = values['pdf']
+            tags = values['note']["tags"] or []
+            reference = "Author=" + (values["reference"] or "")
+            note = values["note"]["note_info"]
+            note_info = [ note_content.note_content for note_content in note if note_content["tag"]=="statement" ]
+
+    def multilple_prompts(self,api,sections,pdf="",content="", prompt=None, tag="",reference=None, follow_up=True,training_instructions=""):
+        if api == "":
+            self.chat_args["chat_id"] = tag
+            api = ChatGPT(**self.chat_args)
+
+        if pdf:
+            api.interact_with_page(path=pdf, copy=False)
+
+        if prompt is not None:
+            if type(prompt) == list:
+                print("this is a list")
+
+                for prompts in prompt:
+                    message = api.send_message(message=prompts + "\n" + reference, sleep_duration=self.sleep)
+                    # self.creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompts)
+                    content += message
+            if type(prompt) == str:
+                if sections is None:
+                    content = api.send_message(message=prompt, sleep_duration=self.sleep)
+                if sections:
+                    for section in sections:
+                        content += api.send_message(message=f"section ={section} {reference}\n {prompt}", sleep_duration=self.sleep)
+
+        time.sleep(5)
+        api.open_new_tab(open_new=False, close=True)
+        return content
+    def create_one_note(self,content="", item_id="", collection_id="", tag="",reference=None, cabecalho="",
                         ):
-        if content=="":
-
-            follow_up_prompt ="More. [Do not repeat the statements of the previous ones. I want you now to provide the most relevant ones in the same HTML format. If None, return just a python string in code block exactly:\"<div>N/A</div>\"]"
-            content_2 = ""
-            if prompt is not None:
-                if type(prompt) == list:
-
-                    for prompts in prompt:
-
-                        message= api.send_message(message=prompts+"\n"+reference,sleep_duration=self.sleep)
-                        # self.creating_training_data(filepath="Trainining_summary",system_content=training_instructions,assistant_response=message,user_content=prompts)
-                        content += message
-                if type(prompt) == str:
-                    count = 0
-
-                    if follow_up:
-                        content = api.send_message(message=prompt, sleep_duration=self.sleep)
-
-                        while follow_up:
-                            content_2 = api.send_message(message=follow_up_prompt, sleep_duration=self.sleep)
-                            count+=1
-                            if "N/A" in content_2 or count>6:
-                                follow_up = False
-
-                            else:
-                                content += content_2
-
-
-
-
-
-        new_content = f'<html><head><title>{tag}</title></head><body><div class="container">{content}{reference}</div></body></html>'
+        new_content = f'<html><head><title></title></head><body><div class="container"><h1>{tag}</h1>{content}{reference}</div></body></html>'
         # Create the new note
         if item_id:
             new_note = self.zot.create_items([{
@@ -1252,9 +1284,8 @@ class Zotero:
                 'tags': [ {"tag": tag}]
 
             }])
+        print(new_note)
 
-        print("New note created:", new_note)
-        time.sleep(15)
 
     def creating_note_from_batch(self):
         batch_id = get_batch_ids()['id']
@@ -1283,11 +1314,13 @@ class Zotero:
 
                 # Call the create_one_note method with the extracted variables
                 self.create_one_note(content=message, item_id=item_id, tag=tag)
-    def statements_citations(self,sections,collection_name,update=True,chat=False,batch=False,store_only=True,training_instructions="",follow_up=False):
-
+    def statements_citations(self,section,collection_name,update=True,chat=False,batch=False,store_only=True,training_instructions="",follow_up=False):
         if chat:
-            # self.chat_args["chat_id"] = "statements"
+            tag =list(section.keys())[0]
+            prompt=section[tag]
+            self.chat_args["chat_id"] = tag
             api = ChatGPT(**self.chat_args)
+
 
         # # api=""
 
@@ -1312,7 +1345,7 @@ class Zotero:
         pbar = tqdm(data,
                     bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
                     colour='green')
-        open =False
+
         for keys, values in pbar:
             # Dynamically update the description with the current key being processed
             index1 = [i for i in collection_data["items"]["papers"]].index(keys)
@@ -1322,31 +1355,26 @@ class Zotero:
             pdf = values['pdf']
             tags =values['note']["tags"] or []
             reference ="Author=" +  (values["reference"] or "")
-            # if "citation style: Numerical" in tags:
-            #     pass
 
-            for dicionations in sections:
-                for tag, prompt in dicionations.items():
+            section_titles = values['note']["sections"]
 
-                    if tag not in tags and  pdf is not None:
-                        if chat:
-                            if tag=="statement_note":
-                                prompt = f" {prompt} \n {reference}"
-                            api.interact_with_page(path=pdf, copy=False)
-                            open=True
-                            self.create_one_note(item_id=id,api=api,prompt=prompt,tag=tag,reference=reference,training_instructions=training_instructions)
+            if tag not in tags and  pdf is not None and section_titles is not None and section_titles!="[]":
+                if chat:
+                    if tag=="Author Cited":
+                        reference = ""
 
-                        else:
-                            result = process_pdf(file_path=pdf, prompt=prompt, id=id, tag=tag, reference=reference,
-                                                 batch=batch,store_only=store_only)
-                            if batch and result:
-                                batch_requests.extend(result)
-                            elif result:
-                                self.create_one_note(item_id=id, tag=tag, content=result, reference=reference,follow_up=follow_up)
+                    content = self.multilple_prompts(prompt=prompt, api=api,reference=reference, follow_up=True,tag=tag,
+                                                     pdf=pdf,sections=section_titles)
 
-            if open and chat:
-                        time.sleep(5)
-                        api.open_new_tab(open_new=False,close=True)
+                    self.create_one_note(content=content,item_id=id,tag=tag)
+
+                else:
+                    result = process_pdf(file_path=pdf, prompt=prompt, id=id, tag=tag, reference=reference,
+                                         batch=batch,store_only=store_only)
+                    if batch and result:
+                        batch_requests.extend(result)
+                    elif result:
+                        self.create_one_note(item_id=id, tag=tag, content=result, reference=reference,follow_up=follow_up)
 
         if batch and batch_requests and not store_only:
             file_name = write_batch_requests_to_file(batch_requests,
