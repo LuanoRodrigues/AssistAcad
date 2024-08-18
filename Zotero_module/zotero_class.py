@@ -1,13 +1,15 @@
 import json
 import os
+import fitz
 import ast
 import time
 import pickle
+import urllib
 from pathlib import Path
 import math
 from collections import defaultdict
 
-import traceback
+from lxml import etree
 from alive_progress import alive_bar, alive_it,config_handler
 from Zotero_module.zotero_data import note_update,book,initial_book
 from progress.bar import Bar
@@ -27,6 +29,408 @@ from Word_modules.Creating_docx import  Docx_creation
 
 Dc = Docx_creation()
 
+def update_quote(zot, note_id, pdf,xml_path):
+    contain =False
+    if os.path.exists(xml_path):
+        parsed_data = parse_grobid_xml_to_dict(xml_path=xml_path)
+    else:
+        extract_citations_grobid(pdf_path=pdf, file_name=xml_path)
+        parsed_data = parse_grobid_xml_to_dict(xml_path)
+
+    # ask in the structure section to get patters of number of page, water marks... to be cleaned after
+    note = zot.item(note_id)
+    note_content = note["data"]["note"]
+    parentItem = note["data"]["parentItem"]
+    user_id =note["library"]["id"]
+    tags = note["data"]["tags"]
+    if 'data' in note and 'note' in note['data'] and "updated_references" not in [tag["tag"] for tag in tags]:
+        note_content = note['data']['note']
+        soup = BeautifulSoup(note_content, 'html.parser')
+        # Find the `h1` with the text "3. Summary"
+        summary_h1 = soup.find('h1', string="3. Summary")
+        if summary_h1:
+            # Use a list comprehension to navigate through the siblings and collect `h2` texts
+            h2_tags = [
+                element for element in summary_h1.find_all_next()
+                if element.name == 'h2' and element.find_previous('h1').string == "3. Summary"
+            ]
+
+
+        else:
+            print("No 'h1' with the specified title found.")
+
+        with tqdm(h2_tags, bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                  colour='blue') as pbar:
+            for h2 in pbar:
+                h3_tags = h2.find_next_siblings('h3', limit=3)
+
+                for h3 in h3_tags:
+                    print("initiating paragraph:",h3.get_text())
+
+                    blockquote = h3.find_next_sibling('blockquote')
+                    if blockquote:
+
+                        citation_span = blockquote.find('span', class_='citation')
+                        if citation_span is None:
+
+                            original_text = blockquote.get_text()
+                            input_string = get_last_four_tokens(original_text)
+                            parts = []  # List to hold different parts of the new text
+                            last_pos = 0  # Tracker for the last position in the original text
+
+                            # Iterate through each reference needed
+                            for ref_id, ref_info in parsed_data["References"].items():
+                                foot_note = ref_info['footnote']
+                                chunk = get_last_four_tokens(ref_info["preceding_text"])
+                                page = find_phrase_in_pdf(pdf_path=pdf, phrase=chunk)
+                                processed_text, check = replace_substring_and_check(
+                                    input_string=get_last_four_tokens(original_text),
+                                    old_substring=chunk)
+
+                                if check:
+                                    print(f"foot_number {ref_id} was found in paragraph {h3.get_text().strip()}")
+                                    position = original_text.find(chunk, last_pos)
+                                    if position != -1:
+                                        end_pos = position + len(chunk)
+                                        parts.append(original_text[last_pos:end_pos])
+                                        if ref_id.isdigit():
+
+                                            # Create superscript tag with the reference link
+                                            sup_tag = soup.new_tag("sup")
+                                            if foot_note:
+
+                                                a_tag = soup.new_tag("a", href=foot_note, title=foot_note)
+                                                a_tag.string = str(ref_id)
+                                                sup_tag.append(a_tag)
+                                            else:
+                                                sup_tag.string = ref_id
+
+                                            parts.append(str(sup_tag))
+
+                                        if not ref_id.isdigit():
+                                            if foot_note:
+                                                a_tag = soup.new_tag("a", href=foot_note, title=foot_note)
+                                                a_tag.string = str(ref_id)
+                                                parts.append(str(a_tag))
+                                            else:
+                                                parts.append(ref_id)
+                                    last_pos = end_pos
+
+                                    input("Press Enter to")
+                                    contain = True
+                                    break
+
+                            if contain == False:
+
+                                print(
+                                    f"For the paper {pdf.replace(".pdf", "").split("/")[-1]}, no quote was not found. Please check the key phrase in the document paragraph:\n{h2.get_text()}")
+                                print(
+                                    f"the preceeding words was:\n{chunk}\n not matching with {input_string}")
+                                continua = input("do you wanna skip it? yes or no?")
+                                if continua == "no":
+                                    contain = True
+
+                            pbar.update()
+
+                            # Append any remaining part of the text
+                            parts.append(original_text[last_pos:])
+
+                            # Replace the content of the blockquote with new content including references
+                            blockquote.clear()
+                            span = generate_zotero_annotation(user_id=user_id, item_id=parentItem,
+
+                                                              page=page)
+                            # Append the initial span if it contains specific attributes or content
+                            blockquote.append(BeautifulSoup(span['start'], 'html.parser'))
+
+                            # Create a new span and paragraph to hold the content
+                            new_span = soup.new_tag("span")
+                            p_tag = soup.new_tag("p")
+                            p_tag.append(BeautifulSoup(''.join(parts), 'html.parser'))
+                            new_span.append(p_tag)
+
+                            # Append the new span to the blockquote
+                            blockquote.append(new_span)
+
+                            # Append the ending span if it contains specific attributes or content
+                            blockquote.append(BeautifulSoup(span['end'], 'html.parser'))
+                        tags.append({'tag': "updated_references"})
+
+                        # Serialize the modified soup to HTML string
+                        updated_note_content = str(soup)
+                        updated_note = {
+                            'key': note['data']['key'],
+                            'version': note['data']['version'],
+                            'itemType': note['data']['itemType'],
+                            'note': updated_note_content,
+                            'tags': tags
+                        }
+
+                        # Update the note in Zotero
+                        try:
+                            response = zot.update_item(updated_note)
+                            if response:
+                                print("Note updated successfully.")
+                            else:
+                                print("Failed to update the note.")
+                        except Exception as e:
+                            print(f"An error occurred during the update: {e}")
+                        return response
+def update_note_zotero(note,tags,content,zot):
+    updated_note = {
+        'key': note['data']['key'],
+        'version': note['data']['version'],
+        'itemType': note['data']['itemType'],
+        'note': content,
+        'tags': tags
+    }
+
+    # Update the note in Zotero
+    try:
+        response = zot.update_item(updated_note)
+        if response:
+            print("Note updated successfully.")
+        else:
+            print("Failed to update the note.")
+    except Exception as e:
+        print(f"An error occurred during the update: {e}")
+    return response
+def extract_metadata(html_string):
+
+    """
+    Extracts metadata for 'Authors', 'Publication date', and 'PDF' from HTML content,
+    returning only the values corresponding to these features without the labels.
+
+    Parameters:
+    html_string (str): The HTML content as a string.
+
+    Returns:
+    dict: A dictionary with keys as 'Authors', 'Publication date', 'PDF' and the corresponding extracted data as values.
+    """
+    # Define the features to extract from the HTML
+    features = ['Authors', 'Publication date']
+    results = [] # Initialize results dictionary
+
+    # Validate the HTML string is not empty
+    if not html_string:
+        print("Empty or invalid HTML input.")
+        return results
+
+    try:
+        # Parse the HTML content
+        soup = BeautifulSoup(html_string, 'html.parser')
+        # Find the 'Metadata' section by locating the <h1> tag with text 'Metadata'
+        metadata_section = soup.find('h1', text='Metadata')
+
+        # If the 'Metadata' section is found, process the subsequent <ul> list
+        if metadata_section:
+            ul = metadata_section.find_next_sibling('ul')
+
+            if ul:
+                for li in ul.find_all('li'):
+                    text = li.get_text(separator=" ").strip()
+
+                    for feature in features:
+                        if feature in text:
+                            # Extract the value after the feature name and colon, ensuring it's cleaned properly
+                            result = text.split(f':')[-1].strip()
+                            results.append(result)
+
+                        # Once the feature is found, stop further searching in the current <li>
+    except Exception as e:
+        print(f"Error parsing HTML: {e}")
+        return {}
+
+    return results
+def normalize_text(text):
+    """
+    Normalize text by handling ligatures, removing all punctuation, digits, converting to lower case,
+    and collapsing multiple spaces.
+    """
+    # Handle common ligatures and special characters
+    replacements = {
+        'ﬃ': 'ffi',
+        'ﬀ': 'ff',
+        'ﬁ': 'fi',
+        'ﬂ': 'fl',
+        'œ': 'oe',
+        'æ': 'ae',
+        'Œ': 'OE',
+        'Æ': 'AE'
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+
+    # Remove all non-alphanumeric characters except for spaces (including digits)
+    text = re.sub(r'[^\w\s]', '', text)
+    # Remove digits
+    text = re.sub(r'\d+', '', text)
+    # Replace multiple spaces with a single space
+    text = re.sub(r'\s+', ' ', text).lower().strip()
+    return text
+
+
+def find_phrase_in_pdf(pdf_path, phrase):
+    normalized_phrase = normalize_text(phrase)
+
+    with fitz.open(pdf_path) as doc:
+        for i, page in enumerate(doc):
+            text = page.get_text("text")
+            normalized_text = normalize_text(text)
+            if normalized_phrase in normalized_text:
+
+                return i + 1  # Page numbers are 1-based
+
+
+
+    return None
+import urllib.parse
+
+def generate_zotero_annotation(user_id, item_id, page):
+    if page is None:
+        page = 1
+
+    # Create the annotation data
+    annotation_data = {
+        "attachmentURI": f"http://zotero.org/users/{user_id}/items/{item_id}",
+        "pageLabel": str(page),
+        "position": {
+            "pageIndex": page - 1,
+            "rects": [[0, 0, 100, 100]]  # Placeholder for the rectangle coordinates
+        },
+        "citationItem": {
+            "uris": [f"http://zotero.org/users/{user_id}/items/{item_id}"],
+            "locator": str(page)
+        }
+    }
+
+    # URL encode the annotation data
+    encoded_annotation = urllib.parse.quote(str(annotation_data).replace("'", '"'))
+
+    # Create the citation data for the end span
+    citation_data = {
+        "citationItems": [{
+            "uris": [f"http://zotero.org/users/{user_id}/items/{item_id}"],
+            "locator": str(page)
+        }],
+        "properties": {}
+    }
+
+    encoded_citation = urllib.parse.quote(str(citation_data).replace("'", '"'))
+
+
+    # HTML structure
+    start_tag = f'<span class="highlight" data-annotation="{encoded_annotation}">'
+    end_tag = f'</span><span class="citation" data-citation="{encoded_citation}"><span class="citation-item"></span></span>'
+
+    return {"start": start_tag, "end": end_tag}
+
+
+
+def extract_citations_grobid(pdf_path,file_name):
+    url = 'http://localhost:8080/api/processFulltextDocument'
+
+    # Open the PDF file in binary mode
+    with open(pdf_path, 'rb') as pdf_file:
+        response = requests.post(url, files={'input': pdf_file,"includeRawCitations":1,"segmentSentences":1})
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        with open(file_name, 'w', encoding='utf-8') as file:
+            file.write(response.text)
+        return f"Data saved to {file_name}"
+    else:
+        return f"Failed to extract citations: {response.status_code}"
+def parse_grobid_xml_to_dict(xml_path):
+    try:
+        tree = etree.parse(xml_path)
+        root = tree.getroot()
+    except etree.XMLSyntaxError as e:
+        print(f"Failed to parse XML: {e}")
+        return None
+
+    ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
+    parsed_results = {
+        "Section_titles": [],
+        "Paragraphs": {},
+        "References": {}
+    }
+
+    # Process each div for text and references
+    for div in root.findall('.//tei:div', namespaces=ns):
+        sentences = div.findall('.//tei:s', namespaces=ns)
+        section_title = div.find('.//tei:head', namespaces=ns)
+        section_key = section_title.text.strip() if section_title and section_title.text else "No Title"
+        paragraph_texts = [s.text.strip() for s in sentences if s.text]
+        parsed_results["Paragraphs"][section_key] = paragraph_texts
+        # 3. Extract Footnotes
+        footnotes_dict = {}
+
+        # Define the namespace dictionary to use with the XML
+        ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
+
+        # Dictionary to hold the notes with 'n' attribute as keys and text as values
+        notes_dict = {}
+
+        # Iterate through each note element in the XML
+        for note in root.findall('.//tei:note[@place="foot"]', namespaces=ns):
+            # Get the 'n' attribute
+            n = note.get('n')
+
+            # Get the text content of the note
+            text = ''.join(note.itertext()).strip()
+            # Check if 'n' is not None and add to dictionary
+            if n:
+                footnotes_dict[n] = text
+        for i, s in enumerate(sentences):
+            refs = s.findall('.//tei:ref[@type="bibr"]', namespaces=ns)
+            for ref in refs:
+                ref_text = ref.text.strip() if ref.text else ""
+                # Capture the whole sentence as the preceding text
+                preceding_text = s.text.strip() if s.text else ""
+                # Optionally, include previous sentence for more context
+                if i > 0 and sentences[i-1].text:
+                    preceding_text = sentences[i-1].text.strip() + " " + preceding_text
+                parsed_results["References"][ref_text] = {
+                    "preceding_text": preceding_text,
+                    "footnote":footnotes_dict.get(ref_text,"")
+                }
+
+    return parsed_results
+
+
+
+
+
+def get_last_four_tokens(input_string):
+    # Tokenize the string using regex to keep words and punctuation together
+    tokens = re.findall(r'\S+', input_string)
+
+    # Return the last four tokens
+    return " ".join(tokens[-4:])
+
+def normalize_quotes(text):
+    # Replace all types of single and double quotation marks with a single type (e.g., a single quote ')
+    normalized_text = re.sub(r"[‘’“”\"']", "'", text)
+    return normalized_text
+
+
+def replace_substring_and_check(input_string, old_substring):
+    # Escape the old substring to safely use it in a regex pattern
+    escaped_old_substring = re.escape(old_substring)
+
+    # Define a regex pattern to find the old substring with optional surrounding whitespace or punctuation
+    flexible_pattern = rf'(?<!\w)[\s.,;!?-]*{escaped_old_substring}[\s.,;!?-]*(?!\w)'
+
+    # Define the new substring with an added space at the end (if needed)
+    new_substring = f"{old_substring} "
+
+    # Perform the replacement
+    result, count = re.subn(flexible_pattern, new_substring, input_string, flags=re.IGNORECASE)
+
+    success = count > 0
+
+    return result, success
 class Zotero:
     def __init__(self,
                  library_id="<Library ID>",
@@ -67,7 +471,7 @@ class Zotero:
 
         return zotero.Zotero(self.library_id, self.library_type, self.api_key)
 
-    def get_or_update_collection(self, collection_name=None, update=False,tag=None,convert=False):
+    def get_or_update_collection(self, collection_name=None, update=False, tag=None):
         """
         Fetches or updates a specified collection's data from Zotero.
 
@@ -84,11 +488,6 @@ class Zotero:
         Returns:
             dict: A dictionary containing the collection's data.
         """
-        if tag== "replace" or tag == "append":
-            api = ChatGPT(**self.chat_args)
-        else:
-            api = ""
-        # Loop until a valid collection name is provided
         while True:
             if not collection_name:
                 collection_name = input("Please enter the collection name you want to get data from: ")
@@ -115,7 +514,7 @@ class Zotero:
 
             collection_found = False
             # Check if we found the right collection
-            pdf_path =None
+            pdf_path = None
             for collection in all_collections:
                 if collection['data']['name'].lower() == collection_name.lower():
                     print(f'Found the collection "{collection_name}".')
@@ -142,61 +541,53 @@ class Zotero:
                         if not collection_items:
                             break  # Exit loop if no more items are returned
                         note_info = None
-                        collection_items= [papers for papers in collection_items if papers['data']['itemType'] not in ['note', 'attachment', 'linkAttachment', 'fileAttachment',
-                                                       'annotation']]
+                        collection_items = [papers for papers in collection_items if
+                                            papers['data']['itemType'] not in ['note', 'attachment', 'linkAttachment',
+                                                                               'fileAttachment',
+                                                                               'annotation']]
 
                         # Process each item in this batch
-                        with (tqdm(total=len(collection_items), bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
-                                  colour='green') as pbar):
+                        with (tqdm(collection_items, bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]',
+                                   colour='green') as pbar):
 
-                            for item in collection_items:
+                            for item in pbar:
                                 item_data = item['data']
+                                item_tags = item_data["tags"]
+
                                 paper_title = item_data.get('title', 'No Title')
                                 pbar.set_description(f"processing {paper_title}")
-                                paper_key = item_data['key']
-                                note_info = self.get_children_notes(paper_key)
+                                item_id = item_data['key']
 
-                                paper_data = {'item_id': paper_key, 'pdf': pdf_path, "note":note_info, "reference":None}
-                                # Process attachments if present
-                                if 'attachment' in item['links']:
+                                # Process attachments if present Big change
+                                try:
 
+                                    authors = [
+                                        f"{author['firstName']} {author['lastName']}" if 'firstName' in author and 'lastName' in author
+                                        else author['name']
+                                        for author in item['data'].get('creators', [])
+                                    ]
+                                    if len(authors) > 3:
+                                        authors = authors[1] + "et al"
+                                    else:
+                                        authors = ", ".join(authors)
+                                except Exception as e:
+                                    authors = "author"
+                                    # If there is an error, print out the error and the format that caused it.
+                                    # Ensure authors is set to None or an empty list if there is an error
+                                    print(f"Error when parsing authors: {e}")
 
-                                    attachment_link = item['links']['attachment']['href'].split("/")[-1]
-                                    directory = self.zotero_directory + attachment_link
+                                date = item['data'].get('date')
+                                date = "date" if date is None else date
+                                year_match = re.search(r'\b\d{4}\b', date)
+                                if year_match:
+                                    date = year_match.group(0)
 
-                                    try:
-
-                                        authors =[
-                                            f"{author['firstName']} {author['lastName']}" if 'firstName' in author and 'lastName' in author
-                                            else author['name']
-                                            for author in item['data'].get('creators', [])
-                                        ]
-                                        if len(authors) > 3:
-                                            authors = authors[1]+"et al"
-                                        else:
-                                            authors = ", ".join(authors)
-                                    except Exception as e:
-                                        authors= "author"
-                                        # If there is an error, print out the error and the format that caused it.
-                                        # Ensure authors is set to None or an empty list if there is an error
-                                        print(f"Error when parsing authors: {e}")
-
-                                    date = item['data'].get('date')
-                                    date =  "date" if date is None else date
-                                    year_match = re.search(r'\b\d{4}\b', date)
-                                    if year_match:
-                                        date = year_match.group(0)
-
-                                    new_path = f"({authors}, {date}).pdf"
-
-                                    pdf_path=self.get_pdf_path(directory,new_path,convert=convert)
-
-                                    paper_data = {'item_id': paper_key,"reference":new_path.replace(".pdf",""), 'pdf': pdf_path, "note": note_info}
+                                reference = f"({authors}, {date})"
+                                note_info = self.get_children_notes(item_id, new_filename=reference + ".pdf")
+                                paper_data = {'item_id': item_id, "item_tags": item_tags, "reference": reference,
+                                              "note": note_info}
                                 target_collection['items']['papers'][paper_title] = paper_data
-                                pbar.update()
-
-
-
+                            # pbar.update()
                         total_items_fetched += len(collection_items)
                         start += items_per_request  # Move start up by the number of items per request
 
@@ -213,8 +604,10 @@ class Zotero:
                 print(f'Collection "{collection_name}" not found in Zotero. Please try again.')
                 collection_name = None  # Reset collection_name to prompt again
 
+    def get_pdf_path(self, attachment_item, new_filename, convert=False):
+        attachment_id = attachment_item['key']
+        dir_path = self.zotero_directory + attachment_id
 
-    def get_pdf_path(self, dir_path, new_filename, convert=False):
         """
         Renames the first encountered PDF file in the specified directory to a new filename,
         if the current filename does not match the new filename. It assumes there's only one
@@ -248,13 +641,16 @@ class Zotero:
         """
 
         for root, dirs, files in os.walk(dir_path):
+
             for file in files:
                 if file.endswith(".pdf"):
+
                     current_pdf_path = os.path.join(root, file)
                     new_pdf_path = os.path.join(root, new_filename)
-
                     if current_pdf_path != new_pdf_path:
-                        os.rename(current_pdf_path, new_pdf_path)
+                        attachment_item['data']['filename'] = new_filename  # Set new filename
+                        print(self.zot.update_item(attachment_item))
+
                         print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
                     if convert:
                         if os.path.exists(new_pdf_path.replace(".pdf", ".docx")):
@@ -272,9 +668,7 @@ class Zotero:
                         current_pdf_path = os.path.join(root, file)
                         return current_pdf_path
 
-
-
-    def create_note(self,item_id,path):
+    def create_note(self, item_id, path):
         """
             Creates a Zotero note for a given item ID, incorporating various item details and external data sources to enrich the note content.
 
@@ -291,11 +685,11 @@ class Zotero:
             Note:
             - The function handles items of specific types differently and might return early for types like attachments or links.
             """
-    
+
         # Fetch the item by ID
         item = self.zot.item(item_id)
         # tags = ["tag1", "tag2", "tag3", "tag4"]
-    
+
         # Fetch the item by ID
         item = self.zot.item(item_id)
         data = item
@@ -314,7 +708,7 @@ class Zotero:
             ])
         except Exception as e:
             # If there is an error, print out the error and the format that caused it.
-             # Ensure authors is set to None or an empty list if there is an error
+            # Ensure authors is set to None or an empty list if there is an error
             print(f"Error when parsing authors: {e}")
         title = data['data'].get('title')
         date = data['data'].get('date')
@@ -324,22 +718,21 @@ class Zotero:
             date = year_match.group(0)
         publication_title = data['data'].get('publicationTitle', "journal")
         if date:
-            new_date=f'PY=("{date}")'
+            new_date = f'PY=("{date}")'
 
         else:
-            new_date=""
+            new_date = ""
         doi = data['data'].get('DOI')
 
-
         query1 = (f'('
-                 f'TI=("{title}")'
-                 f' AND '
-                 f"({new_date}"
+                  f'TI=("{title}")'
+                  f' AND '
+                  f"({new_date}"
                   f'OR '
-                 f'AU=("{authors}"))'
-             
-                 f')')
-    
+                  f'AU=("{authors}"))'
+
+                  f')')
+
         key = data.get('key')
         item_type = data['data'].get('itemType')
         title = data['data'].get('title')
@@ -357,99 +750,95 @@ class Zotero:
             if publication_title:
                 data_wos.get('source').capitalize()
 
-
-
             link1 = f"""
-    
-                    <li><strong>WoS Citing Articles</strong>: <a href="{data_wos.get("citing_articles_link")}">Citation[{data_wos.get('citations')}]</a></li>
-                    <li><strong>WoS References</strong>: <a href="{data_wos.get("references_link")}">References</a></li>
-                    <li><strong>WoS Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
-                """
 
-        serp =get_document_info2(query=title,author=authors)
+                      <li><strong>WoS Citing Articles</strong>: <a href="{data_wos.get("citing_articles_link")}">Citation[{data_wos.get('citations')}]</a></li>
+                      <li><strong>WoS References</strong>: <a href="{data_wos.get("references_link")}">References</a></li>
+                      <li><strong>WoS Related</strong>: <a href="{data_wos.get("related_records_link")}">Related</a></li>
+                  """
+
+        serp = get_document_info2(query=title, author=authors)
         if serp:
-                link2 = f"""
-    
-                                  <li><strong>Citing Articles</strong>: <a href="{serp['cited_link']}">Citation[{serp['total_cited']}]</a></li>
-                                  <li><strong>Related</strong>: <a href="{serp["related_pages_link"]}">Related</a></li>
-                              """
+            link2 = f"""
+
+                                    <li><strong>Citing Articles</strong>: <a href="{serp['cited_link']}">Citation[{serp['total_cited']}]</a></li>
+                                    <li><strong>Related</strong>: <a href="{serp["related_pages_link"]}">Related</a></li>
+                                """
 
         # Construct the note content using the item details
         note_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>@{key}</title>
-    </head>
-    <body>
-            <div>
-            <em>@{key}</em><br>
-            <em>Note date: {now}</em><br>
-            <h1>{title}</h1>
-            <hr>
-            <hr>
-            <h1>Metadata</h1>
-            <ul>
-            <li><strong>Title</strong>: {title.title()}</li>
-            <li><strong>Authors</strong>: {authors}</li>
-            <li><strong>Publication date</strong>: {date}</li>
-            <li><strong>Item type</strong>: {item_type}</li>
-            <li><strong>Publication Title</strong>: {publication_title}</li>
-            <li><strong>DOI</strong>: {doi}</li>
-            <li><strong>Identifier</strong>: <a href="{item['data'].get('url')}">Online</a></li>
-            <li><strong>PDF</strong>: <a href="{path}">Zotero</a></li>
-            {link1}
-            {link2}
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>@{key}</title>
+      </head>
+      <body>
+              <div>
+              <em>@{key}</em><br>
+              <em>Note date: {now}</em><br>
+              <h1>{title}</h1>
+              <hr>
+              <hr>
+              <h1>Metadata</h1>
+              <ul>
+              <li><strong>Title</strong>: {title.title()}</li>
+              <li><strong>Authors</strong>: {authors}</li>
+              <li><strong>Publication date</strong>: {date}</li>
+              <li><strong>Item type</strong>: {item_type}</li>
+              <li><strong>Publication Title</strong>: {publication_title}</li>
+              <li><strong>DOI</strong>: {doi}</li>
+              <li><strong>Identifier</strong>: <a href="{item['data'].get('url')}">Online</a></li>
+              <li><strong>PDF</strong>: <a href="{path}">Zotero</a></li>
+              {link1}
+              {link2}
 
-    
-        </ul>
-        <hr>
-        <hr>
-        <h1>Abstract:</h1>
-        <p>"{item['data'].get('abstractNote')}"</p>
-        <hr>
-        <hr>
-        <h1>1. Introduction:</h1>
-            <h2>1.1 Research Framework</h2>
-            <hr>
-            <h2>1.2 Key Findings</h2>
-            <hr>
-            <h2>1.3 Shortcomings Limitations</h2>
-            <hr>
-            <h2>1.4 Research Gap and Future Research Directions</h2>
-            <hr>
-            <hr>
-            <h2>1.5 Structure and Keywords</h2>
-            <hr>
-            <hr>
-         <h1>3. Summary</h1>
 
-            <h2>Loose notes</h2>
-            <hr>
-                </div>
-                </body>
-                </html>
-        """
-    
+          </ul>
+          <hr>
+          <hr>
+          <h1>Abstract:</h1>
+          <p>"{item['data'].get('abstractNote')}"</p>
+          <hr>
+          <hr>
+          <h1>1. Introduction:</h1>
+              <h2>1.1 Research Framework</h2>
+              <hr>
+              <h2>1.2 Key Findings</h2>
+              <hr>
+              <h2>1.3 Shortcomings Limitations</h2>
+              <hr>
+              <h2>1.4 Research Gap and Future Research Directions</h2>
+              <hr>
+              <hr>
+              <h2>1.5 Structure and Keywords</h2>
+              <hr>
+              <hr>
+           <h1>3. Summary</h1>
+
+              <h2>Loose notes</h2>
+              <hr>
+                  </div>
+                  </body>
+                  </html>
+          """
+
         # Create the new note
         new_note = self.zot.create_items([{
             "itemType": "note",
             'parentItem': item_id,
             "note": note_content,
 
-    
-    
         }])
-    
+
         print("New note created:", new_note)
         time.sleep(30)
-        new_note_id =new_note['successful']['0']['data']['key']
+        new_note_id = new_note['successful']['0']['data']['key']
         if new_note_id:
             note = self.zot.item(new_note_id)
             note_content = note['data']['note']
-    
+
             # Update the note content with the new note ID
             updated_content = note_content.replace(f'<em>Note date: {now}</em><br>',
                                                    f'<em>Note ID: {new_note_id}</em><br><em>Note date: {now}</em><br>')
@@ -473,100 +862,102 @@ class Zotero:
             except Exception as e:
                 print(f"An error occurred during the update: {e}")
 
-
-
-    def update_zotero_note_section(self,pdf_title, note_id="JFHPQ8IX", updates=note_update, api=None,delete=False):
-        if api == None:
-            api = ChatGPT(**self.chat_args)
+    def update_all(self, collection_name, article_title="", tag=None, update=True, specific_section=None, delete=False,
+                   index=0):
         """
-    Updates specific sections of a Zotero note by item ID. The content within the specified sections will be replaced with new content.
+            Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
-    Parameters:
-    - note_id (str): The unique identifier of the Zotero note to update.
-    - updates (dict): A dictionary where keys are section headings and values are the new content to update those sections with.
-    - api: An external API object used to generate new content based on the updates.
+            Parameters:
+            - collection_name (str): The name of the Zotero collection to process.
+            - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
+            - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+            - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
 
-    This method also handles adding new tags and updating the 'Structure and Keywords' section with unique keywords extracted from the updated content. If the content is successfully updated, it attempts to post the changes back to Zotero.
+            The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
 
-    Note:
-    - The function prints out the result of the operation, indicating success or failure of the update.
-    """
+            Note:
+            - The method provides feedback via print statements regarding the progress and success of note updates.
+            """
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update, convert=False)
 
-        # Retrieve the current note content
+        data = [(t, i) for t, i in collection_data[("items")]["papers"].items()][::-1]
+        if article_title != "":
+            index1 = [i for i in collection_data["items"]["papers"]].index(article_title)
+            data = [(t, i) for t, i in collection_data[("items")]["papers"].items()][index1:index1 + 1]
 
-        note = self.zot.item(note_id)
+        note_complete = len(collection_data["items"]["papers"].items())
+        # Setting up the tqdm iterator
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+        if type(specific_section) == str:
+            print("len ==1")
+            api = ChatGPT(**self.chat_args)
 
-        tags = note['data'].get('tags', [])
-        if "note_complete" in tags:
-            return
-        if 'data' in note and 'note' in note['data']:
-            note_content = note['data']['note']
-        else:
-            print(f"No note content found for item ID {note_id}")
-            return
-        author= self.get_html_info(note_content)
-        updated_content = note_content  # Initialize with the current note content
-        # Process updates for each section
-        for section, new_prompt in updates.items():
-            # This pattern looks for the section, captures content until it finds the next <h2>, <h1>, or <hr>
-            pattern = re.compile(f'({re.escape(section)})(.*?)(?=<h2>|<h1>|<hr>|$)', re.DOTALL | re.IGNORECASE)
-            matches = pattern.search(updated_content)
-            new_content =""
-            if matches:
-                if delete:
-                    if "note_complete"  in tags:
-                        return
+        for keys, values in pbar:
+
+            # Dynamically update the description with the current key being processed
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
+
+            note = values["note"]
+            id = values['item_id']
+            pdf = values['pdf']
+
+            if note["note_info"] is not None:
+                if note["headings"]:
+                    note_id = [i["note_info"]['note_id'] for i in values['note_info'] if
+                               i['note_info']["note_info"]['tags'] == "summary_note"]
+                    self.schema = self.extract_insert_article_schema(note_id=note_id, save=False)
+                    if self.schema:
+                        pdf_title = "PDF_TITLE ATTACHED=" + os.path.split(pdf)[-1] + "\n"
+                        section_dict = {
+                            k: (
+                                f"{pdf_title}Read the provided PDF carefully, paragraph by paragraph, and perform an in-depth section analysis of the section: '{self.clean_h2_title(k)}' in the attached PDF document. Carefully count each paragraph starting from the beginning of this section. For each key finding/idea, reference the specific paragraph numbers (e.g., 'Paragraph 1,' 'Paragraphs 2,3') accompanied by direct quotes from the respective paragraphs to illustrate or support the key points identified. Follow this structure: ```html <h3>Paragraph 1 - [key finding in one short sentence]</h3> <blockquote>'[Direct quote from the first paragraph in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text]'</blockquote> <h3>Paragraphs 2,3 - [Next Key finding or idea in one short sentence]</h3> <blockquote>'[Direct quote from paragraph 2 in the form of a full sentence. The full sentence should be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text.]'</blockquote> <blockquote>'[Direct quote from paragraph 3.]'</blockquote> [Continue this structure for additional paragraphs or groups of paragraphs, correlating each with its key findings or ideas until the end of the section]``` This methodical approach ensures a structured and precise examination of the section: '{self.clean_h2_title(k)}', organized by the specific paragraphs and their associated key findings or ideas, all supported by direct quotations from the document for a comprehensive and insightful analysis until the end of the provided section. Take your time, and review the final output for accuracy and consistency in HTML formatting and citation-context alignment.\n\nnote1: Direct quotes format must be in the form of one full sentence. The full sentence must be exactly as it is in the PDF, strictly unmodified. Before using it, check for a full match between the sentence and the PDF text. After getting the exact quote that supports your analysis, reference with the author name between ()\nnote2: Output format: HTML in a code block.")
+                            for k in self.schema if k not in ["Abstract", "table pf"]
+                        }
+
+                        note_update.update(section_dict)
+                    if specific_section and "note_complete" not in note["tags"]:
+                        note_id = note["note_id"]
+                        note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
+                        if type(specific_section) == str:
+                            if specific_section in note_update1.keys():
+                                self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                                      delete=delete, api=api)
+                        if type(specific_section) == list:
+                            specific_section = [k for k in specific_section if k in note["headings"]]
+                            if specific_section:
+                                self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                                      delete=delete, api=api)
                     else:
-                        updated_section = f""
+                        print("note headings:", note["headings"])
 
-                else:
-                    # Generate new content using the API based on the provided prompt
-                    if type(new_prompt) == str:
+                        note_update1 = {k: v for k, v in note_update.items() if k in note["headings"]}
+                        print("note_update1:", note_update1)
+                        if note_update1.keys():
+                            self.update_multiple_notes(section_prompts=note_update1, pdf=pdf, note_id=note_id)
+                        if not note_update1.keys():
+                            note_complete -= 1
 
-                        new_content = api.send_message(pdf_title+f"\nauthor name ={author}\n"+new_prompt,sleep_duration=self.sleep).strip()
-                        while new_content==new_prompt:
-                            print("content is equal")
-                            if api.os =="win":
-                                api.bring_browser_to_foreground()
-                            time.sleep(2)
-                            new_content =api.copy_message()
-                    if type(new_prompt) == list:
-                        item_list=[]
-                        for item in new_prompt:
+                elif note["headings"] == []:
+                    note_complete -= 1
+            if note["note_info"] is None and pdf is not None:
+                print("note is None and pdf is None")
+                note_id = self.create_note(id, pdf)
+                if note_id:
+                    if specific_section:
 
-                            item_list.append(api.send_message(pdf_title+" "+item,sleep_duration=self.sleep).strip())
-                            if item_list[-1]== item:
-                                time.sleep(4)
-                                item_list[-1] = api.copy_message()
-                                print("content is equal")
-                        new_content = " ".join(item_list)
-                    self.append_training_data(prompt=new_prompt,expected_response=new_content)
+                        self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
+                                              delete=delete, api=api)
+                    else:
 
-                # Replace the old section content with the new one
-                    updated_section = f"{matches.group(1)}{new_content}"
-                updated_content = updated_content[:matches.start()] + updated_section + updated_content[matches.end():]
-            else:
-                print(f"Section title '{section}' not found in the note content.")
-        # Check if the content has been updated
-        if updated_content != note_content:
-            updated_note = {
-                'key': note['data']['key'],
-                'version': note['data']['version'],
-                'itemType': note['data']['itemType'],
-                'note': updated_content,
-                'tags': tags
-            }
-            try:
-                # Attempt to update the note in Zotero
-                response = self.zot.update_item(updated_note)
-                if response:
-                    print("Note updated successfully.")
-                else:
-                    print("Failed to update the note.")
-            except Exception as e:
-                print(f"An error occurred during the update: {e}")
-        else:
-            print("No changes were made to the note content.")
+                        self.update_multiple_notes(section_prompts=note_update, note_id=note_id, pdf=pdf)
+
+        if note_complete > 0:
+            return True
+        if note_complete == 0:
+            return False
 
 
     def append_training_data(self,prompt, expected_response, file_path="training_data.json"):
@@ -698,7 +1089,7 @@ class Zotero:
             Note:
             - The method provides feedback via print statements regarding the progress and success of note updates.
             """
-        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update,convert=False)
+        collection_data = self.get_or_update_collection(collection_name=collection_name,update=update)
 
         data =[ (t,i) for t,i in collection_data[("items")]["papers"].items()][::-1]
         if article_title != "":
@@ -946,45 +1337,39 @@ class Zotero:
 
         return [i for i in relevant_h2_blocks if i!='<h2>Loose notes</h2>']
 
-    def html_update(self,note_id):
-    # Your HTML content
+    def html_update(self, note_id):
+        # Your HTML content
         with open(r"../Word_modules/Html_templates/holder.html", "r", encoding="utf-8") as html_file:
-    
-    
-            start_section =False
+
+            start_section = False
             # Parse the HTML
             soup = BeautifulSoup(html_file, 'html.parser')
-    
+
             # Find all elements with the language-python class
             python_elements = soup.find_all('code', {'class': 'language-html'})
-    
+
             # Open the file for writing
             with open("copytexts.txt", "w", encoding="utf-8") as file:
-    
+
                 # Extract and write the text from each element to the file
-    
-    
-    
+
                 for i, section_tuple in enumerate(note_update, 0):
                     if start_section:
                         if section_tuple[0] == start_section:
                             process = True
                     if not start_section:
                         process = True
-    
+
                     if process:
                         text = python_elements[i].get_text()
                         update_dict = {section_tuple[0]: text}  # Convert tuple to dictionary
-    
-    
+
                         self.update_note_section_fromHtml(note_id=note_id, updates=update_dict)
-    
-                        if i > len(python_elements)-1:
+
+                        if i > len(python_elements) - 1:
                             break
 
-
-
-    def get_children_notes(self, item_id):
+    def get_children_notes(self, item_id, new_filename):
         """
         Retrieves and processes child notes for a specified item from the Zotero library.
 
@@ -1000,33 +1385,35 @@ class Zotero:
         Returns:
             dict or None: A dictionary containing the 'note_id' and 'headings' if there are incomplete notes, otherwise None.
         """
-        sections=None
-        note_info =[]
+        note_info = []
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
+        attachment_item = [
+            child for child in children
+            if child['data']['itemType'] == 'attachment' and 'application/pdf' in child['data'].get('contentType', '')]
+        attachment_item = attachment_item[0] if attachment_item else None
+        pdf = self.get_pdf_path(attachment_item=attachment_item, new_filename=new_filename) if attachment_item else None
+
         # Define the list of valid tags to check
-        valid_tags = ["statements_note", "cited_note", "cited_note_name","summary","summary_note","Statements Database","Authors Cited"]
-        remaining_h2 =None
+        valid_tags = ["statements_note", "cited_note", "cited_note_name", "summary", "summary_note"]
+        remaining_h2 = None
         notes = [
-                child for child in children
-                if child['data']['itemType'] == 'note' and any(
-                    tag in valid_tags for tag in (v for p in child['data']['tags'] for v in p.values())
-                )
-            ]
+            child for child in children
+            if child['data']['itemType'] == 'note' and any(
+                tag in valid_tags for tag in (v for p in child['data']['tags'] for v in p.values())
+            )
+        ]
+
         # Check the number of notes and print them if more than one
-        tags = [tag["tag"] for note in notes for  tag in note['data']['tags'] ]
+        tags = [tag["tag"] for note in notes for tag in note['data']['tags']]
         if notes:
             # Process each note
             for note in notes:
                 note_id = note['data']["key"]
                 note_content = note['data']["note"]
-                tags_note =[i['tag'] for  i in note['data']['tags']]
-                note_info.append({"note_id":note_id,"note_content":note_content,"tag":tags_note})
+                tags_note = [i['tag'] for i in note['data']['tags']]
+                note_info.append({"note_id": note_id, "note_content": note_content, "tag": tags_note})
                 if "summary_note" in tags_note:
-                    sections = self.extract_insert_article_schema(save=False,note_id=note_id)
-                    # if sections_title is not None:
-                    #     sections = [BeautifulSoup(section, 'html.parser').find('h2').get_text() for section in sections_title ]
-
                     remaining_h2 = self.extract_relevant_h2_blocks(note_id=note_id)
                 # Check if there are no remaining sections and the note is not marked complete
                 if not remaining_h2 and "note_complete" not in tags:
@@ -1035,9 +1422,9 @@ class Zotero:
                 # If there are remaining sections, return them with the note ID
 
             # If no notes meet the criteria, return None
-            return {"note_info": note_info, "headings": remaining_h2, "tags": tags,"sections":sections}
+            return {"note_info": note_info, "pdf": pdf, "headings": remaining_h2, "tags": tags}
         else:
-            return {"note_info": None, "headings": None, "tags": None,"sections":None}
+            return {"note_info": None, "pdf": pdf, "headings": None, "tags": None}
 
     def extract_unique_keywords_from_html(self, html_text):
         """
@@ -1841,6 +2228,44 @@ class Zotero:
         except Exception as e:
             print(f"Failed to process directory '{directory_path}': {e}")
 
+    def creating_training_data_gpt(self,file_path,data_list):
+        api = ChatGPT(**self.chat_args)
+        """
+            Append a list of dictionaries to a JSONL file, creating the file if it does not exist.
+
+            Parameters:
+            - file_path (str): Path to the JSONL file.
+            - data_list (list): List of dictionaries to be appended to the file.
+            """
+        # Check if the file exists
+        file_exists = os.path.isfile(file_path)
+
+        # Open the file in append mode if it exists, otherwise it will create it
+        with open(file_path, 'a') as file:
+            # If the file did not exist and is newly created, we don't need to prepend a newline
+            if file_exists:
+                # Add a newline before appending if the file already existed
+                file.write('\n')
+
+            # Write each dictionary as a new line in the file
+            for entry in data_list:
+                numerical =False
+                style =entry.get('objective')
+                description = str(entry.get('examples'))
+                if style =="To demonstrate a variety of numerical citation styles across different academic disciplines":
+                    numerical =True
+
+                for i in range(13):
+
+                    more = "Great. provide me with more entries in the same format. " if i>0 else ""
+                    note=f"note:2 the notes and comments can range from {(i*20)+1} to {20*(i+1)} if no foonotes, ignore this range. do not output only the first 20 foonotes." if numerical else "note 2:Provide a great and different range of examples"
+                    message=f"""
+                    {more}I need your help to create 20 dictionary entries formatted specifically for a JSONL file to {style} .\n Each entry should include a unique reference identifier, numerical or author year,exactly as found in a simulated paper example (smith,2018) or [1]; the preceeding short text indicating how one might introduce the source in an academic paper, and a full bibliographic citation formatted according to the Chicago style or a comment or " ". This is to simulate real papers, you can search on the internet. These entries should cover a variety of subjects including history, literature, and the arts to reflect a broad range of topics.
+                    For small example:```python {description}```
+                    ensure the output is in a code block python list with dicts in one line appropriate for jsonl file. \n note 1: the academic papers subject is international relations and cyberspace\n {note} \nnote:3 verify if it is a valid python list before outputting.
+                    """
+                    data = eval(api.send_message(message=message))
+                    [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
 
     def creating_training_data(self,filepath, system_content, user_content, assistant_response):
         # Construct the message dictionary

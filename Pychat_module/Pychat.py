@@ -261,7 +261,7 @@ class ChatGPT:
             if self.chat_id == "consensus":
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id =="o":
-                self.chat_id = "?model=gpt-4o"
+                self.chat_id = "?model=gpt-4o-mini?temporary-chat=true"
             if self.chat_id == "Statements Database":
                 self.chat_id = "/g/g-zc9XeRbjL"
             if self.chat_id == "summary":
