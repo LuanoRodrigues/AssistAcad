@@ -262,6 +262,8 @@ class ChatGPT:
                 self.chat_id = "/g/g-bo0FiWLY7-consensus"
             if self.chat_id =="o":
                 self.chat_id = "?model=gpt-4o-mini?temporary-chat=true"
+            if self.chat_id == "python":
+                self.chat_id = "/g/g-cKXjWStaE-python?temporary-chat=true"
             if self.chat_id == "Statements Database":
                 self.chat_id = "/g/g-zc9XeRbjL"
             if self.chat_id == "summary":
@@ -271,14 +273,13 @@ class ChatGPT:
                 # self.chat_id="/gpts/editor/g-8dBHrjLA4"
             if self.chat_id == "evaluator":
                 self.chat_id = "/g/g-R5g8dbYOl-assignment-evaluator"
-            if self.chat_id == "4":
-                self.chat_id = "?model=gpt-4"
+
             if self.chat_id == "scholar":
                 self.chat_id = "/g/g-kZ0eYXlJe-scholar-gpt"
             if self.chat_id == "scispace":
                 self.chat_id = "/g/g-NgAcklHd8-scispace"
-            if self.chat_id == "askpdf":
-                self.chat_id = "/g/g-UfFxTDMxq-askyourpdf-research-assistant"
+            if self.chat_id == "pdf":
+                self.chat_id = "/g/g-h5u9gTXgi-fast-extraction"
             if self.chat_id == "lit":
                 self.chat_id = "/g/g-lfY2IC1TZ-auto-literature-review"
 
@@ -288,7 +289,8 @@ class ChatGPT:
             if self.chat_id == "":
                 self.driver.get(f'https://chat.openai.com')
             self.url = f'https://chat.openai.com{self.chat_id}?temporary-chat=true'
-
+            if self.chat_id == "4":
+                self.url = f'https://chatgpt.com/?temporary-chat=true&model=gpt-4'
             # self.url = f'https://chat.openai.com/{self.chat_id}'
             self.driver.get(self.url)
         else:
@@ -747,19 +749,25 @@ class ChatGPT:
             "//div[contains(@class, 'flex flex-col')]//button[@id='radix-:ra:' and @aria-haspopup='menu']",
 
             # XPath for the button with specific class attributes within the flex flex-col div
-            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary focus-visible:outline-black dark:text-white dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']",
+            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']",
 
             # XPath for the div with specific attributes within the flex flex-col div
             "//div[contains(@class, 'flex flex-col')]//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']",
 
             # Additional XPath for the SVG path within the button
-            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary focus-visible:outline-black dark:text-white dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']/svg/path[@fill='currentColor' and @fill-rule='evenodd']",
+            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']/svg/path[@fill='currentColor' and @fill-rule='evenodd']",
 
             # XPath for any button within the specified main div path
             "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/div/button",
 
             # XPath for any element with aria-haspopup attribute set to menu
-            "//*[@aria-haspopup='menu']"
+            "//*[@aria-haspopup='menu']",
+
+            # Updated XPath directly from the selector provided
+            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/span/div/button[2]",
+
+            # Additional XPath based on CSS selector hierarchy
+            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/span/div/button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5')]"
         ]
 
         for selector in xpath_list:
@@ -861,7 +869,7 @@ class ChatGPT:
 
 
     def interact_with_page(self, path, prompt="",copy=True):
-        self.logger.debug('Start interacting with page function...')
+        self.logger.debug(f'Start interacting with page function with \nprompt={prompt}\npath={path}')
 
         pyautogui.press('esc', 2)
         self.logger.debug('esc clicked twice...')
@@ -954,7 +962,7 @@ class ChatGPT:
 
         return content
 
-    def send_message(self, message: str,sleep_duration:int=5) -> dict:
+    def send_message(self, message: str,sleep_duration:int=71*4) -> dict:
         '''
         Send a message to ChatGPT\n
         :param message: Message to send

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import PyPDF2
 import tiktoken
 import docx
@@ -10,45 +12,149 @@ import fitz  # PyMuPDF
 from PyPDF2 import PdfReader  # For reading PDF files
 import os
 from dotenv import load_dotenv
-
+from uuid import uuid4
 load_dotenv()  # Load environment variables from .env file
 
+from Zotero_module.zotero_data import prompts
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
 import json
 
 
+def creating_training_data( filepath, system_content, user_content, assistant_response):
+    # Construct the message dictionary
+    filepath = r"C:\Users\luano\Downloads\AcAssitant\Training_data\\" + filepath + ".jsonl"
+    message = {
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+            {"role": "assistant", "content": assistant_response}
+        ]
+    }
+
+    # Check if the file exists
+    if not os.path.exists(filepath):
+        # Create the file and write the message as the first line
+        with open(filepath, 'w') as file:
+            file.write(json.dumps(message) + '\n')
+    else:
+        # Append the message to the existing file
+        with open(filepath, 'a') as file:
+            file.write(json.dumps(message) + '\n')
+def append_training_data(prompt, expected_response, file_path="training_data.json"):
+    """
+    Appends a new training data entry to a JSON file.
+
+    Parameters:
+    - prompt: The prompt text as a string.
+    - expected_response: The expected response text as a string.
+    - file_path: The path to the JSON file where the data will be appended.
+    """
+    # Template for a new entry
+    new_entry = {
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "assistant", "content": expected_response}
+        ]
+    }
+
+    # Path to your JSON file
+    json_file_path = Path(file_path)
+
+    # Check if the JSON file exists
+    if json_file_path.exists():
+        # Load existing data
+        with open(json_file_path, "r", encoding="utf-8") as file:
+            data = json.load(file)
+    else:
+        # Or create a new structure if the file does not exist
+        data = []
+
+    # Append new data
+    data.append(new_entry)
+
+    # Write the updated data back to the file
+    with open(json_file_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
 
 
 def prepare_batch_requests(text_to_send, index, id, tag):
+    unique_id = uuid4()
+
     return {
-        "custom_id": f"{id}-{tag}-part-{index}",
+        "custom_id": f"{id}-{unique_id}-part-{index}",
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided HTML and return an HTML <div> string after analyzing the text. If no citation is found, wait for the next chunk of text. The response should not be between ```html and ```, it should be a plain text response with HTML tags."},
+                {"role": "system", "content": "You are an academic reference extractor, responding in json object"},
                 {"role": "user", "content": text_to_send}
-            ],
-            "max_tokens": 2048
+            ]
+            ,
+            "response_format":{
+        "type": "json_schema",
+        "json_schema": {
+            "name": "citation_extraction",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "references": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "ref": {"type": "string"},
+                                "preceding_text": {"type": "string"},
+                                "footnote": {"type": "string"}
+                            },
+                            "required": ["ref", "preceding_text", "footnote"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                "required": ["references"],
+                "additionalProperties": False
+            }
+        }
+    },
+
+    "max_tokens": 2048
         }
     }
 
-def call_openai_api(client, text):
+def call_openai_api(text,function):
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    prompt = prompts[function]['text'] +f"\n text: {text}"
+
+    schema=prompts[function]['json_schema']
+    content =prompts[function]['content']
     response = client.chat.completions.create(
+
         model="gpt-4o-mini",
+
         messages=[
-            {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided HTML and return an HTML <div> string after analyzing the text. If no citation is found, wait for the next chunk of text. The response should not be between ```html and ```, it should be a plain text response with HTML tags."},
-            {"role": "user", "content": text}
+            {"role": "system", "content": content},
+
+            # {"role": "system", "content": "You are to extract information from the text following the guidelines with the provided HTML and return an HTML <div> string after analyzing the text. If no citation is found, wait for the next chunk of text. The response should not be between ```html and ```, it should be a plain text response with HTML tags."},
+            {"role": "user", "content": prompt}
         ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": schema
+        },
+
+
         max_tokens=2048,
         temperature=0.7
     )
 
     message = response.choices[0].message.content.strip()
-    return message, response.id
+    # return message, response.id
+    return message
+
 
 def extract_text_from_pdf(file_path):
     doc = fitz.open(file_path)
@@ -110,11 +216,12 @@ def check_save_batch_status(batch_id):
         print(f"[DEBUG] Checking status of batch ID {batch_id}: {status.status}")
         if status =="completed":
             retrieve_batch_results(batch_id)
+            save_batch_object(r"C:\Users\luano\Downloads\AcAssitant\Batching_files", status)
             break
         if status.status in ['failed', 'expired']:
             break
         time.sleep(60)  # Check status every minute
-    save_batch_object(r"C:\Users\luano\Downloads\AcAssitant\Batching_files", status)
+
     return status.status
 
 def retrieve_batch_results(batch_id):
@@ -129,24 +236,24 @@ def retrieve_batch_results(batch_id):
     else:
         print("[DEBUG] Batch processing failed or expired.")
         return None
-def process_batch_output(output_file_path):
-    """
-    Processes the batch output file to extract data into a list of dictionaries.
-
-    Args:
-    - output_file_path (str): Path to the batch output JSONL file.
-
-    Returns:
-    - list: A list of dictionaries, each containing data from one line of the output file.
-    """
-    results = []
-    with open(output_file_path, 'r') as file:
+def process_batch_output(file_path):
+    grouped_content = {}
+    with open(file_path, 'r') as file:
         for line in file:
             data = json.loads(line)
-            results.append(data)
-    return results
+            # Extract 'custom_id', split it, and use the first part as a key
+            if 'custom_id' in data:
+                key_id = data['custom_id'].split('-')[0]
+                if 'response' in data and 'body' in data['response'] and 'choices' in data['response']['body']:
+                    for choice in data['response']['body']['choices']:
+                        if 'message' in choice and 'content' in choice['message']:
+                            if key_id not in grouped_content:
+                                grouped_content[key_id] = []
+                            grouped_content[key_id].append(choice['message']['content'])
 
-
+    # Convert the grouped content into a list of dictionaries
+    content_list = [{'id': key, 'content': values} for key, values in grouped_content.items()]
+    return content_list
 def save_batch_object(directory, batch_object):
         # Ensure the directory exists
         if not os.path.exists(directory):
@@ -243,6 +350,8 @@ def process_pdf(file_path, prompt, reference=None, page_parsing=1, batch=False, 
         write_batch_requests_to_file(batch_requests, file_name)
         print(f"[DEBUG] Stored batch requests locally in {file_name}")
         return None  # Return None as we are storing only
+    if batch:
+        upload_batch_file()
 
     return combined_response if not batch else batch_requests
 def normalize_text(text):
@@ -314,3 +423,39 @@ def process_document_sections(file_path, sections):
             response_content, chat_id = call_openai_api(client, text_to_send, chat_id)
             combined_response += html_section +response_content
     return combined_response
+
+def creating_batch_from_pdf(file_path, prompt, reference=None, page_parsing=1, batch=False, id="", tag="tag",store_only=False,file_name=""):
+
+    pages_text = extract_text_from_pdf(file_path.replace("docx", "pdf"))
+
+    combined_response = ""
+    batch_requests = []
+
+    for i in range(0, len(pages_text), page_parsing):
+
+        chunk_text = " ".join(pages_text[i:i + page_parsing])
+        text_to_send = f"{prompt}\n\nText: {chunk_text}"
+
+        if batch or store_only:
+            batch_request = prepare_batch_requests(text_to_send=text_to_send,index= i // page_parsing, id=id, tag=tag)
+            batch_requests.append(batch_request)
+        else:
+            response_content, chat_id = call_openai_api(text_to_send)
+            if reference:
+                response_content = response_content.replace("</blockquote>",
+                                                            f"{reference.replace(')', f' p.{i + 1})')}</blockquote>")
+            combined_response += response_content
+
+    if store_only:
+
+        write_batch_requests_to_file(batch_requests, file_name)
+        print(f"[DEBUG] Stored batch requests locally in {file_name}")
+         # Return None as we are storing only
+    # if batch and batch_requests and not store_only:
+    #     file_name = write_batch_requests_to_file(batch_requests,
+    #                                              file_name=file_name)
+    #     batch_input_file_id = upload_batch_file(file_name)
+    #     batch_id = create_batch(batch_input_file_id)
+    #     check_save_batch_status(batch_id)
+
+    return combined_response if not batch else batch_requests

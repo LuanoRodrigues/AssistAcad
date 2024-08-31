@@ -69,7 +69,7 @@ class Docx_creation():
 
                     body_text = doc.add_paragraph(sub_text)
                     body_text.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-                    doc.add_heading("References", level=2).style = 'Heading 3'
+                    doc.add_heading("Reference_processing", level=2).style = 'Heading 3'
                     ref_text = doc.add_paragraph(subsection_ref)
                     ref_text.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
@@ -127,8 +127,8 @@ class Docx_creation():
         doc.add_heading('Discussion', level=1)
         doc.add_paragraph('This is a placeholder for the discussion.')
 
-        # References
-        doc.add_heading('References', level=1)
+        # Reference_processing
+        doc.add_heading('Reference_processing', level=1)
         doc.add_paragraph('This is a placeholder for the references.')
 
         # Appendices

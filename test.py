@@ -171,3 +171,62 @@ username = "ucablrs@ucl.ac.uk"
 password = "For-1in(Ucl)"
 vpn_url = "vpn.ucl.ac.uk"  # Replace with your VPN URL
 connect_anyconnect(vpn_url, username, password)
+
+
+
+
+
+
+
+
+
+
+
+def extract_text_with_numbers_from_pdf(pdf_path):
+    # Open the PDF file
+    doc = fitz.open(pdf_path)
+    # Initialize an empty string to store the extracted text
+    text = ""
+
+    # Extract text from all pages in the PDF
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        text += page.get_text()
+
+
+    # Preprocess the text
+    text = basic_normalization(text)
+    # input(print(text[:1200000]))
+
+    word_quote_numbers = extract_words_followed_by_quotes_numbers(text,r"\d+")
+    printing(word_quote_numbers)
+
+
+    closing_paren_numbers = extract_words_followed_by_closing_paren_numbers(text,r"\d+")
+    printing(closing_paren_numbers)
+
+
+    words_comma = extract_words_followed_by_comma_numbers(text,r"\d+")
+    printing(words_comma)
+    # #
+    words_numbers = extract_words_followed_by_numbers(text,r"\d+")
+    printing(words_numbers)
+
+
+
+    words_dots =extract_words_followed_by_dots_numbers(text)
+    printing(words_dots)
+    #
+    preceeding_dict =merge_dicts(words_numbers,words_dots,words_comma,closing_paren_numbers,word_quote_numbers)
+    #
+    missing_refs = find_missing_refs(preceeding_dict)
+    print(len(missing_refs['missing_ref']))
+    return missing_refs, preceeding_dict
+
+
+
+def printing(x):
+    print(x)
+    print(len(x))
+    print([k['ref'] for k in x])
+    print('len(x)', len(x))
