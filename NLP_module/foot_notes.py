@@ -22,7 +22,7 @@ import spacy
 
 # Load a pre-trained NLP model
 nlp = spacy.load("en_core_web_sm")
-
+#TODO get pdfs with html or xml format extracting sup tags along with the text before
 from nltk.tokenize import word_tokenize
 
 import requests

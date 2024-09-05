@@ -143,90 +143,60 @@ import pyautogui
 import time
 import subprocess
 
-def     connect_anyconnect(vpn_url, username, password):
-    # Open Cisco AnyConnect
-    subprocess.Popen("C:\\Program Files (x86)\\Cisco\\Cisco AnyConnect Secure Mobility Client\\vpnui.exe")
+# def     connect_anyconnect(vpn_url, username, password):
+#     # Open Cisco AnyConnect
+#     subprocess.Popen("C:\\Program Files (x86)\\Cisco\\Cisco AnyConnect Secure Mobility Client\\vpnui.exe")
+#
+#     time.sleep(5)  # Wait for the application to open
+#
+#     # Click the VPN URL field and enter the VPN URL
+#     pyautogui.click(300, 400)  # Adjust the coordinates as needed
+#     pyautogui.typewrite(vpn_url)
+#     pyautogui.press('enter')
+#
+#     time.sleep(2)  # Wait for the URL to be processed
+#
+#     # Enter username
+#     pyautogui.typewrite(username)
+#     pyautogui.press('tab')  # Navigate to the password field
+#
+#     # Enter password
+#     pyautogui.typewrite(password)
+#     pyautogui.press('enter')
+#
+#     time.sleep(10)  # Wait for the connection to be established
+#     print("Connected to VPN successfully.")
+# # Example usage
+# username = "ucablrs@ucl.ac.uk"
+# password = "For-1in(Ucl)"
+# vpn_url = "vpn.ucl.ac.uk"  # Replace with your VPN URL
+# connect_anyconnect(vpn_url, username, password)
 
-    time.sleep(5)  # Wait for the application to open
+import requests
+from bs4 import BeautifulSoup
 
-    # Click the VPN URL field and enter the VPN URL
-    pyautogui.click(300, 400)  # Adjust the coordinates as needed
-    pyautogui.typewrite(vpn_url)
-    pyautogui.press('enter')
-
-    time.sleep(2)  # Wait for the URL to be processed
-
-    # Enter username
-    pyautogui.typewrite(username)
-    pyautogui.press('tab')  # Navigate to the password field
-
-    # Enter password
-    pyautogui.typewrite(password)
-    pyautogui.press('enter')
-
-    time.sleep(10)  # Wait for the connection to be established
-    print("Connected to VPN successfully.")
-# Example usage
-username = "ucablrs@ucl.ac.uk"
-password = "For-1in(Ucl)"
-vpn_url = "vpn.ucl.ac.uk"  # Replace with your VPN URL
-connect_anyconnect(vpn_url, username, password)
-
-
-
-
-
-
-
-
+import requests
+from bs4 import BeautifulSoup
 
 
+def parse_headings_with_html_content(file_path):
+    # Reading the HTML file
+    with open(file_path, 'r', encoding='utf-8') as file:
+        soup = BeautifulSoup(file, 'html.parser')
 
-def extract_text_with_numbers_from_pdf(pdf_path):
-    # Open the PDF file
-    doc = fitz.open(pdf_path)
-    # Initialize an empty string to store the extracted text
-    text = ""
+    # Find all headings and their associated content sections
+    headings = soup.find_all('h2', class_="jumplink-heading content-section-header section-type--section")
+    extracted_data = []
+    for heading in headings:
+        heading_text = heading.get_text(strip=True)
+        content_div = heading.find_next_sibling('div', class_="category-section content-section js-content-section")
+        paragraphs_html = [str(p) for p in content_div.find_all('p')] if content_div else []
+        extracted_data.append({'heading': heading_text, 'paragraphs_html': paragraphs_html})
 
-    # Extract text from all pages in the PDF
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text += page.get_text()
-
-
-    # Preprocess the text
-    text = basic_normalization(text)
-    # input(print(text[:1200000]))
-
-    word_quote_numbers = extract_words_followed_by_quotes_numbers(text,r"\d+")
-    printing(word_quote_numbers)
-
-
-    closing_paren_numbers = extract_words_followed_by_closing_paren_numbers(text,r"\d+")
-    printing(closing_paren_numbers)
-
-
-    words_comma = extract_words_followed_by_comma_numbers(text,r"\d+")
-    printing(words_comma)
-    # #
-    words_numbers = extract_words_followed_by_numbers(text,r"\d+")
-    printing(words_numbers)
+    return extracted_data
 
 
 
-    words_dots =extract_words_followed_by_dots_numbers(text)
-    printing(words_dots)
-    #
-    preceeding_dict =merge_dicts(words_numbers,words_dots,words_comma,closing_paren_numbers,word_quote_numbers)
-    #
-    missing_refs = find_missing_refs(preceeding_dict)
-    print(len(missing_refs['missing_ref']))
-    return missing_refs, preceeding_dict
-
-
-
-def printing(x):
-    print(x)
-    print(len(x))
-    print([k['ref'] for k in x])
-    print('len(x)', len(x))
+# Parse the HTML with the improved function
+sections_improved = parse_headings_with_html_content(r"C:\Users\luano\Downloads\article3.html")
+print(sections_improved)

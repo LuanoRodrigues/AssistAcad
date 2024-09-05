@@ -8,6 +8,8 @@ import urllib
 from pathlib import Path
 import math
 from collections import defaultdict
+from Vector_Database.qdrant_handler import QdrantHandler
+from Vector_Database.embedding_handler import EmbeddingsHandler,query_with_history,check_existing_query
 
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
 from NLP_module.normalise_texts import normalize_text2,normalize_text,get_last_four_tokens,replace_substring_and_check
@@ -145,6 +147,99 @@ def generate_cabecalho(zot, item_id):
       <p>"{abstract}"</p>
           """
     return metadata.strip()
+
+def parse_headings_with_html_content(html_file,pdf,user_id='9047943',
+                                     parentItem='123',footnote_class='circle-list__item',
+                                     sup_True=True,
+                                     h2_class='jumplink-heading content-section-header section-type--section',
+                                     p_class='p',
+                                     sup_class='sup'):
+    # Reading the HTML file
+    page=1
+    with open(html_file, 'r', encoding='utf-8') as file:
+        content = file.read()
+
+    soup = BeautifulSoup(content, 'html.parser')
+
+    # Dictionary to hold footnote IDs and their content
+    footnotes = {}
+    footnotes_list = soup.find('div', id='footnotes-list')
+
+    # Find all footnote children within this div
+
+    # Checking if there is a div with id "footnotes-list"
+    footnotes_list = soup.find('div', id='footnotes-list')
+    if footnotes_list:
+        footnotes_data = footnotes_list.find_all('div', class_='circle-list__item')
+        for footnote in footnotes_data:
+            # Retrieve the footnote ID
+            fn_id = footnote['id']  # This gets the ID like 'FN-fn-1250'
+
+            # Retrieve the footnote content
+            fn_content = footnote.find('div', class_='circle-list__item__grouped__content').get_text(strip=True)
+
+            # Store the footnote content in the dictionary with fn_id as the key
+            footnotes[fn_id] = fn_content
+
+            # Print the page number and footnote content for debugging (if needed)
+
+
+    # String to accumulate modified HTML content
+    all_html_content = ""
+    # Find all h2 elements for section headings
+    headers = soup.find_all('h2', class_=h2_class)
+    for header in headers:
+        section_title = header.get_text(strip=True)
+        all_html_content += f"<hr>\n<h2>{section_title}</h2>"
+        element = header.next_sibling
+        index=1
+        # Process elements following each header until the next header
+        while element and element.name != 'h2':
+
+            if element.name == 'div':
+                paragraphs = element.find_all('p', class_=p_class)
+                for p in paragraphs:
+                    span = generate_zotero_annotation(user_id=user_id, item_id=parentItem,
+
+                                                      page=page)
+                    if sup_True:
+                        sups = p.find_all('sup')
+                        tokens = get_last_four_tokens(p.get_text(strip=True))
+                        page = find_phrase_in_pdf(pdf_path=pdf, phrase=tokens)
+
+
+                    # Create a new span
+                    new_span = soup.new_tag("span")
+                    new_blockquote =soup.new_tag("blockquote")
+                    new_blockquote.extend(BeautifulSoup(span['start'], 'html.parser'))
+                    new_span.extend(p)
+                    if sup_True:
+                        for sup in sups:
+                            input(p)
+                            a = p.find_next('a', class_='xref footnote')  # Corrected to find the closest <a> after <sup>
+                            input(a)
+                            input(sup)
+                            if a and 'data-open' in a.attrs and a['data-open'] in footnotes:
+                                print('yesss')
+                                # Set href and title to the footnote content
+                                a['href'] = footnotes[a['data-open']]
+                                a['title'] = footnotes[a['data-open']]
+                                # Optionally, you can keep the superscript number visible and enhance accessibility
+                                sup.string = f"{a.string}"  # Keep the superscript number
+                                # If you wish to decompose the <a> tag, you can comment out the decompose line
+                                # a.decompose()  # Optionally remove the original <a> tag if no longer needed
+                    new_span.extend(p)
+                    # new_h3.string=f'Paragraph {index} - insert a title'
+                    new_blockquote.extend(new_span)
+                    # all_html_content += f"<h3>Paragraph {index} - insert a title</h3>{str(p)}"
+                    new_blockquote.extend(BeautifulSoup(span['end'], 'html.parser'))
+
+                    all_html_content += f"<h3>Paragraph {index} - insert a title</h3>{new_blockquote}"
+
+                    index+=1
+            element = element.next_sibling
+
+    return all_html_content
 def update_quote(zot, note_id, pdf,xml_path):
     contain =False
     if os.path.exists(xml_path):
@@ -399,6 +494,7 @@ def generate_zotero_annotation(user_id, item_id, page):
     # HTML structure
     start_tag = f'<span class="highlight" data-annotation="{encoded_annotation}">'
     end_tag = f'</span><span class="citation" data-citation="{encoded_citation}"><span class="citation-item"></span></span>'
+    print('generating annotation')
 
     return {"start": start_tag, "end": end_tag}
 
@@ -624,17 +720,10 @@ class Zotero:
                         print(self.zot.update_item(attachment_item))
 
                         print(f"Renaming file: current_pdf_path:{current_pdf_path} to new_pdf_path: {new_pdf_path}")
-                    if convert:
-                        if os.path.exists(new_pdf_path.replace(".pdf", ".docx")):
-                            return new_pdf_path.replace(".pdf", ".docx")
-                        else:
-                            pdf_word_path = Dc.pdf_to_docx(new_pdf_path)
-                            if pdf_word_path:
-                                return current_pdf_path
-                            else:
-                                return new_pdf_path
                     if os.path.exists(new_pdf_path):
                         return new_pdf_path
+                    else:
+                        return current_pdf_path
                 if convert:
                     if file.endswith(".docx"):
                         current_pdf_path = os.path.join(root, file)
@@ -671,7 +760,10 @@ class Zotero:
             results = []
             h1_tags = soup.find_all('h1')
             title = ''
+            handler = EmbeddingsHandler(qdrant_url="http://localhost:6333")
+            # handler.qdrant_handler.qdrant_client.delete_collection(collection_name=parentItem)
 
+            collection_created = handler.qdrant_handler.create_collection(parentItem)
 
             # Check if there are at least two <h1> tags
             if len(h1_tags) > 1:
@@ -683,61 +775,66 @@ class Zotero:
             markdown_content = ""
 
             markdown_content += f"# {title}\n\n"
+            if collection_created:
 
-            for h2 in soup.find_all('h2'):
-                section_title = h2.get_text()
-                section_data = {'title':title,'h2': section_title, 'paragraphs': []}
-                paragraphs = []
-                next_elem = h2.find_next_sibling()
+                for h2 in soup.find_all('h2'):
+                    section_title = h2.get_text()
+                    section_data = {'title':title,'h2': section_title, 'paragraphs': []}
+                    paragraphs = []
+                    next_elem = h2.find_next_sibling()
 
-                while next_elem and next_elem.name != 'h2':
-                    if next_elem.name == 'h3':
-                        blockquote = next_elem.find_next_sibling('blockquote')
-                        if blockquote:
-                            paragraphs.append({
-                                'old_h3': next_elem.get_text(),
-                                'blockquote': blockquote.get_text().strip()
-                            })
-                    next_elem = next_elem.find_next_sibling()
+                    while next_elem and next_elem.name != 'h2':
+                        if next_elem.name == 'h3':
+                            blockquote = next_elem.find_next_sibling('blockquote')
+                            if blockquote:
+                                paragraphs.append({
+                                    'old_h3': next_elem.get_text(),
+                                    'blockquote': str(blockquote),
+                                    'paragraph':blockquote.get_text().strip()
+                                })
+                        next_elem = next_elem.find_next_sibling()
 
-                if paragraphs:
-                    new_titles = eval(
-                        call_openai_api(function='find_title', text=f'section={section_title}\n{paragraphs}'))
+                    if paragraphs:
+                        para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
-                    # Initialize the first h3 element
-                    h3_elem = h2.find_next_sibling('h3')
+                        new_titles = eval(
+                            call_openai_api(function='find_title', text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
 
-                    for i, paragraph in enumerate(paragraphs):
-                        # Find the corresponding title by paragraph_number
-                        matching_title = next(
-                            (title for title in new_titles['titles'] if title['paragraph_number'] == i + 1), None)
+                        # Initialize the first h3 element
+                        h3_elem = h2.find_next_sibling('h3')
 
-                        if matching_title:
-                            section_data['paragraphs'].append({
-                                'old_h3': paragraph['old_h3'],
-                                'new_h3': matching_title['h3_title'],
-                                'blockquote': paragraph['blockquote']
-                            })
-                            if h3_elem:
-                                h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
-                                # Move to the next h3 element for the next iteration
-                                h3_elem = h3_elem.find_next_sibling('h3')
+                        for i, paragraph in enumerate(paragraphs):
+                            # Find the corresponding title by paragraph_number
+                            matching_title = next(
+                                (title for title in new_titles['titles'] if title['paragraph_number'] == i + 1), None)
 
-                                # Append to markdown content
-                                markdown_content += f"## {section_title}\n\n"
-                                markdown_content += f"### {matching_title['h3_title']}\n\n"
-                                markdown_content += f"> {paragraph['blockquote']}\n\n"
+                            if matching_title:
+                                section_data['paragraphs'].append({
+                                    'old_h3': paragraph['old_h3'],
+                                    'new_h3': matching_title['h3_title'],
+                                    'blockquote': paragraph['blockquote']
+                                })
+                                if h3_elem:
+                                    h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
+                                    # Move to the next h3 element for the next iteration
+                                    h3_elem = h3_elem.find_next_sibling('h3')
+                                    handler.process_and_append(parentItem, section_title, matching_title['h3_title'], paragraph['blockquote'],paragraph['paragraph'])
 
-                results.append(section_data)
-            filepath= r"C:\Users\luano\Downloads\AcAssitant\md_files"+"\\"+title.get_text()+".md"
-            with open(filepath, "w") as md_file:
-                md_file.write(markdown_content)
-                self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
-                # After the loop, update the note content
-            updated_note_content = str(soup)
-            self.update_note(note, updated_note_content)
+                                    # Append to markdown content
+                                    markdown_content += f"## {section_title}\n\n"
+                                    markdown_content += f"### {matching_title['h3_title']}\n\n"
+                                    markdown_content += f"> {paragraph['paragraph']}\n\n"
 
-    def create_citation_from_pdf(self, collection_name, article_title="", update=True,batch=False,store_only=True):
+                    results.append(section_data)
+                filepath= r"C:\Users\luano\Downloads\AcAssitant\md_files"+"\\"+title.get_text()+".md"
+                with open(filepath, "w") as md_file:
+                    md_file.write(markdown_content)
+                    self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
+                    # After the loop, update the note content
+                updated_note_content = str(soup)
+                self.update_note(note, updated_note_content)
+
+    def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
 
@@ -765,37 +862,33 @@ class Zotero:
 
             note_id = " ".join([i['note_id'] for i in note['note_info'] if "summary_note" in i['tag']  ])
 
-            # if note_id and sections is not None:
-            if note_id and pdf is not None:
-                print(pdf)
-
-                reference = values['reference'] if values['reference'] else ""
-                file_name =r"C:\Users\luano\Downloads\AcAssitant\Batching_files"+"_"+reference +"_"+id+".jsonl"
-                prompt=f"""You are tasked with extracting references from a text containing both in-text and footnote citations in numerical and author-year styles. Perform the following steps:
-                            1. Identify citations in the text, which could be numbers or numbers in brackets/parentheses (e.g., 'mainstream theories such as realism and neoliberalism are mainstream¹' or 'mainstream theories such as realism and neoliberalism are mainstream (1)').
-                            2. Match each citation number to its corresponding footnote if the footnote starts with the same number (e.g., '1. John S Davis II and others, Stateless Attribution: Toward International Accountability in Cyberspace (RAND Corporation 2017) 21.'). A preceeding_text citation and footnote suggest a complete reference.
-                            3. Output a list of dictionaries, where each dictionary contains 'ref' for reference number, 'preceding_text' for the text before the citation, and 'footnote' for the corresponding footnote text. Do not provide additional information information just the format the output as: [{{'ref': <ref number>, 'preceding': <preceding_text>, 'footnote': <footnote>}}]. If no references are found, return None. If a footnote is missing, set 'footnote' to an empty string.
-                            4. do not modify any information from the text, just assign the correspond information to its keys.
-                            5. Ensure the output is a valid python list with valid dicts"""
-                results =creating_batch_from_pdf(file_path=pdf,batch=batch,reference=reference,store_only=store_only,prompt=prompt,tag='refs',id=id,file_name=file_name)
-                batch_requests.extend(results)
-            # sections_text = extract_sections_from_pdf(pdf_path=pdf,sections=sections)
-            # for section,text in sections_text.items():
-            #     # api = ChatGPT(**self.chat_args)
-            #     if len(text) >500:
-            #         self.get_section_citations(file_name=file_name,text=text,section=section)
-
-            #     texts= self.extract_text_by_page(pdf_path=pdf)
-                # self.get_section_citations_api(file_name=file_name,texts=texts)
-        if batch and batch_requests and not store_only:
-            file_name = write_batch_requests_to_file(batch_requests,
-                                                     file_name=file_name)
-            batch_input_file_id = upload_batch_file(file_name)
-            batch_id = create_batch(batch_input_file_id)
-            check_save_batch_status(batch_id)
-
-        else:
-            print("[DEBUG] Batch processing failed or no results returned.")
+            if note_id:
+                self.extract_insert_article_schema(note_id=note_id,save=True)
+        #
+        #
+        #     # if note_id and sections is not None:
+        #     if note_id and pdf is not None:
+        #         print(pdf)
+        #
+        #         reference = values['reference'] if values['reference'] else ""
+        #         file_name =r"C:\Users\luano\Downloads\AcAssitant\Batching_files"+"_"+reference +"_"+id+".jsonl"
+        #         prompt=f"""You are tasked with extracting references from a text containing both in-text and footnote citations in numerical and author-year styles. Perform the following steps:
+        #                     1. Identify citations in the text, which could be numbers or numbers in brackets/parentheses (e.g., 'mainstream theories such as realism and neoliberalism are mainstream¹' or 'mainstream theories such as realism and neoliberalism are mainstream (1)').
+        #                     2. Match each citation number to its corresponding footnote if the footnote starts with the same number (e.g., '1. John S Davis II and others, Stateless Attribution: Toward International Accountability in Cyberspace (RAND Corporation 2017) 21.'). A preceeding_text citation and footnote suggest a complete reference.
+        #                     3. Output a list of dictionaries, where each dictionary contains 'ref' for reference number, 'preceding_text' for the text before the citation, and 'footnote' for the corresponding footnote text. Do not provide additional information information just the format the output as: [{{'ref': <ref number>, 'preceding': <preceding_text>, 'footnote': <footnote>}}]. If no references are found, return None. If a footnote is missing, set 'footnote' to an empty string.
+        #                     4. do not modify any information from the text, just assign the correspond information to its keys.
+        #                     5. Ensure the output is a valid python list with valid dicts"""
+        #         results =creating_batch_from_pdf(file_path=pdf,batch=batch,reference=reference,store_only=store_only,prompt=prompt,tag='refs',id=id,file_name=file_name)
+        #         batch_requests.extend(results)
+        # if batch and batch_requests and not store_only:
+        #     file_name = write_batch_requests_to_file(batch_requests,
+        #                                              file_name=file_name)
+        #     batch_input_file_id = upload_batch_file(file_name)
+        #     batch_id = create_batch(batch_input_file_id)
+        #     check_save_batch_status(batch_id)
+        #
+        # else:
+        #     print("[DEBUG] Batch processing failed or no results returned.")
 
 
     def get_section_citations(self, file_name, texts,api_results=None ):
@@ -1011,9 +1104,9 @@ class Zotero:
 
 
     def update_note_section_fromHtml(self,note_id, updates):
-    
-    
-    
+
+
+
         """
         Update specific sections of a Zotero note by item ID. Sections will only be updated if they currently have no content,
         except for 'Thematic Review', which will append new content to the end.
@@ -1025,7 +1118,7 @@ class Zotero:
         else:
             print(f"No note content found for item ID {note_id}")
             return
-    
+
         updated_content = note_content  # Initialize with the current note content
 
         # Process the updates
@@ -1033,20 +1126,20 @@ class Zotero:
             # Regular expression to find the section and its content
             pattern = re.compile(f"({re.escape(section)})(.*?)(<hr>)", re.DOTALL | re.IGNORECASE)
             matches = pattern.findall(updated_content)
-    
+
             if matches:
                 updated_section = f"""{matches[0][0]}{new_content}<hr>"""
                 # else:
                 #     # If there is existing content and it's not 'Thematic Review', do not update
                 #     print(f"Existing content found in section {section}, no update made.")
                 #     continue  # Skip to the next section
-    
+
                 # Update the note content with the new section content
                 updated_content = updated_content.replace(matches[0][0] + matches[0][1] , updated_section)
             else:
                 print(f"Section title '{section}' not found in the note content.")
-    
-    
+
+
         # Prepare the updated note for submission to Zotero
         updated_note = {
             'key': note['data']['key'],
@@ -1076,7 +1169,7 @@ class Zotero:
             if len(specific_section) == 1:
                 api.interact_with_page(path=pdf, copy=False)
 
-                self.update_zotero_note_section(note_id=note_id, api=api, updates=specific_section)
+                self.update_zotero_note_section(pdf_title=pdf,note_id=note_id, api=api, updates=specific_section)
             else:
 
                 self.update_multiple_notes(section_prompts=specific_section, note_id=note_id, pdf=pdf
@@ -1142,6 +1235,7 @@ class Zotero:
             if note_id and pdf:
                 print("note_id:", note_id, "pdf:", pdf,sep='\n')
                 if note["headings"] :
+                    # input(note["headings"])
 
                     if sections_titles:
                         pass
@@ -1155,9 +1249,11 @@ class Zotero:
                         # note_update.update(section_dict)
 
                     if specific_section and "note_complete" not in note["tags"]:
-                        note_id = note["note_id"]
-                        note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
+                        # note_update1 = {k: v for k, v in specific_section if k in note["headings"]}
+                        note_update1 = {k: v for k, v in note_update.items() if k==specific_section and k  in note["headings"]}
+
                         if type(specific_section) == str:
+                            print('yes')
                             if specific_section in note_update1.keys():
                                 self.specific_section(specific_section=specific_section, pdf=pdf, note_id=note_id,
                                                       delete=delete, api=api)
@@ -1178,9 +1274,7 @@ class Zotero:
 
                 elif  note["headings"] == []:
                     note_complete -=1
-
-            if note_id is None:
-                print('note id not found:',pdf)
+            print(pdf)
             if note_id is None and pdf is not None:
 
                 print("note is None and pdf is None")
@@ -1422,21 +1516,19 @@ class Zotero:
         note_info = []
         # Fetch all children of the specified item
         children = self.zot.children(item_id)
-        # attachment_ite= [
-        #     child for child in children
-        #     if child['data']['itemType'] == 'attachment' and 'application/pdf' in child['data'].get('contentType', '')]
-        # attachment_ite = attachment_ite[0] if attachment_ite else None
+        attachment_ite= [
+            child for child in children
+            if child['data']['itemType'] == 'attachment' and 'application/pdf' in child['data'].get('contentType', '')]
+        attachment_ite = attachment_ite[0] if attachment_ite else None
 
-        #  = [
-        #     child for child in children
-        #    ]
-        attachments = self.zot.children(item_id, itemType='attachment')
-        # Assuming 'attachments' is a list of attachments data similar to what you've shown previously
-        attachment_item= [
-            attachment
-            for attachment in attachments
-            if attachment['data'].get('filename', '').endswith('.md')
-        ]
+
+        # attachments = self.zot.children(item_id, itemType='attachment')
+        # # Assuming 'attachments' is a list of attachments data similar to what you've shown previously
+        # attachment_item= [
+        #     attachment
+        #     for attachment in attachments
+        #     if attachment['data'].get('filename', '').endswith('.md')
+        # ]
         # print(attachment_ite)
 
         # Define the list of valid tags to check
@@ -1456,8 +1548,7 @@ class Zotero:
         # ])
         # Check the number of notes and print them if more than one
         tags = [tag["tag"] for note in notes for tag in note['data']['tags']]
-        pdf = self.get_pdf_path(attachment_item=attachment_item, new_filename=new_filename) if attachment_item else None
-
+        pdf = self.get_pdf_path(attachment_item=attachment_ite, new_filename=new_filename) if attachment_ite else None
         if notes:
 
             # Process each note
@@ -1721,11 +1812,13 @@ class Zotero:
         time.sleep(5)
         api.open_new_tab(open_new=False, close=True)
         return content
-    def create_one_note(self,content="", item_id="", collection_id="", tag="",
+    def create_one_note(self,content="", item_id="", collection_id="", tag="",beginning=False
                         ):
+
         new_note=''
+
         cabecalho = generate_cabecalho(zot=self.zot,item_id=item_id)
-        new_content =  f'<html><head><title>{tag.strip()}</title><style>body{{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;background-color:#f0f2f5;color:#333;margin:0;padding:20px;}}.container{{max-width:800px;margin:0 auto;background-color:#fff;padding:30px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);line-height:1.6;}}h1{{font-size:28px;color:#2c3e50;margin-bottom:20px;border-bottom:2px solid #e67e22;padding-bottom:10px;}}.cabecalho{{font-size:16px;font-weight:bold;color:#555;margin-bottom:20px;padding:10px;background-color:#f9f9f9;border-left:4px solid #3498db;}}.content{{font-size:16px;color:#444;margin-top:20px;line-height:1.8;}}.content p{{margin-bottom:15px;}}.content ul{{list-style-type:disc;margin-left:20px;}}.content li{{margin-bottom:10px;}}.footer{{margin-top:30px;font-size:14px;color:#777;text-align:center;border-top:1px solid #e1e1e1;padding-top:10px;}}</style></head><body><div class="container"><h1>{tag}</h1><div class="cabecalho">{cabecalho}</div><div class="content">{content}</div></div></body></html>'
+        new_content =  f'<html><head><title>{tag.strip()}</title><style>body{{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;background-color:#f0f2f5;color:#333;margin:0;padding:20px;}}.container{{max-width:800px;margin:0 auto;background-color:#fff;padding:30px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);line-height:1.6;}}h1{{font-size:28px;color:#2c3e50;margin-bottom:20px;border-bottom:2px solid #e67e22;padding-bottom:10px;}}.cabecalho{{font-size:16px;font-weight:bold;color:#555;margin-bottom:20px;padding:10px;background-color:#f9f9f9;border-left:4px solid #3498db;}}.content{{font-size:16px;color:#444;margin-top:20px;line-height:1.8;}}.content p{{margin-bottom:15px;}}.content ul{{list-style-type:disc;margin-left:20px;}}.content li{{margin-bottom:10px;}}.footer{{margin-top:30px;font-size:14px;color:#777;text-align:center;border-top:1px solid #e1e1e1;padding-top:10px;}}</style></head><body><div class="container"><h1>{tag}</h1><div class="cabecalho">{cabecalho}</div><div class="content">{content}</div></div></body></html>' if beginning==False else content
 
         # Create the new note
         if item_id:
@@ -1744,7 +1837,7 @@ class Zotero:
                 'tags': [ {"tag": tag}]
 
             }])
-
+        print(new_note)
         new_note_id = new_note['successful']['0']['data']['key']
         if new_note_id:
             note = self.zot.item(new_note_id)
@@ -2357,6 +2450,70 @@ class Zotero:
                     """
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
+
+    def search_paragraphs_by_query(self, query,collection_name, article_title="", tag=None, update=False):
+
+            """
+                Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
+
+                Parameters:
+                - collection_name (str): The name of the Zotero collection to process.
+                - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
+                - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
+                - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+
+                The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+
+                Note:
+                - The method provides feedback via print statements regarding the progress and success of note updates.
+                """
+            # Initialize the Qdrant search handler
+            search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+
+            # Example: Query text for which we want to search similar paragraphs
+            custom_ids = ["SV5QMQSM", "SV6FQTAB", "SV7ZXOPQ"]  # List of paper IDs (custom_id)
+
+            # Step 1: Retrieve the embedding (either from history or by generating a new one)
+            query_embedding = query_with_history(query_text=query)
+            list_search = ['9ASBYUZD', 'NTJLHS2W']
+
+            # collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+
+            # data = [ (i['note'],i['item_id']) for t, i in collection_data[("items")]["papers"].items() if i['item_id'] in ['9ASBYUZD','NTJLHS2W']][::-1]
+            # print(data)
+            # print()
+            # Setting up the tqdm iterator
+
+            aggregated_results = []
+
+            for collection_name in list_search:
+                print(f"Searching in collection: {collection_name}")
+
+                # Perform the search in the current collection
+                search_results = search_handler.advanced_search(
+                    collection_name=collection_name,  # Search in each collection
+                    query_vector=query_embedding,  # The embedding for the query
+                    top_k=10,  # Retrieve top 10 similar paragraphs
+                    filter_conditions=None,  # No specific filter, searching across all data
+                    with_payload=True,  # Return payload (paragraph text)
+                    with_vectors=False,  # No need to return vectors
+                    score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
+                    offset=0,  # Starting from the first result
+                    limit=10  # Limit to 10 results
+                )
+
+                # Add results from this collection to the aggregated list
+                aggregated_results.extend(search_results)
+
+            # Step 4: Sort the aggregated results by score
+            sorted_results = sorted(aggregated_results, key=lambda x: x.score, reverse=True)
+
+            # Step 5: Print out the sorted results
+            for result in sorted_results:
+                paragraph_text = result.payload.get('paragraph_text', "No paragraph text found")
+                score = result.score
+                print(f"Score: {score:.2f}, Collection: {result.collection_name}, Paragraph: {paragraph_text}")
+
 
 
 # TODO: cosine similarity among pdfs

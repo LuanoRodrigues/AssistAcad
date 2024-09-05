@@ -46,16 +46,22 @@ library_id = library_id,
 
 
 )
+query_text = "international law"
+
+list_search =['9ASBYUZD','NTJLHS2W']
 # print(zt.extract_insert_article_schema('WXW2NV5W',save=True))
-# zt.update_all(collection_name="state responsibility",update=True)
+# zt.update_all(collection_name="Law and evidence",
+#               specific_section='<h2>1.5 Structure and Keywords</h2>',
+#               update=False)
 # zt.creating_training_data_from_statements("Law and evidence",False)
-# zt.insert_title_paragraphs(note_id='SV5QMQSM')
+# custom_id  =zt.insert_title_paragraphs(note_id='4APZPD5V')
+zt.search_paragraphs_by_query(collection_name='Law and evidence',query=query_text)
 # zt.attach_file_to_item(file_path=r'C:\Users\luano\Downloads\AcAssitant\new.md', parent_item_id='NTJLHS2W', tag_name='md paragraph')
-print(zt.get_children_notes(item_id='NTJLHS2W',new_filename='saaa'))
+# print(zt.get_children_notes(item_id='NTJLHS2W',new_filename='saaa'))
 prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
  note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
 # zt.multilple_prompts(prompt=prompt)
-# zt.extract_insert_article_schema(note_id="7WI5RJFA",save=True)
+# zt.extract_insert_article_schema(note_id="MDVI498P",save=True)
 # zt.update_all("Law and evidence",update=True)
 # zt.statements_citations(collection_name="Law and evidence",batch=False,update=True  ,store_only=False,chat=True,section=tag_prompt[0],follow_up=True)
 
@@ -116,7 +122,7 @@ def writing_to_jsonl_from_batch_results(file_name):
                     print("jsonl file written in {}".format(file_name))
 # writing_to_jsonl_from_batch_results('test.jsonl')
 results = []
-
+from Zotero_module.zotero_class import parse_headings_with_html_content
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf
 # Example usage (commented out):
 # result = extract_sentences_by_reference_from_pdf("example.pdf")
@@ -128,4 +134,13 @@ from NLP_module.foot_notes import extract_text_with_numbers_from_pdf
 # pdf =r"C:\Users\luano\Zotero\storage\F9ZPYV3M\(KE Eichensehr, 2020).pdf"
 # for i in range(11):
 #     print({"ref": i+1, "preceding_text": "", "footnote": ""}
-# )
+# )    zt.create_one_note(content=html_content,item_id='4VVH4ATW')    # Initialize an empty string to hold all relevant HTML content
+
+pdf =r"C:\Users\luano\Zotero\storage\9WSSD7MF\(T Mikanagi, 2021).pdf"
+
+# Parse the HTML with the improved function
+# sections_improved = parse_headings_with_html_content(r"article_holder.html",pdf=pdf,parentItem='9ASBYUZD',h2_class='A title')
+# zt.create_citation_from_pdf1(collection_name='state responsibility',update=False)
+# zt.create_one_note(content=sections_improved,item_id='9ASBYUZD',tag='test')
+# pprint(sections_improved)
+# zt.create_one_note(content=sections_improved,item_id='4VVH4ATW')
