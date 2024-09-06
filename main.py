@@ -46,49 +46,40 @@ library_id = library_id,
 
 
 )
-query_text = "international law"
-
-list_search =['9ASBYUZD','NTJLHS2W']
-# print(zt.extract_insert_article_schema('WXW2NV5W',save=True))
-# zt.update_all(collection_name="Law and evidence",
-#               specific_section='<h2>1.5 Structure and Keywords</h2>',
-#               update=False)
-# zt.creating_training_data_from_statements("Law and evidence",False)
-# custom_id  =zt.insert_title_paragraphs(note_id='4APZPD5V')
-zt.search_paragraphs_by_query(collection_name='Law and evidence',query=query_text)
-# zt.attach_file_to_item(file_path=r'C:\Users\luano\Downloads\AcAssitant\new.md', parent_item_id='NTJLHS2W', tag_name='md paragraph')
-# print(zt.get_children_notes(item_id='NTJLHS2W',new_filename='saaa'))
 prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
  note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
-# zt.multilple_prompts(prompt=prompt)
-# zt.extract_insert_article_schema(note_id="MDVI498P",save=True)
-# zt.update_all("Law and evidence",update=True)
-# zt.statements_citations(collection_name="Law and evidence",batch=False,update=True  ,store_only=False,chat=True,section=tag_prompt[0],follow_up=True)
-
-# zt.statements_citations(collection_name="nova",batch=False,update=True,store_only=False,chat=False,sections=note_api,)
-# print(zt.get_children_notes("76DQPE49"))
 
 
-# prompt = "Please analyze this document and extract all key arguments, main ideas, and entire paragraphs with the author's original points in HTML format. Ensure 100% accuracy by extracting exact paragraphs without modification or paraphrasing. Focus on paragraphs representing the author's core arguments and ideas. Use <h2> for key ideas (3-4 words) and <blockquote> for exact paragraphs with references (author, year, page). Exclude paragraphs with cited statements (superscript numbers, in-text citations)."
-# a = ['Limitations of public attribution and the need for legal attribution', 'Standards of proof in international law', 'Circumstantial evidence in context', 'The Corfu Channel rule: when circumstantial evidence was ‘‘Good Enough’’', 'The Bosnian Genocide case: when circumstantial evidence was not ‘‘Good Enough’’', 'Other international legal Jurisprudence', 'Cyberspace attribution: current status in brief', 'Circumstantial evidence in context', 'Conclusion']
-# result = process_document_sections(file_path=r"C:\Users\luano\Zotero\storage\NREIF9TL\(Sharngan Aravindakshan, 2021).pdf",sections=a)
-# zt.create_one_note(content=result,item_id="76DQPE49",api="",tag="pdf")
-
-
-# result = process_pdf(r"C:\Users\luano\Downloads\DOROTHÉE VANDAMME_10.pdf", prompt,page_parsing=1,reference="(dorethe, 2018)")
-# result = chat_response(pdf_path=pdf_path, query=prompt)
-#
-# zt.create_one_note(content=result,item_id="76DQPE49",api="",tag="citation")
-
-# content = zt.get_content_after_heading("4UGZNIHB", "<h1>3. Summary</h1>", "h3")
-
-from  Zotero_module.zotero_class import generate_zotero_annotation,extract_citations_grobid, get_last_four_tokens,find_phrase_in_pdf,replace_substring_and_check,parse_grobid_xml_to_dict
-
-
+# zt.search_paragraphs_by_query(query="academic topic",collection_name='a')
 
 pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 # extract_citations_grobid(pdf_path=pdf,file_name="attributing.xml")
 # update_quote(note_id="VWPNFE2J",pdf=pdf,zot=zt.zot,xml_path=xml)
+
+# zt.processing_collection_paragraphs(collection_name='Law and evidence',
+#                               insert_database=True,
+#                               create_md_file=False,
+#                               update_paragraph_notes=False,
+#                               batch=False,
+#                               store_only=False,
+#                               update=False,
+#                                     rewrite=False,
+#                               # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
+# )
+
+['9ASBYUZD','NTJLHS2W','SLTGCATF','WSZLFCRR','Y92SMUUI','6ZQUMIV6','3HQI2D4A','6LM42EYM','4VVH4ATW','76DQPE49','CIYMT97I',
+ 'CBN4QWJQ','CBN4QWJQ','3654M8FV','W63DA6Z6','75995D72','NJJ3GVR4','CF9BMSTC','AKGJNIUK','7CJPMXT8','G7KN4SYC','QIP2P6JZ',
+ 'J8QWBVHI','RMFZBFYI','GRHKF93L','MSU2EW6K','MAQNU48R','WL69LC46','XJM4QZ3Z','SDJNY2QQ','ZHHMAL3L']
+'QGZYZT84 $7.65,ZHHMAL3L,'
+
+# zt.insert_title_paragraphs(note_id='4APZPD5V',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True)
+s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='State responsibility')
+for i in s['paragraph_text']:
+    print(i)
+# for k,v in s.items():
+#     print('key',k)
+#     print('value',v)
+
 
 def writing_to_jsonl_from_batch_results(file_name):
     file_exists = os.path.isfile(file_name)
@@ -144,3 +135,43 @@ pdf =r"C:\Users\luano\Zotero\storage\9WSSD7MF\(T Mikanagi, 2021).pdf"
 # zt.create_one_note(content=sections_improved,item_id='9ASBYUZD',tag='test')
 # pprint(sections_improved)
 # zt.create_one_note(content=sections_improved,item_id='4VVH4ATW')
+# custom_id = "SV5QMQSM"  # Example paper ID
+from Vector_Database.qdrant_handler import QdrantHandler
+
+# # Find the collection associated with the custom_id
+search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+# collection_name = search_handler.find_collection_by_custom_id(custom_id)
+
+from Vector_Database.embedding_handler import EmbeddingsHandler,query_with_history
+emb =EmbeddingsHandler()
+# Example: Query text for which we want to search similar paragraphs
+query_text = "international law"
+# Step 1: Retrieve the embedding (either from history or by generating a new one)
+# query_embedding =  query_with_history(query_text)
+# custom_id = search_handler.find_collection_by_custom_id(collection_name)
+# #
+# search =search_handler.advanced_search(collection_name='paper_NTJLHS2W',query_vector=query_embedding)
+# print(search.keys())
+# for paragraph in search['paragraph_text']:
+#     print(paragraph)
+# valid =search_handler.check_valid_embeddings()
+#
+# print(valid)
+# # Step 2: Perform the search in the collection for top 10 similar paragraphs
+# search_results = search_handler.advanced_search(
+#     collection_name=collection_name,  # Now we should have a valid collection name
+#     query_vector=query_embedding,  # The embedding for the query
+#     top_k=10,  # Retrieve top 10 similar paragraphs
+#     filter_conditions=None,  # No specific filter, searching across all data
+#     with_payload=True,  # Return payload (paragraph text)
+#     with_vectors=False,  # No need to return vectors
+#     score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
+#     offset=0,  # Starting from the first result
+#     limit=10  # Limit to 10 results
+# )
+#
+# # Step 4: Print out the results
+# for result in search_results:
+#     paragraph_text = result.payload.get('paragraph_text', "No paragraph text found")
+#     score = result.score
+#     print(f"Score: {score:.2f}, Paragraph: {paragraph_text}")

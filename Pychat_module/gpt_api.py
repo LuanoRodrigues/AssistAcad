@@ -1,3 +1,5 @@
+import ast
+import hashlib
 from pathlib import Path
 
 import PyPDF2
@@ -79,58 +81,47 @@ def append_training_data(prompt, expected_response, file_path="training_data.jso
         json.dump(data, file, ensure_ascii=False, indent=4)
 
 
-def prepare_batch_requests(text_to_send, index, id, tag):
+def prepare_batch_requests(text_to_send, id, content,schema):
     unique_id = uuid4()
+    hash_object = hashlib.sha256()
+    # Encode the paragraph and update the hash object
+    hash_object.update(text_to_send.encode('utf-8'))
 
-    return {
-        "custom_id": f"{id}-{unique_id}-part-{index}",
+    # Get the hexadecimal digest of the hash
+    paragraph_hash = hash_object.hexdigest()[:8]
+
+
+    results={
+        "custom_id": f"{id}-{unique_id}-{paragraph_hash}",
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": "You are an academic reference extractor, responding in json object"},
+                {"role": "system", "content": content},
                 {"role": "user", "content": text_to_send}
-            ]
-            ,
-            "response_format":{
-        "type": "json_schema",
-        "json_schema": {
-            "name": "citation_extraction",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "references": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "ref": {"type": "string"},
-                                "preceding_text": {"type": "string"},
-                                "footnote": {"type": "string"}
-                            },
-                            "required": ["ref", "preceding_text", "footnote"],
-                            "additionalProperties": False
-                        }
-                    }
-                },
-                "required": ["references"],
-                "additionalProperties": False
-            }
-        }
-    },
-
-    "max_tokens": 2048
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": schema
+            },
+            "max_tokens": 2048
         }
     }
+    return results
 
-def call_openai_api(text,function):
+def call_openai_api(text,id,function, batch=False):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     prompt = prompts[function]['text'] +f"\n text: {text}"
 
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']
+
+    if batch:
+        batch_request=prepare_batch_requests(text_to_send=prompt,id=id, content=content, schema=schema)
+
+        return batch_request
+
     response = client.chat.completions.create(
 
         model="gpt-4o-mini",
@@ -170,10 +161,14 @@ def extract_text_from_pdf(file_path):
 
 
 
-def write_batch_requests_to_file(batch_requests, file_name=r"C:\Users\luano\Downloads\AcAssitant\Batching_files\batchinput.jsonl"):
+def write_batch_requests_to_file(batch_request, file_name=r"C:\Users\luano\Downloads\AcAssitant\Batching_files\batchinput.jsonl"):
     with open(file_name, "a+", encoding="utf-8") as f:
-        for request in batch_requests:
-            f.write(json.dumps(request) + "\n")
+        # Convert the batch_request dictionary into a JSON string
+        json_string = json.dumps(batch_request, ensure_ascii=False, separators=(',', ':'))
+
+        # Open the file in append mode and write the JSON string to it
+        with open(file_name, "a+", encoding="utf-8") as f:
+            f.write(json_string + "\n")
     return file_name
 
 def upload_batch_file(file_name):
@@ -236,8 +231,11 @@ def retrieve_batch_results(batch_id):
     else:
         print("[DEBUG] Batch processing failed or expired.")
         return None
-def process_batch_output(file_path):
+def process_batch_output(file_path,item_id_filter):
+
     grouped_content = {}
+    filtered_content = {}
+
     with open(file_path, 'r') as file:
         for line in file:
             data = json.loads(line)
@@ -251,9 +249,18 @@ def process_batch_output(file_path):
                                 grouped_content[key_id] = []
                             grouped_content[key_id].append(choice['message']['content'])
 
-    # Convert the grouped content into a list of dictionaries
-    content_list = [{'id': key, 'content': values} for key, values in grouped_content.items()]
-    return content_list
+    # Filter and convert content by the specified key (item_id_filter)
+    if item_id_filter in grouped_content:
+        filtered_content[item_id_filter] = []
+        for entry in grouped_content[item_id_filter]:
+            try:
+                # Safely evaluate the string content into a Python dictionary
+                parsed_entry = ast.literal_eval(entry)
+                filtered_content[item_id_filter].append(parsed_entry)
+            except (SyntaxError, ValueError) as e:
+                print(f"Error parsing entry for {item_id_filter}: {e}")
+
+    return filtered_content[item_id_filter]
 def save_batch_object(directory, batch_object):
         # Ensure the directory exists
         if not os.path.exists(directory):
@@ -423,7 +430,6 @@ def process_document_sections(file_path, sections):
             response_content, chat_id = call_openai_api(client, text_to_send, chat_id)
             combined_response += html_section +response_content
     return combined_response
-
 def creating_batch_from_pdf(file_path, prompt, reference=None, page_parsing=1, batch=False, id="", tag="tag",store_only=False,file_name=""):
 
     pages_text = extract_text_from_pdf(file_path.replace("docx", "pdf"))

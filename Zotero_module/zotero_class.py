@@ -21,7 +21,7 @@ from Zotero_module.zotero_data import note_update,book,initial_book,note_summary
 from progress.bar import Bar
 from Pychat_module.gpt_api import process_pdf, write_batch_requests_to_file, create_batch, upload_batch_file, \
     call_openai_api, get_batch_ids, check_save_batch_status, retrieve_batch_results, read_or_download_batch_output, \
-    creating_batch_from_pdf
+    creating_batch_from_pdf, process_batch_output
 from NLP_module.Clustering_Embeddings import clustering_df
 from bs4 import BeautifulSoup,NavigableString
 from Pychat_module.Pychat import ChatGPT
@@ -736,7 +736,7 @@ class Zotero:
             'note': content,
             'tags': note['data'].get('tags', [])
         }
-
+        response=None
         # Update the note in Zotero
         try:
             response = self.zot.update_item(updated_note)
@@ -747,23 +747,96 @@ class Zotero:
         except Exception as e:
             print(f"An error occurred during the update: {e}")
         return response
-    def insert_title_paragraphs(self,note_id):
+    def processing_collection_paragraphs(self, collection_name,
+                              rewrite=False,
+                              insert_database=False,
+                              create_md_file=False,
+                              update_paragraph_notes=False,
+                              batch=False,
+                              store_only=True,
+                              update=True,
+                                         processing_batch=False):
+
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+
+        data = [(t, i) for t, i in collection_data[("items")]["papers"].items()]
+        batch_requests =[]
+        note_complete = len(collection_data["items"]["papers"].items())
+
+        # Setting up the tqdm iterator
+        pbar = tqdm(data,
+                    bar_format="{l_bar}{bar:30}{r_bar}{bar:-30b}",
+                    colour='green')
+        for keys, values in pbar:
+
+            # Dynamically update the description with the current key being processed
+            index1 = [i for i in collection_data["items"]["papers"]].index(keys)
+            pbar.set_description(f"Processing index:{index1},paper:{keys} missing:{note_complete} ")
+
+            note = values["note"]
+            id = values['item_id']
+            pdf = note['pdf']
+            file_name = r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\\"  + collection_name+ ".jsonl"
+
+            note_id = None
+            try:
+                note_id = " ".join([i['note_id'] for i in note['note_info'] if
+                                    "Paragraphs" in i['tag']])
+            except Exception as e:
+                print('err with note_id: ', e)
+                print(note_id)
+                pass
+
+
+            if note_id:
+
+                self.insert_title_paragraphs(zotero_collection=collection_name,
+                                             note_id=note_id,
+                                             insert_database=insert_database,
+                                             create_md_file=create_md_file,
+                                             update_paragraph_notes=update_paragraph_notes,
+                                             batch=batch,
+                                             store_only=store_only,
+                                             processing_batch=processing_batch,
+                                             rewrite=rewrite
+                                             )
+
+        if batch:
+            batch_input_file_id = upload_batch_file(file_name)
+
+            batch_id = create_batch(batch_input_file_id)
+            check_save_batch_status(batch_id)
+
+    def insert_title_paragraphs(self,zotero_collection,note_id,insert_database=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,rewrite=False):
+        proceed=True
+        batch_requests=[]
+        handller=""
         note = self.zot.item(note_id)
         note_content = note["data"]["note"]
         parentItem = note["data"]["parentItem"]
-        user_id = note["library"]["id"]
         tags = note["data"]["tags"]
-        if 'data' in note and 'note' in note['data'] and "updated_references" not in [tag["tag"] for tag in tags]:
+        if 'data' in note and 'note' in note['data'] :
             note_content = note['data']['note']
             soup = BeautifulSoup(note_content, 'html.parser')
             # Process each h2 section
             results = []
             h1_tags = soup.find_all('h1')
             title = ''
+            file_name = r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\\"  + zotero_collection+ ".jsonl"
             handler = EmbeddingsHandler(qdrant_url="http://localhost:6333")
+            # processed_batches = process_batch_output(
+            #    processing_batch)
             # handler.qdrant_handler.qdrant_client.delete_collection(collection_name=parentItem)
+            stop_sections=['notes','references']
+            if insert_database:
+                if rewrite:
+                    return handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
+                    time.sleep(4)
+                collection_created = handler.qdrant_handler.create_collection(parentItem)
+                proceed= collection_created
 
-            collection_created = handler.qdrant_handler.create_collection(parentItem)
+            # duplicate =handler.qdrant_handler.qdrant_collections(col_name=parentItem)
+
 
             # Check if there are at least two <h1> tags
             if len(h1_tags) > 1:
@@ -775,64 +848,101 @@ class Zotero:
             markdown_content = ""
 
             markdown_content += f"# {title}\n\n"
-            if collection_created:
+            if proceed:
 
-                for h2 in soup.find_all('h2'):
+
+                for n,h2 in enumerate(soup.find_all('h2')):
                     section_title = h2.get_text()
-                    section_data = {'title':title,'h2': section_title, 'paragraphs': []}
-                    paragraphs = []
-                    next_elem = h2.find_next_sibling()
+                    if section_title.lower() not in stop_sections:
+                        section_data = {'title':title,'h2': section_title, 'paragraphs': []}
+                        paragraphs = []
+                        next_elem = h2.find_next_sibling()
 
-                    while next_elem and next_elem.name != 'h2':
-                        if next_elem.name == 'h3':
-                            blockquote = next_elem.find_next_sibling('blockquote')
-                            if blockquote:
-                                paragraphs.append({
-                                    'old_h3': next_elem.get_text(),
-                                    'blockquote': str(blockquote),
-                                    'paragraph':blockquote.get_text().strip()
-                                })
-                        next_elem = next_elem.find_next_sibling()
+                        while next_elem and next_elem.name != 'h2':
+                            if next_elem.name == 'h3':
+                                blockquote = next_elem.find_next_sibling('blockquote')
+                                if blockquote:
+                                    paragraphs.append({
+                                        'old_h3': next_elem.get_text().split('-')[-1],
+                                        'blockquote': str(blockquote),
+                                        'paragraph':blockquote.get_text().strip()
+                                    })
+                            next_elem = next_elem.find_next_sibling()
 
-                    if paragraphs:
-                        para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
+                        if paragraphs:
+                            new_titles = {'titles': [
+                                {"h3_title": paragraphs[i]['old_h3'], 'paragraph_number': i + 1} for i in
+                                range(len(paragraphs))
+                            ]}
+                            # for i in paragraphs:
+                            #
+                            #     if 'insert a title' in i['old_h3']:
+                            #
+                            #         update_paragraph_notes=True
+                            if processing_batch and update_paragraph_notes:
+                                processed_batches = process_batch_output(file_path=processing_batch,
+                                                                         item_id_filter=parentItem)
+                                new_titles= processed_batches[n]
+                            if update_paragraph_notes and not processing_batch:
+                                para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
-                        new_titles = eval(
-                            call_openai_api(function='find_title', text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
+                                new_titles = eval(
+                                    call_openai_api(function='find_title',id=parentItem,batch=batch, text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
 
-                        # Initialize the first h3 element
-                        h3_elem = h2.find_next_sibling('h3')
+                            if store_only or batch:
+                                para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
-                        for i, paragraph in enumerate(paragraphs):
-                            # Find the corresponding title by paragraph_number
-                            matching_title = next(
-                                (title for title in new_titles['titles'] if title['paragraph_number'] == i + 1), None)
+                                batch_request= call_openai_api(function='find_title', id=parentItem, batch=True,
+                                                    text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}')
 
-                            if matching_title:
-                                section_data['paragraphs'].append({
-                                    'old_h3': paragraph['old_h3'],
-                                    'new_h3': matching_title['h3_title'],
-                                    'blockquote': paragraph['blockquote']
-                                })
-                                if h3_elem:
-                                    h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
-                                    # Move to the next h3 element for the next iteration
-                                    h3_elem = h3_elem.find_next_sibling('h3')
-                                    handler.process_and_append(parentItem, section_title, matching_title['h3_title'], paragraph['blockquote'],paragraph['paragraph'])
+                                write_batch_requests_to_file(batch_request=batch_request,file_name=file_name)
+                                batch_requests.append(batch_request)
 
-                                    # Append to markdown content
-                                    markdown_content += f"## {section_title}\n\n"
-                                    markdown_content += f"### {matching_title['h3_title']}\n\n"
-                                    markdown_content += f"> {paragraph['paragraph']}\n\n"
+
+                            # Initialize the first h3 element
+                            h3_elem = h2.find_next_sibling('h3')
+
+                            for i, paragraph in enumerate(paragraphs):
+                                # Find the corresponding title by paragraph_number
+                                matching_title = next(
+                                    (title for title in new_titles['titles'] if title['paragraph_number'] == i + 1), None)
+
+                                if matching_title:
+
+                                    section_data['paragraphs'].append({
+                                        'old_h3': paragraph['old_h3'],
+                                        'new_h3': matching_title['h3_title'],
+                                        'blockquote': paragraph['blockquote']
+                                    })
+                                    if h3_elem:
+
+                                        h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
+                                        # Move to the next h3 element for the next iteration
+                                        h3_elem = h3_elem.find_next_sibling('h3')
+                                        if insert_database:
+                                            handler.process_and_append(parentItem, section_title, matching_title['h3_title'], paragraph['blockquote'],paragraph['paragraph'])
+                                        if create_md_file:
+                                            # Append to markdown content
+                                            markdown_content += f"## {section_title}\n\n"
+                                            markdown_content += f"### {matching_title['h3_title']}\n\n"
+                                            markdown_content += f"> {paragraph['paragraph']}\n\n"
 
                     results.append(section_data)
-                filepath= r"C:\Users\luano\Downloads\AcAssitant\md_files"+"\\"+title.get_text()+".md"
-                with open(filepath, "w") as md_file:
-                    md_file.write(markdown_content)
-                    self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
+
+                if store_only or batch:
+                    return batch_requests
+
+                if create_md_file:
+                    filepath= r"C:\Users\luano\Downloads\AcAssitant\Files\md_files"+"\\"+title.get_text()+".md"
+                    with open(filepath, "w") as md_file:
+                        md_file.write(markdown_content)
+                        self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
+
+                if update_paragraph_notes:
                     # After the loop, update the note content
-                updated_note_content = str(soup)
-                self.update_note(note, updated_note_content)
+                    updated_note_content = str(soup)
+                    self.update_note(note, updated_note_content)
+                print('ou')
 
     def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
@@ -955,7 +1065,6 @@ class Zotero:
                     try:
                         response_content, chat_id = call_openai_api(prompt)
                         from pprint import pprint
-                        input(response_content)
                         data = eval(response_content)
                         pprint(data)
                         if data:
@@ -1077,7 +1186,6 @@ class Zotero:
     #                     print("note_update1:", note_update1)
     #                     print(list(note_update1.keys()))
     #                     if list(note_update1.keys()):
-    #                         input(pdf)
     #                         self.update_multiple_notes(section_prompts=note_update1, pdf=pdf, note_id=note_id)
     #                     if not note_update1.keys():
     #                         note_complete -= 1
@@ -1235,7 +1343,6 @@ class Zotero:
             if note_id and pdf:
                 print("note_id:", note_id, "pdf:", pdf,sep='\n')
                 if note["headings"] :
-                    # input(note["headings"])
 
                     if sections_titles:
                         pass
@@ -1957,7 +2064,7 @@ class Zotero:
 
         if batch and batch_requests and not store_only:
             file_name = write_batch_requests_to_file(batch_requests,
-                                                     file_name=rf"C:\Users\luano\Downloads\AcAssitant\Batching_files\{collection_name}_batch.jsonl")
+                                                     file_name=rf"/Files/Batching_files\{collection_name}_batch.jsonl")
             batch_input_file_id = upload_batch_file(file_name)
             batch_id = create_batch(batch_input_file_id)
             check_save_batch_status(batch_id)
@@ -2451,69 +2558,61 @@ class Zotero:
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
 
-    def search_paragraphs_by_query(self, query,collection_name, article_title="", tag=None, update=False):
+    def search_paragraphs_by_query(self, query,collection_name, article_title="", tag=None, update=False,score_threshold=1.0):
 
-            """
-                Iterates over a Zotero collection, updating notes for each item based on predefined rules and external data.
 
-                Parameters:
-                - collection_name (str): The name of the Zotero collection to process.
-                - index (int, optional): The starting index within the collection to begin processing. Defaults to 0.
-                - tag (str, optional): A specific tag to filter items by within the collection. If None, no tag filter is applied. Defaults to None.
-                - update (bool, optional): Whether to actually perform updates on the notes. Defaults to True.
+        """
+        Perform `advanced_search` across multiple collections and aggregate results into a dictionary.
 
-                The method applies a sequence of updates to each note in the collection, including extracting and inserting article schemas, cleaning titles, and potentially updating note sections based on external data sources. The updates can be configured via the parameters, and the method tracks the progress and handles exceptions accordingly.
+        Args:
+            collections (list): List of collections to search through.
+            query_vector (list): The query vector to use in the search.
 
-                Note:
-                - The method provides feedback via print statements regarding the progress and success of note updates.
-                """
-            # Initialize the Qdrant search handler
-            search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+        Returns:
+            dict: Aggregated results by keys ('section_title', 'paragraph_title', 'paragraph_text', 'blockquote_text').
+        """
+        query_vector =  query_with_history(query)
 
-            # Example: Query text for which we want to search similar paragraphs
-            custom_ids = ["SV5QMQSM", "SV6FQTAB", "SV7ZXOPQ"]  # List of paper IDs (custom_id)
+        # Initialize aggregated results with empty lists for each key
+        aggregated_results = {
+            'section_title': [],
+            'paragraph_title': [],
+            'paragraph_text': []
+        }
+        # aggregated_results= defaultdict()
+        # Initialize the Qdrant search handler
+        search_handler = QdrantHandler()
+        # query_text = "international law"
+        # list_notes = ['SV5QMQSM', '4APZPD5V']
+        # list_item = ['9ASBYUZD', 'NTJLHS2W']
+        # Example: Query text for which we want to search similar paragraphs
 
-            # Step 1: Retrieve the embedding (either from history or by generating a new one)
-            query_embedding = query_with_history(query_text=query)
-            list_search = ['9ASBYUZD', 'NTJLHS2W']
+        # Step 1: Retrieve the embedding (either from history or by generating a new one)
+        # list_search = ['NTJLHS2W']
 
-            # collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
 
-            # data = [ (i['note'],i['item_id']) for t, i in collection_data[("items")]["papers"].items() if i['item_id'] in ['9ASBYUZD','NTJLHS2W']][::-1]
-            # print(data)
-            # print()
-            # Setting up the tqdm iterator
+        data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ][::-1]
+        # print(data)
+        # print()
+        # Setting up the tqdm iterator
+        from qdrant_client.http.exceptions import UnexpectedResponse
+        for collection_name in data:
+            collection_name = f'paper_{collection_name}'
 
-            aggregated_results = []
+            try:
+                search_results = search_handler.advanced_search(collection_name=collection_name, query_vector=query_vector,score_threshold=score_threshold)
+            except UnexpectedResponse:
+                print(collection_name)
+                print('creating a collection')
+            # Append values to corresponding keys in final_data
+            aggregated_results['section_title'].append(search_results['section_title'])
+            aggregated_results['paragraph_title'].append(search_results['paragraph_title'])
+            aggregated_results['paragraph_text'].append(search_results['paragraph_text'])
 
-            for collection_name in list_search:
-                print(f"Searching in collection: {collection_name}")
 
-                # Perform the search in the current collection
-                search_results = search_handler.advanced_search(
-                    collection_name=collection_name,  # Search in each collection
-                    query_vector=query_embedding,  # The embedding for the query
-                    top_k=10,  # Retrieve top 10 similar paragraphs
-                    filter_conditions=None,  # No specific filter, searching across all data
-                    with_payload=True,  # Return payload (paragraph text)
-                    with_vectors=False,  # No need to return vectors
-                    score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
-                    offset=0,  # Starting from the first result
-                    limit=10  # Limit to 10 results
-                )
-
-                # Add results from this collection to the aggregated list
-                aggregated_results.extend(search_results)
-
-            # Step 4: Sort the aggregated results by score
-            sorted_results = sorted(aggregated_results, key=lambda x: x.score, reverse=True)
-
-            # Step 5: Print out the sorted results
-            for result in sorted_results:
-                paragraph_text = result.payload.get('paragraph_text', "No paragraph text found")
-                score = result.score
-                print(f"Score: {score:.2f}, Collection: {result.collection_name}, Paragraph: {paragraph_text}")
-
+            # After looping through all collections, return the aggregated results
+        return aggregated_results
 
 
 # TODO: cosine similarity among pdfs
