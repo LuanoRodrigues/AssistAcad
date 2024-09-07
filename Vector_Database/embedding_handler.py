@@ -97,11 +97,10 @@ class EmbeddingsHandler:
     def __init__(self, qdrant_url="http://localhost:6333"):
         self.qdrant_handler = QdrantHandler(qdrant_url)
 
-    def process_and_append(self, paper_id, section_title, paragraph_title, paragraph_text, paragraph_blockquote):
+    def process_and_append(self, paragraph_count,paper_id, article_title,section_title, paragraph_title, paragraph_text, paragraph_blockquote):
         """Process embeddings and append data to the collection."""
 
         # Get embeddings for both title and text
-        title_embedding = get_embedding(paragraph_title)
         text_embedding = get_embedding(paragraph_text)
 
         # Get the collection name based on the paper_id
@@ -110,19 +109,20 @@ class EmbeddingsHandler:
         # Append data to the collection and get operation info
         operation_info = self.qdrant_handler.append_data(
             collection_name=collection_name,  # Your collection name
+            article_title=article_title,
             section_title=section_title,  # Section title
             paragraph_title=paragraph_title,  # Paragraph title
             paragraph_text=paragraph_text,  # Paragraph text
             paragraph_blockquote=paragraph_blockquote,  # Blockquote (if available)
-            custom_id=paper_id,  # Your custom ID (e.g., "SV5QMQSM")
-            title_embedding=title_embedding,  # Embedding for the title
-            text_embedding=text_embedding  # Embedding for the text
+            custom_id=paper_id+paragraph_count,  # Your custom ID (e.g., "SV5QMQSM")
+            text_embedding=text_embedding,  # Embedding for the text
+            paragraph_count=paragraph_count
         )
 
         # Check if the operation was successful
         if operation_info.status == "completed":
             print(
-                f"Data successfully appended to the collection '{collection_name}' for paragraph '{paragraph_title}'.")
+                f"Data successfully appended to the collection '{collection_name}' for paragraph '{paragraph_text}'.")
             return True
         else:
             print(f"Failed to append data to collection '{collection_name}'. Status: {operation_info.status}")

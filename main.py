@@ -73,9 +73,25 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 'QGZYZT84 $7.65,ZHHMAL3L,'
 
 # zt.insert_title_paragraphs(note_id='4APZPD5V',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True)
-s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='State responsibility')
+keywords = {
+    "AND": ["attribution","cyber"],  # All keywords must appear
+    "OR": ["challenge", "legal"],  # Any one of these keywords can appear
+    "NOT": ["introduction","section"]  # Exclude results with these keywords
+}
+s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='legal challenges in cyber attribution',function='search',keyword=keywords)
+print(len(s))
+n =0
 for i in s['paragraph_text']:
-    print(i)
+
+    print(type(i))
+    print('*'*10)
+
+    pprint(i)
+    n=n+1
+    print(n)
+
+
+
 # for k,v in s.items():
 #     print('key',k)
 #     print('value',v)

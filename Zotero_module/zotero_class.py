@@ -9,6 +9,8 @@ from pathlib import Path
 import math
 from collections import defaultdict
 from Vector_Database.qdrant_handler import QdrantHandler
+from qdrant_client.http.exceptions import UnexpectedResponse
+
 from Vector_Database.embedding_handler import EmbeddingsHandler,query_with_history,check_existing_query
 
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
@@ -785,6 +787,7 @@ class Zotero:
             except Exception as e:
                 print('err with note_id: ', e)
                 print(note_id)
+                print(keys)
                 pass
 
 
@@ -830,7 +833,7 @@ class Zotero:
             stop_sections=['notes','references']
             if insert_database:
                 if rewrite:
-                    return handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
+                    return  handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
                     time.sleep(4)
                 collection_created = handler.qdrant_handler.create_collection(parentItem)
                 proceed= collection_created
@@ -874,11 +877,6 @@ class Zotero:
                                 {"h3_title": paragraphs[i]['old_h3'], 'paragraph_number': i + 1} for i in
                                 range(len(paragraphs))
                             ]}
-                            # for i in paragraphs:
-                            #
-                            #     if 'insert a title' in i['old_h3']:
-                            #
-                            #         update_paragraph_notes=True
                             if processing_batch and update_paragraph_notes:
                                 processed_batches = process_batch_output(file_path=processing_batch,
                                                                          item_id_filter=parentItem)
@@ -920,7 +918,14 @@ class Zotero:
                                         # Move to the next h3 element for the next iteration
                                         h3_elem = h3_elem.find_next_sibling('h3')
                                         if insert_database:
-                                            handler.process_and_append(parentItem, section_title, matching_title['h3_title'], paragraph['blockquote'],paragraph['paragraph'])
+                                            handler.process_and_append(paper_id=parentItem,
+                                                                       paragraph_count=parentItem+str(i+1),
+                                                                       article_title=title.get_text(),
+                                                                       section_title=section_title,
+                                                                       paragraph_title=matching_title['h3_title'],
+                                                                       paragraph_blockquote=paragraph['blockquote'],
+                                                                       paragraph_text=paragraph['paragraph']
+                                                                       )
                                         if create_md_file:
                                             # Append to markdown content
                                             markdown_content += f"## {section_title}\n\n"
@@ -942,7 +947,6 @@ class Zotero:
                     # After the loop, update the note content
                     updated_note_content = str(soup)
                     self.update_note(note, updated_note_content)
-                print('ou')
 
     def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
@@ -2558,9 +2562,10 @@ class Zotero:
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
 
-    def search_paragraphs_by_query(self, query,collection_name, article_title="", tag=None, update=False,score_threshold=1.0):
+    def search_paragraphs_by_query(self, query,collection_name, keyword='',article_title="", tag=None,function='search', update=False):
 
-
+        search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+        search_results=None
         """
         Perform `advanced_search` across multiple collections and aggregate results into a dictionary.
 
@@ -2577,42 +2582,41 @@ class Zotero:
         aggregated_results = {
             'section_title': [],
             'paragraph_title': [],
-            'paragraph_text': []
+            'paragraph_text': [],
+            'paragraph_blockquote':[]
         }
-        # aggregated_results= defaultdict()
-        # Initialize the Qdrant search handler
-        search_handler = QdrantHandler()
-        # query_text = "international law"
-        # list_notes = ['SV5QMQSM', '4APZPD5V']
-        # list_item = ['9ASBYUZD', 'NTJLHS2W']
-        # Example: Query text for which we want to search similar paragraphs
 
-        # Step 1: Retrieve the embedding (either from history or by generating a new one)
-        # list_search = ['NTJLHS2W']
-
+        dquadrant_handler = QdrantHandler()
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
 
-        data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ][::-1]
-        # print(data)
-        # print()
+        data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ]
         # Setting up the tqdm iterator
-        from qdrant_client.http.exceptions import UnexpectedResponse
         for collection_name in data:
             collection_name = f'paper_{collection_name}'
+            if function=='search':
+                try:
+                    search_results = dquadrant_handler.advanced_search(collection_name=collection_name, keywords=keyword,query_vector=query_vector)
 
-            try:
-                search_results = search_handler.advanced_search(collection_name=collection_name, query_vector=query_vector,score_threshold=score_threshold)
-            except UnexpectedResponse:
-                print(collection_name)
-                print('creating a collection')
-            # Append values to corresponding keys in final_data
-            aggregated_results['section_title'].append(search_results['section_title'])
-            aggregated_results['paragraph_title'].append(search_results['paragraph_title'])
-            aggregated_results['paragraph_text'].append(search_results['paragraph_text'])
+                except UnexpectedResponse as e:
+                    print(e)
+                    print('error with',collection_name)
+                # Append values to corresponding keys in final_data
+                aggregated_results['section_title'].extend(search_results['section_title'])
+                aggregated_results['paragraph_title'].extend(search_results['paragraph_title'])
+                aggregated_results['paragraph_text'].extend(search_results['paragraph_text'])
+                aggregated_results['paragraph_blockquote'].extend(search_results['paragraph_blockquote'])
 
 
-            # After looping through all collections, return the aggregated results
-        return aggregated_results
+                # After looping through all collections, return the aggregated results
+            if function=='cluster':
+                collection_list= [ f'paper_{collection_name}' for collection_name in data ]
+                clusters=dquadrant_handler.cluster_paragraphs(collection_names=collection_list)
+
+        if function == 'cluster':
+            return clusters
+
+        if function == 'search':
+            return aggregated_results
 
 
 # TODO: cosine similarity among pdfs
