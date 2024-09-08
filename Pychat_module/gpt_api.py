@@ -110,9 +110,9 @@ def prepare_batch_requests(text_to_send, id, content,schema):
     }
     return results
 
-def call_openai_api(text,id,function, batch=False):
+def call_openai_api(data,id,function, batch=False):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    prompt = prompts[function]['text'] +f"\n text: {text}"
+    prompt = prompts[function]['text'] +f"\n text: {data}"
 
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']

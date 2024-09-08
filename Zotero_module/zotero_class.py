@@ -1,6 +1,7 @@
 import json
 import os
 import fitz
+import re
 import ast
 import time
 import pickle
@@ -40,6 +41,58 @@ from Word_modules.Creating_docx import  Docx_creation
 Dc = Docx_creation()
 
 
+def create_one_note(self, content="", item_id="", collection_id="", tag="", beginning=False
+                    ):
+    new_note = ''
+
+    cabecalho = generate_cabecalho(zot=self.zot, item_id=item_id)
+    new_content = f'<html><head><title>{tag.strip()}</title><style>body{{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;background-color:#f0f2f5;color:#333;margin:0;padding:20px;}}.container{{max-width:800px;margin:0 auto;background-color:#fff;padding:30px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);line-height:1.6;}}h1{{font-size:28px;color:#2c3e50;margin-bottom:20px;border-bottom:2px solid #e67e22;padding-bottom:10px;}}.cabecalho{{font-size:16px;font-weight:bold;color:#555;margin-bottom:20px;padding:10px;background-color:#f9f9f9;border-left:4px solid #3498db;}}.content{{font-size:16px;color:#444;margin-top:20px;line-height:1.8;}}.content p{{margin-bottom:15px;}}.content ul{{list-style-type:disc;margin-left:20px;}}.content li{{margin-bottom:10px;}}.footer{{margin-top:30px;font-size:14px;color:#777;text-align:center;border-top:1px solid #e1e1e1;padding-top:10px;}}</style></head><body><div class="container"><h1>{tag}</h1><div class="cabecalho">{cabecalho}</div><div class="content">{content}</div></div></body></html>' if beginning == False else content
+
+    # Create the new note
+    if item_id:
+        new_note = self.zot.create_items([{
+            "itemType": "note",
+            'parentItem': item_id,
+            "note": new_content,
+            'tags': [{"tag": tag}]
+
+        }])
+    if collection_id:
+        new_note = self.zot.create_items([{
+            "itemType": "note",
+            'collections': [collection_id],
+            "note": content,
+            'tags': [{"tag": tag}]
+
+        }])
+    print(new_note)
+    new_note_id = new_note['successful']['0']['data']['key']
+    if new_note_id:
+        note = self.zot.item(new_note_id)
+        note_content = note['data']['note']
+
+        # Update the note content with the new note ID
+        updated_content = note_content.replace(f'<em>@{item_id}</em><br>',
+                                               f'<em>@{item_id}</em><br><em>Note ID: {new_note_id}</em><br>')
+
+        updated_note = {
+            'key': note['data']['key'],
+            'version': note['data']['version'],
+            'itemType': note['data']['itemType'],
+            'note': updated_content,
+            'tags': [{"tag": "summary_note"}]
+        }
+        time.sleep(15)
+        try:
+            # Attempt to update the note in Zotero
+            response = self.zot.update_item(updated_note)
+            if response:
+                print("Note updated successfully.")
+                return new_note_id
+            else:
+                print("Failed to update the note.")
+        except Exception as e:
+            print(f"An error occurred during the update: {e}")
 def generate_cabecalho(zot, item_id):
     """
         Creates a Zotero note for a given item ID, incorporating various item details and external data sources to enrich the note content.
@@ -730,13 +783,14 @@ class Zotero:
                     if file.endswith(".docx"):
                         current_pdf_path = os.path.join(root, file)
                         return current_pdf_path
-    def update_note(self, note,content):
+    def update_note(self, note,content,tag=None):
+        if tag is None:tag=note['data'].get('tags', [])
         updated_note = {
             'key': note['data']['key'],
             'version': note['data']['version'],
             'itemType': note['data']['itemType'],
             'note': content,
-            'tags': note['data'].get('tags', [])
+            'tags': tag
         }
         response=None
         # Update the note in Zotero
@@ -817,7 +871,7 @@ class Zotero:
         note = self.zot.item(note_id)
         note_content = note["data"]["note"]
         parentItem = note["data"]["parentItem"]
-        tags = note["data"]["tags"]
+        tags = note["data"]["tags"].extend([{"tag": "indexed"}])
         if 'data' in note and 'note' in note['data'] :
             note_content = note['data']['note']
             soup = BeautifulSoup(note_content, 'html.parser')
@@ -832,6 +886,8 @@ class Zotero:
             # handler.qdrant_handler.qdrant_client.delete_collection(collection_name=parentItem)
             stop_sections=['notes','references']
             if insert_database:
+                handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
+                time.sleep(4)
                 if rewrite:
                     return  handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
                     time.sleep(4)
@@ -864,9 +920,17 @@ class Zotero:
                         while next_elem and next_elem.name != 'h2':
                             if next_elem.name == 'h3':
                                 blockquote = next_elem.find_next_sibling('blockquote')
+                                text = next_elem.get_text()
+                                import re
+                                # Check if the pattern exists before attempting to split
+                                if re.search(r'\d\s*-\s*', text):
+                                    h3_title = re.split(r'\d\s*-\s*', text)[-1]
+                                else:
+                                    # Fallback: just use the original text if no match is found
+                                    h3_title = text
                                 if blockquote:
                                     paragraphs.append({
-                                        'old_h3': next_elem.get_text().split('-')[-1],
+                                        'old_h3': h3_title,
                                         'blockquote': str(blockquote),
                                         'paragraph':blockquote.get_text().strip()
                                     })
@@ -877,6 +941,20 @@ class Zotero:
                                 {"h3_title": paragraphs[i]['old_h3'], 'paragraph_number': i + 1} for i in
                                 range(len(paragraphs))
                             ]}
+                            import re
+
+                            paragraph_incomplete = [paragraph['old_h3']
+
+                                for paragraph in paragraphs
+                                if
+                                "insert" in paragraph['old_h3'] or len(paragraph['old_h3'].split()) < 5
+                            ]
+                            if paragraph_incomplete:
+                                print('incomplete title found: ', paragraph_incomplete)
+                                time.sleep(4)
+
+                                update_paragraph_notes=True
+
                             if processing_batch and update_paragraph_notes:
                                 processed_batches = process_batch_output(file_path=processing_batch,
                                                                          item_id_filter=parentItem)
@@ -885,8 +963,9 @@ class Zotero:
                                 para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
                                 new_titles = eval(
-                                    call_openai_api(function='find_title',id=parentItem,batch=batch, text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
-
+                                    call_openai_api(function='find_title',id=parentItem,batch=batch, data=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
+                                for new_title in new_titles:
+                                    print(new_title)
                             if store_only or batch:
                                 para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
@@ -938,15 +1017,18 @@ class Zotero:
                     return batch_requests
 
                 if create_md_file:
-                    filepath= r"C:\Users\luano\Downloads\AcAssitant\Files\md_files"+"\\"+title.get_text()+".md"
-                    with open(filepath, "w") as md_file:
+                    filepath= r"C:\Users\luano\Downloads\AcAssitant\Files\md_files"+"\\"+parentItem+".md"
+                    with open(filepath, "w",encoding='utf-8') as md_file:
                         md_file.write(markdown_content)
                         self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
 
                 if update_paragraph_notes:
                     # After the loop, update the note content
                     updated_note_content = str(soup)
-                    self.update_note(note, updated_note_content)
+                    self.update_note(note, updated_note_content,)
+                # After the loop, update the note content
+                updated_note_content = str(soup)
+                self.update_note(note, updated_note_content,tag=tags)
 
     def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
@@ -1606,6 +1688,16 @@ class Zotero:
 
                         if i > len(python_elements) - 1:
                             break
+    def _get_md_attachment(self, item_id):
+
+        attachments = self.zot.children(item_id, itemType='attachment')
+        # Assuming 'attachments' is a list of attachments data similar to what you've shown previously
+        attachment_item= [
+            attachment
+            for attachment in attachments
+            if attachment['data'].get('filename', '').endswith('.md')
+        ]
+        return attachment_item
 
     def get_children_notes(self, item_id, new_filename=''):
         """
@@ -2422,41 +2514,43 @@ class Zotero:
         Returns:
             None
         """
-        file_name = os.path.basename(file_path)
-        file_title, file_ext = os.path.splitext(file_name)
+        attch= self._get_md_attachment(item_id=parent_item_id)
+        if not attch:
+            file_name = os.path.basename(file_path)
+            file_title, file_ext = os.path.splitext(file_name)
 
-        # Only proceed if the file is a Word or PDF document
-        try:
-            # Attach the file to the specified item and capture the response
-            response = self.zot.attachment_simple([file_path], parentid=parent_item_id)
+            # Only proceed if the file is a Word or PDF document
+            try:
+                # Attach the file to the specified item and capture the response
+                response = self.zot.attachment_simple([file_path], parentid=parent_item_id)
 
-            # Check if the attachment was successful or unchanged but still present
-            attachment_key = None
-            if 'successful' in response and len(response['successful']) > 0:
-                attachment_key = next(iter(response['successful'].values()))['key']
-                print(f"File {file_name} attached successfully. Attachment ID: {attachment_key}")
-            elif 'unchanged' in response and len(response['unchanged']) > 0:
-                attachment_key = response['unchanged'][0]['key']
-                print(f"File {file_name} was already attached. Attachment ID: {attachment_key}")
+                # Check if the attachment was successful or unchanged but still present
+                attachment_key = None
+                if 'successful' in response and len(response['successful']) > 0:
+                    attachment_key = next(iter(response['successful'].values()))['key']
+                    print(f"File {file_name} attached successfully. Attachment ID: {attachment_key}")
+                elif 'unchanged' in response and len(response['unchanged']) > 0:
+                    attachment_key = response['unchanged'][0]['key']
+                    print(f"File {file_name} was already attached. Attachment ID: {attachment_key}")
 
-            if attachment_key:
-                # Fetch the existing attachment item
-                attachment_item = self.zot.item(attachment_key)
-                # Append or update the tag
-                existing_tags = {tag['tag'] for tag in attachment_item['data']['tags']}
-                if tag_name not in existing_tags:
-                    attachment_item['data']['tags'].append({'tag': tag_name})
-                    self.zot.update_item(attachment_item)
-                    print(f"Tag '{tag_name}' added to attachment ID: {attachment_key}")
-                else:
-                    print(f"Tag '{tag_name}' already exists for this attachment.")
+                if attachment_key:
+                    # Fetch the existing attachment item
+                    attachment_item = self.zot.item(attachment_key)
+                    # Append or update the tag
+                    existing_tags = {tag['tag'] for tag in attachment_item['data']['tags']}
+                    if tag_name not in existing_tags:
+                        attachment_item['data']['tags'].append({'tag': tag_name})
+                        self.zot.update_item(attachment_item)
+                        print(f"Tag '{tag_name}' added to attachment ID: {attachment_key}")
+                    else:
+                        print(f"Tag '{tag_name}' already exists for this attachment.")
 
-        except zotero_errors.HTTPError as e:
-            print(f"Error uploading attachment or adding tag for file '{file_name}': {e}")
-        except Exception as e:
-            print(f"Unexpected error for file '{file_name}': {e}")
+            except zotero_errors.HTTPError as e:
+                print(f"Error uploading attachment or adding tag for file '{file_name}': {e}")
+            except Exception as e:
+                print(f"Unexpected error for file '{file_name}': {e}")
         else:
-            print(f"Skipped non-document file: {file_name}")
+            print(f"Skipped non-document file: {parent_item_id}")
 
     def create_item_with_attachment(self, file_path, collection_key):
         """
@@ -2562,7 +2656,7 @@ class Zotero:
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
 
-    def search_paragraphs_by_query(self, query,collection_name, keyword='',article_title="", tag=None,function='search', update=False):
+    def search_paragraphs_by_query(self, query,collection_name, keyword='',n_clusters=5,article_title="", tag=None,function='search', update=False):
 
         search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
         search_results=None
@@ -2610,7 +2704,7 @@ class Zotero:
                 # After looping through all collections, return the aggregated results
             if function=='cluster':
                 collection_list= [ f'paper_{collection_name}' for collection_name in data ]
-                clusters=dquadrant_handler.cluster_paragraphs(collection_names=collection_list)
+                clusters=dquadrant_handler.cluster_paragraphs(collection_names=collection_list, n_clusters=n_clusters)
 
         if function == 'cluster':
             return clusters

@@ -30,6 +30,87 @@ note_summary_schema="""
               """
 
 prompts = {
+
+  "thematic_review": {
+    "text":  "You will be given a list of headings (e.g., h1, h2), titles, paragraphs, and topic sentences, and your task is to create a comprehensive thematic section for each heading with at least five paragraphs using only the provided references, critically analyzing the authors' ideas, forming a coherent narrative that connects to the overall theme, ensuring smooth transitions between paragraphs, offering insightful analysis that demonstrates a deep understanding of the subject, appropriately citing the original material for each point, without introducing any external content, using only valid HTML heading levels (h1, h2, etc.) to reflect the hierarchical structure of the content, and ensuring that each section is well-organized with seamless ideas contributing to the thematic flow supported by accurate in-text citations.",
+    "json_schema": {
+      "name": "thematic_review_writer_v2",
+      "strict": True,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "enum": ["h1", "h2", "h3", "h4", "h5", "h6"],
+            "description": "The valid HTML heading level (e.g., 'h1', 'h2', etc.) representing the section's hierarchy."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "A cohesive paragraph of text written based on the provided references. Each paragraph should critically analyze the content and contribute to a coherent narrative that connects with the overarching theme."
+            }
+          }
+        },
+        "required": ["heading", "paragraphs"],
+        "additionalProperties": False
+      }
+    },
+    "content": "You will create thematic sections based on the given heading levels and paragraph content. Each section should consist of at least five paragraphs, written solely based on the provided references. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme."
+  }
+
+
+,
+
+  "get_headings": {
+    "text": "I have clustered topic sentences representing paragraphs. Your task is to give them a cohesive and coherent structure by assigning headings in HTML tags (h1, h2, h3, h4) nested where appropriate. The structure should be in the format: <h1> title </h1>, <h1> paragraph IDs </h1>, <h2> title </h2>, <h2> paragraph IDs </h2>, etc. You will receive a list of dicts with 'id' and 'p' (paragraph content). Your output should be a list of headings with their corresponding titles and the paragraph IDs associated with them. For example: [{'h1': {'title': 'Main Heading Title', 'paragraph_ids': ['67bc2e0e', 'a4c3cde6']}}, {'h2': {'title': 'Subsection Title', 'paragraph_ids': ['8c497488']}}]. Add an overarching theme at the top before the <h1> heading that represents the entire structure.",
+    "json_schema": {
+      "name": "headings_and_titles_generator",
+      "strict": True,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "overarching_theme": {
+            "type": "string",
+            "description": "The overarching theme that summarizes the entire document, placed before the first <h1> heading."
+          },
+          "structure": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string",
+                  "enum": ["h1", "h2", "h3", "h4"],
+                  "description": "The HTML heading level (e.g., h1, h2, h3, h4) representing the section's hierarchy."
+                },
+                "title": {
+                  "type": "string",
+                  "description": "A title summarizing the central idea of the section or subsection."
+                },
+                "paragraph_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "A list of paragraph IDs that are grouped under this heading."
+                  },
+                  "description": "The list of paragraph IDs associated with this heading."
+                }
+              },
+              "required": ["heading", "title", "paragraph_ids"],
+              "additionalProperties": False
+            }
+          }
+        },
+        "required": ["overarching_theme", "structure"],
+        "additionalProperties": False
+      }
+    },
+    "content": "You will read through clusters of paragraphs and return a structured list of HTML headings (h1 to h4) with their titles and associated paragraph IDs. Ensure proper nesting of headings (h1 > h2 > h3 > h4) according to the logical flow of the content. Each heading should summarize the central idea of the associated paragraphs. Add an overarching theme that describes the entire document before the first <h1> heading. For example: {'overarching_theme': 'Cybersecurity Challenges', 'structure': [{'h1': {'title': 'Main Heading Title', 'paragraph_ids': ['67bc2e0e', 'a4c3cde6']}}, {'h2': {'title': 'Subsection Title', 'paragraph_ids': ['8c497488']}}]}."
+  },
+
+
+
     "footnote": {
         "text": "Your text goes here",
         "json_schema": {
@@ -63,7 +144,7 @@ prompts = {
         }
     },
     "find_title": {
-        "text": "Read carefully the paragraphs considering the context of the overral context of the academic paper with {{title}} and {{section/subsections}}. After analysing each paragraph in its context, return a list of paragraph titles resuming the paragraph content in a declarative sentence affirming one fact central to the paragraph. Return a list of dicts, each with paragraph number and title."
+        "text": "Read carefully the paragraphs considering the context of the overral context of the academic paper with {{title}} and {{section/subsections}}. After analysing each paragraph in its context, return a list of paragraph titles resuming the paragraph content in a declarative sentence affirming one fact central to the paragraph, that is one or two complete sentence about the central idea of the paragraph. Return a list of dicts, each with paragraph number and title."
 ,
         "json_schema": {
              "name": "title_creator",
@@ -91,7 +172,9 @@ prompts = {
         "content": "You read paragraphs and summarise them in a declarative short sentence"
 
 
-    }
+    },
+
+
 }
 
 tag_note ="note1: start with the first section. I will ask you to output more statement while you advance in your search. If no more relevant statement found, return <div>N/A</div> note2: Statements should contain at least 150 words size, highlighting in bold, strong tag, the main statement.note3:output format: code block html```"

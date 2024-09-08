@@ -2,6 +2,7 @@ import json
 import os
 import re
 from bs4 import BeautifulSoup
+from docx.enum.section import WD_SECTION
 from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.oxml import qn
 from docx.oxml import OxmlElement
@@ -16,6 +17,101 @@ from openai import OpenAI
 from collections import defaultdict
 # Uncomment if on Windows and docx2pdf is installed
 from docx2pdf import convert
+from docx.shared import Pt, Inches
+from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+
+
+def set_style(style, font_name=None, font_size=None, bold=None, italic=None, alignment=None, space_after=None,
+              space_before=None, line_spacing=None, first_line_indent=None):
+    """
+    Helper function to set multiple style properties.
+    """
+    if font_name:
+        style.font.name = font_name
+        style._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)  # Compatibility for certain fonts
+    if font_size:
+        style.font.size = font_size
+    if bold is not None:
+        style.font.bold = bold
+    if italic is not None:
+        style.font.italic = italic
+    if alignment:
+        style.paragraph_format.alignment = alignment
+    if space_after:
+        style.paragraph_format.space_after = space_after
+    if space_before:
+        style.paragraph_format.space_before = space_before
+    if line_spacing:
+        style.paragraph_format.line_spacing = line_spacing
+    if first_line_indent:
+        style.paragraph_format.first_line_indent = first_line_indent
+
+
+from docx.oxml import OxmlElement
+
+
+def add_page_number(paragraph):
+    run = paragraph.add_run()
+
+    # Create a field code for the page number
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+
+    instrText = OxmlElement('w:instrText')
+    instrText.text = "PAGE"
+
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'end')
+
+    # Append the elements in the correct order
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+
+
+def customize_doc_style(doc, header_title, block_quote_indent=Inches(0.5), left_margin=Inches(1.5)):
+    # Set margins (1 inch all around, 1.5 inches on the left if needed for binding)
+    # Set margins (1 inch all around, 1.5 inches on the left if needed for binding)
+    for section in doc.sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = left_margin
+        section.right_margin = Inches(1)
+
+    # Customize 'Normal' style for body text in academic papers
+    normal_style = doc.styles['Normal']
+    set_style(normal_style, font_name='Times New Roman', font_size=Pt(12),
+              line_spacing=Pt(24), space_after=Pt(0), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
+              first_line_indent=Pt(18))  # Double spacing with first-line indent
+
+    # Add automatic page numbering, skipping the first page (title page)
+    for section in doc.sections:
+        footer = section.footer
+        paragraph = footer.paragraphs[0]
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        add_page_number(paragraph)
+
+    # Customize Header style with the title, apply only after the first page
+    header = doc.sections[0].header
+    paragraph = header.paragraphs[0]
+    paragraph.text = header_title
+    set_style(paragraph.style, font_name='Times New Roman', font_size=Pt(12),
+              alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Add Block Quote style (indented, single-spaced)
+    block_quote_style = doc.styles.add_style('Block Quote', WD_STYLE_TYPE.PARAGRAPH)
+    set_style(block_quote_style, font_name='Times New Roman', font_size=Pt(12),
+              alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=Pt(12), first_line_indent=None)
+    block_quote_style.paragraph_format.left_indent = block_quote_indent
+
+    # Ensure use of section breaks when needed
+    for paragraph in doc.paragraphs:
+        # Manually add a section break at the end of each major section if required
+        if paragraph.text.strip().lower() in ['introduction', 'conclusion', 'references']:
+            doc.add_section(WD_SECTION.NEW_PAGE)  # Add a new section starting on a new page
+
 
 class Docx_creation():
     def __init__(self):
@@ -171,113 +267,6 @@ class Docx_creation():
         doc.add_paragraph(f"{date_str}, {metadata['city']}", style='BodyText').alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         doc.add_page_break()
 
-
-    def customize_doc_style(self, doc):
-
-        # Customize 'Normal' style
-        normal_style = doc.styles['Normal']
-        normal_style.font.name = 'Arial'
-        normal_style.font.size = Pt(12)
-        normal_style.paragraph_format.line_spacing = Pt(18)  # Set 1.5 line spacing
-        normal_style.paragraph_format.space_after = Pt(6)
-
-
-        # Customize 'Heading 1'
-        h1_style = doc.styles['Heading 1']
-        h1_style.font.name = 'Times New Roman'
-        h1_style.font.size = Pt(14)  # Slightly larger than body text
-        h1_style.font.bold = True
-        h1_style.paragraph_format.space_after = Pt(12)  # Space after heading
-        h1_style.paragraph_format.space_before = Pt(12)  # Space before heading
-        h1_style.paragraph_format.line_spacing = Pt(18) #Pt(24)  # Double spacing
-
-        # Customize 'Heading 2'
-        h2_style = doc.styles['Heading 2']
-        h2_style.font.name = 'Times New Roman'
-        h2_style.font.size = Pt(14)
-        h2_style.font.bold = True
-        h2_style.paragraph_format.space_after = Pt(8)
-        normal_style.paragraph_format.line_spacing = Pt(18)  # Set 1.5 line spacing
-
-
-        # Customize 'Heading 3'
-        h3_style = doc.styles['Heading 3']
-        h3_style.font.name = 'Times New Roman'
-        h3_style.font.size = Pt(12)
-        h3_style.font.bold = True
-        h3_style.paragraph_format.space_after = Pt(6)
-        normal_style.paragraph_format.line_spacing = Pt(18)  # Set 1.5 line spacing
-
-        # Customize 'Heading 4'
-        if 'Heading 4' not in doc.styles:
-            h4_style = doc.styles.add_style('Heading 4', WD_STYLE_TYPE.PARAGRAPH)
-        else:
-            h4_style = doc.styles['Heading 4']
-        h4_style.font.name = 'Times New Roman'
-        h4_style.font.size = Pt(12)
-        h4_style.font.bold = True
-        h4_style.paragraph_format.space_after = Pt(6)
-        normal_style.paragraph_format.line_spacing = Pt(18)  # Set 1.5 line spacing
-
-
-        # Customize 'Abstract' style for abstract sections
-        if 'Abstract' not in doc.styles:
-            abstract_style = doc.styles.add_style('Abstract', WD_STYLE_TYPE.PARAGRAPH)
-        else:
-            abstract_style = doc.styles['Abstract']
-        abstract_style.font.name = 'Arial'
-        abstract_style.font.size = Pt(12)
-        abstract_style.font.italic = True
-        abstract_style.paragraph_format.space_after = Pt(12)
-        abstract_style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-        # Customize 'Title' style
-        title_style = doc.styles['Title']
-        title_style.font.name = 'Arial'
-        title_style.font.size = Pt(24)
-        title_style.font.bold = True
-        title_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-        # Customize 'Subtitle' style
-        subtitle_style = doc.styles['Subtitle']
-        subtitle_style.font.name = 'Arial'
-        subtitle_style.font.size = Pt(18)
-        subtitle_style.font.bold = False
-        subtitle_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        # Customize 'List Bullet' style
-        list_bullet_style = doc.styles['List Bullet']
-        list_bullet_style.font.name = 'Arial'
-        list_bullet_style.font.size = Pt(12)
-
-        # Customize 'List Number' style
-        list_number_style = doc.styles['List Number']
-        list_number_style.font.name = 'Arial'
-        list_number_style.font.size = Pt(12)
-
-        # Customize 'Caption' style for figures and tables
-        caption_style = doc.styles['Caption']
-        caption_style.font.name = 'Arial'
-        caption_style.font.size = Pt(12)
-        caption_style.font.bold = True
-        caption_style.font.italic = True
-        caption_style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # Customize Header style
-        header = doc.sections[0].header
-        paragraph = header.paragraphs[0]
-        paragraph.text = "Your Header Text Here"
-        paragraph.style = doc.styles['Header']
-        paragraph.style.font.size = Pt(12)
-        paragraph.style.font.name = 'Arial'
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        # Customize Footer style
-        footer = doc.sections[0].footer
-        paragraph = footer.paragraphs[0]
-        paragraph.text = "Your Footer Text Here - Page "  # Page number added next
-        paragraph.style = doc.styles['Footer']
-        paragraph.style.font.size = Pt(12)
-        paragraph.style.font.name = 'Arial'
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         # # Add page number to the footer
         # fldSimple = OxmlElement('w:fldSimple')

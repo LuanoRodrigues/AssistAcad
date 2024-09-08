@@ -6,7 +6,7 @@ import enchant
 import nltk
 import pdfplumber
 from tqdm import tqdm
-
+from Vector_Database.qdrant_handler import get_headings_for_clusters,write_and_export_sections
 from Zotero_module.zotero_data import note_api,summary
 from bs4 import BeautifulSoup
 from pprint import pprint
@@ -49,7 +49,7 @@ library_id = library_id,
 prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
  note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
 
-
+write_and_export_sections()
 # zt.search_paragraphs_by_query(query="academic topic",collection_name='a')
 
 pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
@@ -57,8 +57,8 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 # update_quote(note_id="VWPNFE2J",pdf=pdf,zot=zt.zot,xml_path=xml)
 
 # zt.processing_collection_paragraphs(collection_name='Law and evidence',
-#                               insert_database=True,
-#                               create_md_file=False,
+#                               insert_database=False,
+#                               create_md_file=True,
 #                               update_paragraph_notes=False,
 #                               batch=False,
 #                               store_only=False,
@@ -66,29 +66,31 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 #                                     rewrite=False,
 #                               # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
 # )
+#
+# ['9ASBYUZD','NTJLHS2W','SLTGCATF','WSZLFCRR','Y92SMUUI','6ZQUMIV6','3HQI2D4A','6LM42EYM','4VVH4ATW','76DQPE49','CIYMT97I',
+#  'CBN4QWJQ','CBN4QWJQ','3654M8FV','W63DA6Z6','75995D72','NJJ3GVR4','CF9BMSTC','AKGJNIUK','7CJPMXT8','G7KN4SYC','QIP2P6JZ',
+#  'J8QWBVHI','RMFZBFYI','GRHKF93L','MSU2EW6K','MAQNU48R','WL69LC46','XJM4QZ3Z','SDJNY2QQ','ZHHMAL3L']
+# 'QGZYZT84 $7.65,ZHHMAL3L,'
 
-['9ASBYUZD','NTJLHS2W','SLTGCATF','WSZLFCRR','Y92SMUUI','6ZQUMIV6','3HQI2D4A','6LM42EYM','4VVH4ATW','76DQPE49','CIYMT97I',
- 'CBN4QWJQ','CBN4QWJQ','3654M8FV','W63DA6Z6','75995D72','NJJ3GVR4','CF9BMSTC','AKGJNIUK','7CJPMXT8','G7KN4SYC','QIP2P6JZ',
- 'J8QWBVHI','RMFZBFYI','GRHKF93L','MSU2EW6K','MAQNU48R','WL69LC46','XJM4QZ3Z','SDJNY2QQ','ZHHMAL3L']
-'QGZYZT84 $7.65,ZHHMAL3L,'
-
-# zt.insert_title_paragraphs(note_id='4APZPD5V',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True)
+# zt.insert_title_paragraphs(note_id='G4NHJPJ3',insert_database=False,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=False)
 keywords = {
     "AND": ["attribution","cyber"],  # All keywords must appear
     "OR": ["challenge", "legal"],  # Any one of these keywords can appear
     "NOT": ["introduction","section"]  # Exclude results with these keywords
 }
-s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='legal challenges in cyber attribution',function='search',keyword=keywords)
-print(len(s))
+
+# s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='What are the challenges in cyber attribution?',function='cluster',keyword=keywords)
+# print(len(s))
+# print(s)
 n =0
-for i in s['paragraph_text']:
-
-    print(type(i))
-    print('*'*10)
-
-    pprint(i)
-    n=n+1
-    print(n)
+# for i in s['paragraph_text']:
+#
+#     print(type(i))
+#     print('*'*10)
+#
+#     pprint(i)
+#     n=n+1
+#     print(n)
 
 
 
