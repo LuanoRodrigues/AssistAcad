@@ -20,7 +20,6 @@ load_dotenv()  # Load environment variables from .env file
 from Zotero_module.zotero_data import prompts
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
-
 import json
 
 
@@ -80,6 +79,12 @@ def append_training_data(prompt, expected_response, file_path="training_data.jso
     with open(json_file_path, "w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
+import json
+import hashlib
+from uuid import uuid4
+
+# Function to prepare a request for batch processing
+
 
 def prepare_batch_requests(text_to_send, id, content,schema):
     unique_id = uuid4()
@@ -109,13 +114,30 @@ def prepare_batch_requests(text_to_send, id, content,schema):
         }
     }
     return results
+# Function to send bigrams in batch to the OpenAI Batch API for embeddings
 
 def call_openai_api(data,id,function, batch=False):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    prompt = prompts[function]['text'] +f"\n text: {data}"
+    # Open and read the prompts from a JSON file
+    with open(r'C:\Users\luano\Downloads\AcAssitant\Files\Prompts\api_prompts.json', 'r') as f:
+        prompts = json.load(f)  # Load the JSON content into a Python dictionary
+    common_words_chatgpt = ["intricacies", "complexities", "nuance", "sophisticated", "multifaceted", "complicated",
+                            "intricate", "complex", "nuanced", "sophistication", "comprehensive", "dynamic",
+                            "innovative", "advanced", "challenging", "revolutionary", "cutting-edge", "pioneering",
+                            "state-of-the-art", "groundbreaking", "meticulous", "rigorous", "exhaustive", "in-depth",
+                            "thorough", "detailed", "elaborate", "extensive", "delve",  "realm", "notably",
+                            "arguably", "pivotal", "vital", "moreover", "navigate", "embark", "explore",
+                            "remarkable", "in conclusion", "it is important to note",
+                             "in this digital world"]
+
+    prompt = prompts[function]['text'] +f"\n text: {data}\nstop_words_list::\n{common_words_chatgpt}"
 
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']
+    config = prompts[function]['config']
+    max_tokens = config.get('max_tokens', 1000)  # Fallback to 500 if not defined
+    temperature = config.get('temperature', 0.4)  # Fallback to 0.4 if not defined
+    top_p = config.get('top_p', 0.9)  # Fallback to 0.9 if not defined
 
     if batch:
         batch_request=prepare_batch_requests(text_to_send=prompt,id=id, content=content, schema=schema)
@@ -137,9 +159,10 @@ def call_openai_api(data,id,function, batch=False):
             "json_schema": schema
         },
 
-
-        max_tokens=2048,
-        temperature=0.7
+        max_tokens=max_tokens,  # Use max_tokens from config
+        temperature=temperature,  # Use temperature from config
+        top_p=top_p,  # Use top_p from config
+        stop=["intricate", "complex", "nuanced", "pivotal",]
     )
 
     message = response.choices[0].message.content.strip()

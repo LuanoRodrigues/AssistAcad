@@ -30,34 +30,50 @@ note_summary_schema="""
               """
 
 prompts = {
-
-  "thematic_review": {
-    "text":  "You will be given a list of headings (e.g., h1, h2), titles, paragraphs, and topic sentences, and your task is to create a comprehensive thematic section for each heading with at least five paragraphs using only the provided references, critically analyzing the authors' ideas, forming a coherent narrative that connects to the overall theme, ensuring smooth transitions between paragraphs, offering insightful analysis that demonstrates a deep understanding of the subject, appropriately citing the original material for each point, without introducing any external content, using only valid HTML heading levels (h1, h2, etc.) to reflect the hierarchical structure of the content, and ensuring that each section is well-organized with seamless ideas contributing to the thematic flow supported by accurate in-text citations.",
-    "json_schema": {
-      "name": "thematic_review_writer_v2",
-      "strict": True,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "heading": {
-            "type": "string",
-            "enum": ["h1", "h2", "h3", "h4", "h5", "h6"],
-            "description": "The valid HTML heading level (e.g., 'h1', 'h2', etc.) representing the section's hierarchy."
-          },
-          "paragraphs": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "description": "A cohesive paragraph of text written based on the provided references. Each paragraph should critically analyze the content and contribute to a coherent narrative that connects with the overarching theme."
-            }
-          }
-        },
-        "required": ["heading", "paragraphs"],
-        "additionalProperties": False
+   "name": "thematic_review",
+  "strict": True,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "heading": {
+        "type": "string",
+        "enum": ["h1", "h2", "h3", "h4", "h5", "h6"],
+        "description": "The valid HTML heading level (e.g., 'h1', 'h2', etc.) representing the section's hierarchy."
+      },
+      "title": {
+        "type": "string",
+        "description": "The title of the heading that summarizes the content of the section."
+      },
+      "paragraphs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "A cohesive paragraph of text written based on the provided references. Each paragraph should critically analyze the content and contribute to a coherent narrative that connects with the overarching theme. Maximum tokens: 500 for sections, 300 for subsections."
+        }
       }
     },
-    "content": "You will create thematic sections based on the given heading levels and paragraph content. Each section should consist of at least five paragraphs, written solely based on the provided references. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme."
+    "required": ["heading", "title", "paragraphs"],
+    "additionalProperties": False
+  },
+  "config": {
+    "model": "gpt-4",
+    "temperature": 0.3,
+    "max_tokens": {
+      "h1": 500,
+      "h2": 500,
+      "h3": 300,
+      "h4": 300
+    },
+    "stop": ["###"],
+    "top_p": 0.9
+  },
+  "instructions": {
+    "style": {
+      "transitions": "Ensure smooth transitions between paragraphs to maintain thematic unity.",
+      "structure": "Use valid HTML headings (h1-h6) to reflect document hierarchy and maintain logical progression."
+    }
   }
+
 
 
 ,

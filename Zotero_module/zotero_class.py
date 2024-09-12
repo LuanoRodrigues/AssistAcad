@@ -11,11 +11,11 @@ import math
 from collections import defaultdict
 from Vector_Database.qdrant_handler import QdrantHandler
 from qdrant_client.http.exceptions import UnexpectedResponse
-
-from Vector_Database.embedding_handler import EmbeddingsHandler,query_with_history,check_existing_query
-
+from File_management.exporting_files import export_structure
+from Vector_Database.embedding_handler import query_with_history,check_existing_query
+from Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
-from NLP_module.normalise_texts import normalize_text2,normalize_text,get_last_four_tokens,replace_substring_and_check
+from NLP_module.normalise_texts import normalize_text2,normalize_text,get_last_four_tokens,replace_substring_and_check,add_paragraphs_to_structure
 from NLP_module.PDFs_nlp import find_phrase_in_pdf
 from Reference_processing.Grobid_references import parse_grobid_xml_to_dict,extract_citations_grobid
 
@@ -93,7 +93,7 @@ def create_one_note(self, content="", item_id="", collection_id="", tag="", begi
                 print("Failed to update the note.")
         except Exception as e:
             print(f"An error occurred during the update: {e}")
-def generate_cabecalho(zot, item_id):
+def generate_cabecalho(zot, item_id,dict_response=False):
     """
         Creates a Zotero note for a given item ID, incorporating various item details and external data sources to enrich the note content.
 
@@ -130,6 +130,7 @@ def generate_cabecalho(zot, item_id):
         # If there is an error, print out the error and the format that caused it.
         # Ensure authors is set to None or an empty list if there is an error
         print(f"Error when parsing authors: {e}")
+    print(data)
     title = data['data'].get('title')
     date = data['data'].get('date')
 
@@ -201,6 +202,11 @@ def generate_cabecalho(zot, item_id):
       <h1>Abstract:</h1>
       <p>"{abstract}"</p>
           """
+    if dict_response:
+        return {'authors': authors,
+                'date': date,
+                'journal': publication_title,
+                'title': title}
     return metadata.strip()
 
 def parse_headings_with_html_content(html_file,pdf,user_id='9047943',
@@ -848,7 +854,7 @@ class Zotero:
             if note_id:
 
                 self.insert_title_paragraphs(zotero_collection=collection_name,
-                                             note_id=note_id,
+                                             note_id=id,
                                              insert_database=insert_database,
                                              create_md_file=create_md_file,
                                              update_paragraph_notes=update_paragraph_notes,
@@ -864,13 +870,16 @@ class Zotero:
             batch_id = create_batch(batch_input_file_id)
             check_save_batch_status(batch_id)
 
-    def insert_title_paragraphs(self,zotero_collection,note_id,insert_database=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,rewrite=False):
+    def insert_title_paragraphs(self,zotero_collection,item_id,insert_database=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,rewrite=False):
+        metadata= generate_cabecalho(zot=self.zot,item_id=item_id,dict_response=True)
+        note_id =self.get_children_notes(item_id=item_id,get_note='Paragraphs')
         proceed=True
         batch_requests=[]
         handller=""
         note = self.zot.item(note_id)
         note_content = note["data"]["note"]
         parentItem = note["data"]["parentItem"]
+
         tags = note["data"]["tags"].extend([{"tag": "indexed"}])
         if 'data' in note and 'note' in note['data'] :
             note_content = note['data']['note']
@@ -880,18 +889,18 @@ class Zotero:
             h1_tags = soup.find_all('h1')
             title = ''
             file_name = r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\\"  + zotero_collection+ ".jsonl"
-            handler = EmbeddingsHandler(qdrant_url="http://localhost:6333")
+            handler = QdrantHandler(qdrant_url="http://localhost:6333")
             # processed_batches = process_batch_output(
             #    processing_batch)
             # handler.qdrant_handler.qdrant_client.delete_collection(collection_name=parentItem)
             stop_sections=['notes','references']
             if insert_database:
-                handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
+                handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
                 time.sleep(4)
                 if rewrite:
-                    return  handler.qdrant_handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
+                    handler.qdrant_client.delete_collection(collection_name=f'paper_{parentItem}')
                     time.sleep(4)
-                collection_created = handler.qdrant_handler.create_collection(parentItem)
+                collection_created = handler.create_collection(parentItem)
                 proceed= collection_created
 
             # duplicate =handler.qdrant_handler.qdrant_collections(col_name=parentItem)
@@ -997,13 +1006,16 @@ class Zotero:
                                         # Move to the next h3 element for the next iteration
                                         h3_elem = h3_elem.find_next_sibling('h3')
                                         if insert_database:
+
+                                            time.sleep(4)
                                             handler.process_and_append(paper_id=parentItem,
-                                                                       paragraph_count=parentItem+str(i+1),
+                                                                       paragraph_count=str(i+1),
                                                                        article_title=title.get_text(),
                                                                        section_title=section_title,
                                                                        paragraph_title=matching_title['h3_title'],
                                                                        paragraph_blockquote=paragraph['blockquote'],
-                                                                       paragraph_text=paragraph['paragraph']
+                                                                       paragraph_text=paragraph['paragraph'],
+                                                                       metadata=metadata,
                                                                        )
                                         if create_md_file:
                                             # Append to markdown content
@@ -1027,8 +1039,8 @@ class Zotero:
                     updated_note_content = str(soup)
                     self.update_note(note, updated_note_content,)
                 # After the loop, update the note content
-                updated_note_content = str(soup)
-                self.update_note(note, updated_note_content,tag=tags)
+                # updated_note_content = str(soup)
+                # self.update_note(note, updated_note_content,tag=tags)
 
     def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
@@ -1699,7 +1711,7 @@ class Zotero:
         ]
         return attachment_item
 
-    def get_children_notes(self, item_id, new_filename=''):
+    def get_children_notes(self, item_id,get_note=None, new_filename=''):
         """
         Retrieves and processes child notes for a specified item from the Zotero library.
 
@@ -1736,6 +1748,8 @@ class Zotero:
 
         # Define the list of valid tags to check
         valid_tags = ["statements_note", "cited_note", "cited_note_name", "summary", "summary_note","Paragraphs"]
+        if get_note:
+            valid_tags=[get_note]
         remaining_h2 = None
         notes = [
             child for child in children
@@ -1753,7 +1767,8 @@ class Zotero:
         tags = [tag["tag"] for note in notes for tag in note['data']['tags']]
         pdf = self.get_pdf_path(attachment_item=attachment_ite, new_filename=new_filename) if attachment_ite else None
         if notes:
-
+            if get_note:
+                return notes[0]['data']["key"]
             # Process each note
             for note in notes:
                 note_id = note['data']["key"]
@@ -1811,33 +1826,6 @@ class Zotero:
 
         return []
 
-    def extract_cabecalho(self,html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
-
-        # Collect all h1 elements
-        h1_tags = soup.find_all('h1')
-
-        # Check if there are at least three h1 tags
-        if len(h1_tags) < 3:
-            return "Not enough h1 sections."
-
-        # Identify the third h1 and its next paragraph
-        third_h1 = h1_tags[2]
-        third_h1_next_p = third_h1.find_next('p')
-
-        # Collect all elements from the start to the paragraph after the third h1
-        result = []
-        collect = False
-        for elem in soup.find_all():
-            if elem == h1_tags[0]:
-                collect = True
-            if collect:
-                result.append(str(elem))
-            if elem == third_h1_next_p:
-                result.append(str(elem))
-                break
-
-        return ''.join(result)
 
 
     def extract_insert_article_schema(self,note_id,save=False,html=True):
@@ -2040,6 +2028,7 @@ class Zotero:
                 'tags': [ {"tag": tag}]
 
             }])
+
         print(new_note)
         new_note_id = new_note['successful']['0']['data']['key']
         if new_note_id:
@@ -2648,17 +2637,91 @@ class Zotero:
 
                     more = "Great. provide me with more entries in the same format. " if i>0 else ""
                     note=f"note:2 the notes and comments can range from {(i*20)+1} to {20*(i+1)} if no foonotes, ignore this range. do not output only the first 20 foonotes." if numerical else "note 2:Provide a great and different range of examples"
-                    message=f"""
+                    message=f"""    
                     {more}I need your help to create 20 dictionary entries formatted specifically for a JSONL file to {style} .\n Each entry should include a unique reference identifier, numerical or author year,exactly as found in a simulated paper example (smith,2018) or [1]; the preceeding short text indicating how one might introduce the source in an academic paper, and a full bibliographic citation formatted according to the Chicago style or a comment or " ". This is to simulate real papers, you can search on the internet. These entries should cover a variety of subjects including history, literature, and the arts to reflect a broad range of topics.
                     For small example:```python {description}```
                     ensure the output is in a code block python list with dicts in one line appropriate for jsonl file. \n note 1: the academic papers subject is international relations and cyberspace\n {note} \nnote:3 verify if it is a valid python list before outputting.
                     """
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
+    def paragraphs_reports(self,collection_name,n_clusters=None,report='raw', update=False):
+        # note = values["note"]
+        # #         id = values['item_id']
+        # #         pdf = values['pdf']
+        # #
+        def clean_headings(heading):
+            stop_words = ['introduction', 'conclusion', 'abstract', 'summary', 'notes', 'references', 'bibliography', 'background', 'discussion', 'methodology', 'results', 'analysis', 'findings', 'acknowledgments', 'appendix', 'introduction to', 'overview', 'related work', 'literature review', 'further research', 'future work', 'case study', 'preface', 'contents', 'scope', 'limitations', 'problems', 'recommendations', 'introduction and background', 'concluding remarks', 'general discussion', 'discussion and conclusion']
 
-    def search_paragraphs_by_query(self, query,collection_name, keyword='',n_clusters=5,article_title="", tag=None,function='search', update=False):
 
-        search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+            # Remove listing like "I.", "1.", etc.
+            cleaned_heading = re.sub(r'^[IVXLCDM]+\.\s*|^\d+\.\s*', '', heading)
+
+            # Skip headings that contain two or more colons
+            if  cleaned_heading.lower() not in stop_words:
+
+                return cleaned_heading.lower()
+
+        dquadrant_handler = QdrantHandler()
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+
+
+        if report=='raw':
+            # search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+
+
+            data = [i['item_id'] for t, i in collection_data[("items")]["papers"].items()]
+            collection_list = [f'paper_{collection_name}' for collection_name in data]
+            clusters = dquadrant_handler.cluster_paragraphs(collection_names=collection_list, n_clusters=n_clusters)
+
+            write_and_export_sections(clusters=clusters)
+        if report=='report 1':
+            # with open('text.txt', 'r', encoding='utf-8') as text_file:
+            #     t = eval(text_file.read())
+
+
+            # export_structure(formats=['docx'], data=t)
+            # input('Press Enter to continue')
+
+            sections=[]
+            data = [i['note']['note_info'] for  t, i in collection_data[("items")]["papers"].items() ]
+
+            for notes in data:
+                if notes:
+                    for notes_info in notes:
+                        if notes_info:
+                            soup = BeautifulSoup(notes_info['note_content'], 'html.parser')
+                            h2_tags =[ clean_headings(h2.get_text()) for h2 in soup.find_all('h2') if clean_headings(h2.get_text()) ]
+                            sections.extend(h2_tags)
+
+            Themes =call_openai_api(function='getting_sections',data=sections,id='')
+            if isinstance(Themes,str):
+                Themes =eval(Themes)
+            # Themes={"themes":[{"theme":"Understanding Cyber Attribution","headings":[{"title":"What is Attribution?","level":"h1","subheadings":[{"title":"Defining Attribution","level":"h2"},{"title":"Three Meanings of Attribution","level":"h2"},{"title":"Legal Authorities for Gathering Information","level":"h2"}]},{"title":"Current Challenges in Attribution","level":"h1","subheadings":[{"title":"Technical Challenges","level":"h2"},{"title":"Legal Challenges","level":"h2"},{"title":"Practical Challenges","level":"h2"}]},{"title":"Attribution in Practice","level":"h1","subheadings":[{"title":"How Attribution Judgments are Made","level":"h2"},{"title":"Government Views on Attribution","level":"h2"},{"title":"The Relationship Between Attribution and Action","level":"h2"}]},{"title":"The Role of Attribution in Cybersecurity Policy","level":"h1","subheadings":[{"title":"Attribution and Policy Implications","level":"h2"},{"title":"Confidence in Attribution","level":"h2"}]},{"title":"Case Studies in Cyber Attribution","level":"h1","subheadings":[{"title":"Attribution of Cyber Operations to States","level":"h2"},{"title":"Case Studies on Specific Nations","level":"h2"}]}]},{"theme":"Legal Framework of Cyber Attribution","headings":[{"title":"Attribution Under International Law","level":"h1","subheadings":[{"title":"Law of State Responsibility","level":"h2"},{"title":"Evidentiary Standards and Proof","level":"h2"}]},{"title":"Proposals for Improving Legal Methodology","level":"h1","subheadings":[{"title":"International Attribution Agency","level":"h2"},{"title":"Revision of Attribution Determinants","level":"h2"},{"title":"Standard of Proof in Cyber Attribution","level":"h2"}]},{"title":"Due Diligence Principle","level":"h1","subheadings":[{"title":"Content and Rationale","level":"h2"},{"title":"Sources of the Due Diligence Principle","level":"h2"}]},{"title":"Countermeasures and Responses","level":"h1","subheadings":[{"title":"Legal Responses to Cyber Attacks","level":"h2"},{"title":"Challenges in Implementing Countermeasures","level":"h2"}]}]},{"theme":"Theoretical Perspectives on Attribution","headings":[{"title":"Conceptual Framework of Attribution","level":"h1","subheadings":[{"title":"Distinguishing Characteristics of Criminal Charges","level":"h2"},{"title":"Purposes of Attribution","level":"h2"}]},{"title":"Theories of Criminal Justice and Attribution","level":"h1","subheadings":[{"title":"Criminal Charges as Policy Considerations","level":"h2"},{"title":"Impacts on Adversary Behavior","level":"h2"}]},{"title":"Causality and Attribution","level":"h1","subheadings":[{"title":"Challenges to Causality and Attribution","level":"h2"},{"title":"Burden of Proof in Attribution","level":"h2"}]}]},{"theme":"Future Directions in Cyber Attribution","headings":[{"title":"Developing Evidence for Attribution","level":"h1","subheadings":[{"title":"Innovative Approaches","level":"h2"},{"title":"Institutionalizing Transnational Attribution","level":"h2"}]},{"title":"Measuring Effectiveness of Sanctions","level":"h1","subheadings":[{"title":"Goals of Cyber-Related Sanctions","level":"h2"},{"title":"Prospects for Future Sanctions","level":"h2"}]},{"title":"Conclusions and Recommendations","level":"h1","subheadings":[{"title":"Summary of Findings","level":"h2"},{"title":"Path Forward for Legal Framework","level":"h2"}]}]}]}
+
+
+            # Iterate over the Themes recursively to add paragraphs
+            # Recursively add paragraphs to each title and child title in the Themes
+            add_paragraphs_to_structure(structure=Themes, search_paragraphs_by_query=self.search_paragraphs_by_query, collection_name=collection_name)
+            with open('text.txt','w', encoding='utf-8') as f:
+                f.write(str(Themes))
+            # Export the modified Themes to the required formats
+
+            export_structure(data=Themes,formats=['docx'])
+
+    def search_paragraphs_by_query(self,
+                                   collection_name,  # Now we should have a valid collection name
+                                   query,  # The embedding for the query
+                                   update=False,
+                                   keyword=None,
+                                   # top_k=10,  # Retrieve top 10 similar paragraphs
+                                   filter_conditions=None,  # No specific filter, searching across all data
+                                   with_payload=True,  # Return payload (paragraph text)
+                                   with_vectors=False,  # No need to return vectors
+                                   score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
+                                   # offset=0,  # Starting from the first result
+                                   # limit=10  # Limit to 10 results
+    ):
+
         search_results=None
         """
         Perform `advanced_search` across multiple collections and aggregate results into a dictionary.
@@ -2670,47 +2733,38 @@ class Zotero:
         Returns:
             dict: Aggregated results by keys ('section_title', 'paragraph_title', 'paragraph_text', 'blockquote_text').
         """
-        query_vector =  query_with_history(query)
 
         # Initialize aggregated results with empty lists for each key
         aggregated_results = {
             'section_title': [],
             'paragraph_title': [],
             'paragraph_text': [],
-            'paragraph_blockquote':[]
+            'paragraph_blockquote':[],
+            'paragraph_id': []
         }
 
         dquadrant_handler = QdrantHandler()
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
-
         data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ]
         # Setting up the tqdm iterator
         for collection_name in data:
             collection_name = f'paper_{collection_name}'
-            if function=='search':
-                try:
-                    search_results = dquadrant_handler.advanced_search(collection_name=collection_name, keywords=keyword,query_vector=query_vector)
 
-                except UnexpectedResponse as e:
-                    print(e)
-                    print('error with',collection_name)
-                # Append values to corresponding keys in final_data
-                aggregated_results['section_title'].extend(search_results['section_title'])
-                aggregated_results['paragraph_title'].extend(search_results['paragraph_title'])
-                aggregated_results['paragraph_text'].extend(search_results['paragraph_text'])
-                aggregated_results['paragraph_blockquote'].extend(search_results['paragraph_blockquote'])
+            try:
+                search_results = dquadrant_handler.advanced_search(collection_name=collection_name, keywords=keyword,query=query)
 
+            except UnexpectedResponse as e:
+                print(e)
+                print('error with',collection_name)
+            # Append values to corresponding keys in final_data
+            aggregated_results['section_title'].extend(search_results['section_title'])
+            aggregated_results['paragraph_title'].extend(search_results['paragraph_title'])
+            aggregated_results['paragraph_text'].extend(search_results['paragraph_text'])
+            aggregated_results['paragraph_blockquote'].extend(search_results['paragraph_blockquote'])
+            aggregated_results['paragraph_id'].extend(search_results['paragraph_id'])
 
-                # After looping through all collections, return the aggregated results
-            if function=='cluster':
-                collection_list= [ f'paper_{collection_name}' for collection_name in data ]
-                clusters=dquadrant_handler.cluster_paragraphs(collection_names=collection_list, n_clusters=n_clusters)
+        return aggregated_results
 
-        if function == 'cluster':
-            return clusters
-
-        if function == 'search':
-            return aggregated_results
 
 
 # TODO: cosine similarity among pdfs

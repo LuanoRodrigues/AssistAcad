@@ -1,17 +1,13 @@
-import json
-import time
-from collections import defaultdict
 
-import enchant
-import nltk
-import pdfplumber
+from docx.oxml import parse_xml
 from tqdm import tqdm
-from Vector_Database.qdrant_handler import get_headings_for_clusters,write_and_export_sections
+from Vector_Database.qdrant_handler import get_headings_for_clusters, write_and_export_sections, QdrantHandler
 from Zotero_module.zotero_data import note_api,summary
 from bs4 import BeautifulSoup
 from pprint import pprint
 from Zotero_module.zotero_data import sections_prompt,note_update,tag_prompt,summary_note
 from Zotero_module.zotero_class import  Zotero
+
 from Pychat_module.Pychat import  ChatGPT
 from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
@@ -46,10 +42,11 @@ library_id = library_id,
 
 
 )
+
 prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
  note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
 
-write_and_export_sections()
+# write_and_export_sections()
 # zt.search_paragraphs_by_query(query="academic topic",collection_name='a')
 
 pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
@@ -72,17 +69,29 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 #  'J8QWBVHI','RMFZBFYI','GRHKF93L','MSU2EW6K','MAQNU48R','WL69LC46','XJM4QZ3Z','SDJNY2QQ','ZHHMAL3L']
 # 'QGZYZT84 $7.65,ZHHMAL3L,'
 
-# zt.insert_title_paragraphs(note_id='G4NHJPJ3',insert_database=False,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=False)
+# zt.insert_title_paragraphs(item_id='XJM4QZ3Z',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True)
 keywords = {
     "AND": ["attribution","cyber"],  # All keywords must appear
     "OR": ["challenge", "legal"],  # Any one of these keywords can appear
     "NOT": ["introduction","section"]  # Exclude results with these keywords
 }
+bk="""<p><span class="highlight" data-annotation="%7B%22attachmentURI%22%3A%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2FECG8EK5H%22%2C%22pageLabel%22%3A%22668%22%2C%22position%22%3A%7B%22pageIndex%22%3A25%2C%22rects%22%3A%5B%5B81.41109978000003%2C534.5510982100001%2C382.32010883999953%2C543.3311860100001%5D%2C%5B71.43300000000004%2C522.5319780200001%2C382.39810961999956%2C531.3120658200002%5D%2C%5B71.43300000000004%2C510.5698584000002%2C382.3881095199997%2C519.3499462000002%5D%2C%5B71.43300000000004%2C498.5507382100002%2C382.39154117%2C508.129292%5D%2C%5B71.43243161000001%2C486.53255821%2C382.41354139000015%2C495.31264601%5D%2C%5B71.43243161000001%2C474.23043519%2C382.4073854499997%2C484.23053518999996%5D%2C%5B71.43227573000001%2C462.55145820999996%2C382.4073854499997%2C471.33154600999995%5D%2C%5B71.43227573000001%2C450.53233801999994%2C382.3313846900002%2C459.31242581999993%5D%2C%5B71.43227573000001%2C438.57021839999993%2C382.41538552999975%2C447.3503061999999%5D%2C%5B71.43227573000001%2C426.2110948099999%2C382.39638533999965%2C436.2111948099999%5D%2C%5B71.43227573000001%2C414.5319780199999%2C382.3173845499995%2C423.3120658199999%5D%2C%5B71.43227573000001%2C402.5698583999999%2C242.1849832399999%2C411.34994619999986%5D%5D%7D%2C%22citationItem%22%3A%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2FY92SMUUI%22%5D%2C%22locator%22%3A%22668%22%7D%7D">“The development of new customary norms in cyberspace is further facilitated by the uniqueness of the domain. While the applicability of international law to the cyber context is now settled, the urgency of coping with new technologies enables customary law to come into existence very rapidly.201 In the same way that novel principles concerning sovereignty in outer space developed ‘instantly’ after the first satellites were launched,202 a due diligence standard of attribution might quickly develop with respect to cyberspace. On balance, instances of supportive State practice lack the quantum and uniformity to establish a crystallized or emerging customary norm. If, however, the United States’ response to the Sony and DNC hacks signals a newfound willingness to allege State responsibility following cyber operations, a due diligence standards of attribution might soon follow.”</span> <span class="citation" data-citation="%7B%22citationItems%22%3A%5B%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2FY92SMUUI%22%5D%2C%22locator%22%3A%22668%22%7D%5D%2C%22properties%22%3A%7B%7D%7D">(<span class="citation-item">Chircop, 2018, p. 668</span>)</span></p>
+</blockquote>
+"""
+# zt.paragraphs_reports(report='report 1',collection_name='Law and evidence')
+# F
+# s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='What are the challenges in cyber attribution?',function='raw report',keyword=keywords,n_clusters=None)
+# s=zt.paragraphs_reports(collection_name='Law and evidence',n_clusters=None,report='raw')
+# for cluster in s:
+#     print(cluster)
+# n =0
+# for n,i in s.items():
+#     print('cluster:',n)
+#     for content in i:
+#         print(content['content'][0])
+#
+#     print("-"*10)
 
-# s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='What are the challenges in cyber attribution?',function='cluster',keyword=keywords)
-# print(len(s))
-# print(s)
-n =0
 # for i in s['paragraph_text']:
 #
 #     print(type(i))
@@ -99,38 +108,6 @@ n =0
 #     print('value',v)
 
 
-def writing_to_jsonl_from_batch_results(file_name):
-    file_exists = os.path.isfile(file_name)
-    a = process_batch_output(
-        r'C:\Users\luano\Downloads\AcAssitant\Batching_files\batch_Ou8K1BjjLsinRQQ4yFfBzVva_output.jsonl')
-
-    # Open the file in append mode if it exists, otherwise it will create it
-    with open(file_name, 'a') as file:
-        # If the file did not exist and is newly created, we don't need to prepend a newline
-        if file_exists:
-            # Add a newline before appending if the file already existed
-            file.write('\n')
-            for ids in a:
-                # content = [i for i in eval(ids['content'].) if i['reference']!=[] ]
-                content = ids['content']
-                content2 = [content_inside for i in content if eval(i)['references'] for content_inside in
-                            eval(i)['references']]
-                if content2:
-                    # Filter to keep only entries where 'ref' is numeric
-                    seen_refs = set()
-                    filtered_data = [x for x in content2 if
-                                     x['ref'].isdigit() and x['ref'] not in seen_refs and not seen_refs.add(x['ref'])]
-
-                    # Sort the filtered data by 'ref' as an integer
-                    sorted_data = sorted(filtered_data, key=lambda x: int(x['ref']))
-                    zt.validate_references(dict_list=sorted_data, file_name='resposta_chat.jsonl',
-                                           pdf=r"C:\Users\luano\Zotero\storage\PC77HX8N\(Marco Roscini, Marco Roscini, 2015).pdf")
-
-                    for entry in sorted_data:
-                        file.write(json.dumps(entry) + '\n')  # Convert dict to JSON string and append a newline
-                    print("jsonl file written in {}".format(file_name))
-# writing_to_jsonl_from_batch_results('test.jsonl')
-results = []
 from Zotero_module.zotero_class import parse_headings_with_html_content
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf
 # Example usage (commented out):
@@ -154,42 +131,32 @@ pdf =r"C:\Users\luano\Zotero\storage\9WSSD7MF\(T Mikanagi, 2021).pdf"
 # pprint(sections_improved)
 # zt.create_one_note(content=sections_improved,item_id='4VVH4ATW')
 # custom_id = "SV5QMQSM"  # Example paper ID
-from Vector_Database.qdrant_handler import QdrantHandler
 
-# # Find the collection associated with the custom_id
-search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
-# collection_name = search_handler.find_collection_by_custom_id(custom_id)
+# Find the collection associated with the custom_id
+# get_bigram_matches(text='take over is what is good for us')
+def workingWith_search():
+    from Vector_Database.qdrant_handler import QdrantHandler
 
-from Vector_Database.embedding_handler import EmbeddingsHandler,query_with_history
-emb =EmbeddingsHandler()
-# Example: Query text for which we want to search similar paragraphs
-query_text = "international law"
-# Step 1: Retrieve the embedding (either from history or by generating a new one)
-# query_embedding =  query_with_history(query_text)
-# custom_id = search_handler.find_collection_by_custom_id(collection_name)
-# #
-# search =search_handler.advanced_search(collection_name='paper_NTJLHS2W',query_vector=query_embedding)
-# print(search.keys())
-# for paragraph in search['paragraph_text']:
-#     print(paragraph)
-# valid =search_handler.check_valid_embeddings()
+    search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+    # Step 2: Perform the search in the collection for top 10 similar paragraphs
+    search_results = zt.search_paragraphs_by_query(
+        collection_name='Law and evidence',  # Now we should have a valid collection name
+            query='Technical Challenges',  # The embedding for the query
+        # top_k=10,  # Retrieve top 10 similar paragraphs
+        filter_conditions=None,  # No specific filter, searching across all data
+        with_payload=True,  # Return payload (paragraph text)
+        with_vectors=False,  # No need to return vectors
+        score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
+        # offset=0,  # Starting from the first result
+        # limit=10  # Limit to 10 results
+    )
+    print(len(search_results['paragraph_title']))
+    # Step 4: Print out the results
+    for titles in search_results['paragraph_title']:
+        print(titles)
+
+workingWith_search()
 #
-# print(valid)
-# # Step 2: Perform the search in the collection for top 10 similar paragraphs
-# search_results = search_handler.advanced_search(
-#     collection_name=collection_name,  # Now we should have a valid collection name
-#     query_vector=query_embedding,  # The embedding for the query
-#     top_k=10,  # Retrieve top 10 similar paragraphs
-#     filter_conditions=None,  # No specific filter, searching across all data
-#     with_payload=True,  # Return payload (paragraph text)
-#     with_vectors=False,  # No need to return vectors
-#     score_threshold=0.75,  # Only return results with a score >= 0.75 (optional)
-#     offset=0,  # Starting from the first result
-#     limit=10  # Limit to 10 results
-# )
-#
-# # Step 4: Print out the results
-# for result in search_results:
-#     paragraph_text = result.payload.get('paragraph_text', "No paragraph text found")
-#     score = result.score
-#     print(f"Score: {score:.2f}, Paragraph: {paragraph_text}")
+# handler.replace_custom_id_with_embedding(input_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_input.jsonl',
+#                                  embedding_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\batch_ElitxAYgCWaWoywtCRYFUHCP_output.jsonl',
+#                                  output_file_path='trigrams_database.json')
