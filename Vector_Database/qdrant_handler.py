@@ -1,16 +1,20 @@
 import hashlib
 import json
 from datetime import time
+from difflib import SequenceMatcher
 from typing import List, Dict, Optional
 import math
 import re
 # from NLP_module.normalise_texts import
 from collections import defaultdict
 import logging
+
+import nltk
 import numpy as np
+from nltk import ngrams, PorterStemmer
+from nltk.corpus import wordnet, stopwords
 
-
-from NLP_module.normalise_texts import fuzzy_match,get_synonyms,preprocess_text,proximity_boost, normalize_text2,wildcard_match,generate_trigrams,compute_similarity
+# from NLP_module.normalise_texts import
 from Vector_Database.embedding_handler import get_embedding,query_with_history
 from qdrant_client import QdrantClient
 from qdrant_client.grpc import SparseVectorParams, Modifier
@@ -33,56 +37,142 @@ from sklearn.metrics.pairwise import cosine_similarity
 from yellowbrick.cluster import KElbowVisualizer
 from kneed import KneeLocator
 import matplotlib.pyplot as plt
-def get_trigram_matches(text,get_cache_embedding, query_vector='', similarity_threshold=0.7, batch=False):
+# Helper Functions
+
+def extract_phrases(query: str, max_n: int = 3) -> List[str]:
+    tokens = [word for word in nltk.word_tokenize(query.lower()) if word.isalnum()]
+    phrases = set()
+    for n in range(2, max_n + 1):
+        for gram in ngrams(tokens, n):
+            phrases.add(' '.join(gram))
+    return list(phrases)
+import spacy
 
 
-    trigrams = generate_trigrams(text)  # Generate trigrams from the preprocessed text
-    matching_trigrams = []
-
-    for trigram in trigrams:
-        trigram_embedding = get_cache_embedding(trigram)
-        if batch:
-            continue  # In batch mode, skip similarity check and continue to next trigram
-
-        # Compute similarity using GPU
-        similarity_score = compute_similarity(query_vector, trigram_embedding)
-
-        if similarity_score >= similarity_threshold:  # Check if similarity meets the threshold
-            matching_trigrams.append((trigram, similarity_score))  # Save matching trigram and score
-
-    return sorted(matching_trigrams, key=lambda x: x[1], reverse=True)  # Return sorted matching trigrams
-
-
-def apply_trigram_embedding_boost(text: str, query_vector: list, weight: float,get_cache_embedding:None, similarity_threshold: float,
-                                  batch=False) -> float:
+def get_synonyms_dynamic(token: str) -> List[str]:
     """
-    Apply a boost to the score based on trigram matching between the text and the query vector.
-
-    Parameters:
-    -----------
-    text : str
-        The text to search for trigrams in.
-    query_vector : list
-        The dense vector representation of the query.
-    weight : float
-        The weight to apply if a trigram match is found.
-    similarity_threshold : float
-        The threshold for trigram similarity to trigger a boost.
-
-    Returns:
-    --------
-    float
-        The weighted boost to be applied to the score based on trigram matching.
+    Dynamically fetch synonyms for the given token using WordNet.
     """
-    # Get matching trigrams and their similarity scores
-    matching_trigrams = get_trigram_matches(text=text, query_vector=query_vector, similarity_threshold=similarity_threshold, batch=batch,get_cache_embedding=get_cache_embedding)
+    synonyms = set()
 
-    if not matching_trigrams:
-        return 0  # No matching trigrams
+    for syn in wordnet.synsets(token):
+        for lemma in syn.lemmas():
+            synonyms.add(lemma.name())  # Get all the lemma names for synonyms
 
-    # Use the best trigram match's similarity score for boosting
-    best_match_score = matching_trigrams[0][1]  # Get the highest similarity score
-    return weight * best_match_score
+    return list(synonyms)
+# Load spaCy model
+nlp = spacy.load('en_core_web_sm')
+def calculate_dynamic_weights(overlap: float, proximity: int) -> Dict[str, float]:
+    """
+    Dynamically calculate weights based on overlap and proximity.
+    Overlap is a value between 0 and 1, proximity is the distance between tokens.
+    """
+    # Base weights for different sections, dynamically scaled by overlap
+    section_weight = 1.0 + (overlap * 0.5)  # Scale section weight by overlap
+    paragraph_title_weight = 1.0 + (overlap * 0.3)  # Slightly less emphasis on paragraph title
+    text_weight = 1.0 + (overlap * 0.2)  # Less weight on main text overlap
+
+    # Apply proximity boost dynamically
+    proximity_boost_weight = 0.5 + (1.0 / (proximity + 1))  # Inversely proportional to proximity
+
+    return {
+        'section_weight': section_weight,
+        'paragraph_title_weight': paragraph_title_weight,
+        'text_weight': text_weight,
+        'proximity_boost_weight': proximity_boost_weight
+    }
+
+
+def preprocess_text(text: str, phrases: Optional[List[str]] = None) -> List[str]:
+    """
+    Preprocess text by lowercasing, replacing phrases, removing non-alphabetic characters,
+    lemmatizing, and extracting only nouns and adjectives using spaCy.
+
+    :param text: Input text to be processed.
+    :param phrases: Optional list of phrases to replace with underscores.
+    :return: List of lemmatized tokens (nouns and adjectives only).
+    """
+    # Lowercase the text
+    text = text.lower()
+    stopwords_tailored = ['attribution','state','cyber']
+    # Replace custom phrases with underscore versions (e.g., "New York" -> "New_York")
+    if phrases:
+        for phrase in phrases:
+            phrase_pattern = re.escape(phrase)
+            text = re.sub(r'\b' + phrase_pattern + r'\b', phrase.replace(' ', '_'), text)
+
+    # Remove non-alphabetic characters except underscores
+    text = re.sub(r'[^a-zA-Z_\s]', '', text)
+
+    # Process text using spaCy to get nouns and adjectives
+    doc = nlp(text)
+
+    # Extract lemmas for nouns, proper nouns, and adjectives, excluding stop words and punctuation
+    tokens = [token.lemma_.lower() for token in doc if
+              token.pos_ in {"NOUN", "PROPN", "ADJ"} and not token.is_stop and not token.is_punct and token.lemma_.lower() not in stopwords_tailored]
+
+    return tokens
+
+def get_synonyms(word: str) -> set:
+    synonyms = set()
+    for syn in wordnet.synsets(word):
+        for lemma in syn.lemmas():
+            name = lemma.name().replace('_', ' ').lower()
+            if name != word:
+                synonyms.add(name)
+    return synonyms
+
+
+# Example text normalization function
+def normalize_text(text: str) -> List[str]:
+    """
+    Normalize the text by converting to lowercase, removing punctuation, and stemming words.
+    """
+    # Lowercase and remove punctuation
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', '', text)
+
+    # Tokenize text
+    tokens = text.split()
+
+    # Apply stemming or lemmatization
+    ps = PorterStemmer()
+    tokens = [ps.stem(token) for token in tokens if token not in stopwords.words('english')]
+
+    return tokens
+
+
+# Example token overlap function using normalized text
+def token_overlap(query_tokens: List[str], text_tokens: List[str]) -> int:
+    """
+    Calculate the number of matching tokens between query and text after normalization.
+    """
+    normalized_query = normalize_text(' '.join(query_tokens))
+    normalized_text = normalize_text(' '.join(text_tokens))
+
+    # Find the overlap in normalized tokens
+    overlap = set(normalized_query).intersection(set(normalized_text))
+
+    return len(overlap)
+
+
+def apply_proximity_boost(text: str, query_tokens: List[str], threshold: int) -> bool:
+    """
+    Determine if a proximity boost should be applied by checking the closeness of query tokens in the text.
+    """
+    normalized_text = normalize_text(text)
+    for token in query_tokens:
+        if token in normalized_text:
+            # Check if the distance between tokens is within the threshold
+            return True
+    return False
+
+
+def token_in_text(tokens: set, text_tokens: List[str]) -> bool:
+    return any(token in text_tokens for token in tokens)
+
+def normalize_score(score: float) -> float:
+    return math.log1p(score)
 
 def get_headings_for_clusters(clusters):
     aggregated_results = []
@@ -250,14 +340,11 @@ class QdrantHandler:
     def __init__(self, qdrant_url="http://localhost:6333"):
         self.qdrant_client = QdrantClient(url=qdrant_url)
 
-    def process_and_append(self, metadata,paragraph_count,paper_id, article_title,section_title, paragraph_title, paragraph_text, paragraph_blockquote):
+    def process_and_append(self, metadata,paragraph_count,collection_name, article_title,section_title, paragraph_title, paragraph_text, paragraph_blockquote):
         """Process embeddings and append data to the collection."""
 
         # Get embeddings for both title and text
-        text_embedding = get_embedding(paragraph_text)
-
-        # Get the collection name based on the paper_id
-        collection_name = f"paper_{paper_id}"
+        text_embedding = get_embedding(paragraph_title)
 
         # Append data to the collection and get operation info
         operation_info = self.append_data(
@@ -267,7 +354,6 @@ class QdrantHandler:
             paragraph_title=paragraph_title,  # Paragraph title
             paragraph_text=paragraph_text,  # Paragraph text
             paragraph_blockquote=paragraph_blockquote,  # Blockquote (if available)
-            custom_id=paper_id,  # Your custom ID (e.g., "SV5QMQSM")
             text_embedding=text_embedding,  # Embedding for the text
             paragraph_count=paragraph_count,
             metadata=metadata
@@ -284,8 +370,7 @@ class QdrantHandler:
 
     def create_collection(self, collection_name, vector_size=3072,vector=True):
         """Create a collection in Qdrant based on a given paper ID if it does not exist."""
-        if vector:
-            collection_name = f"paper_{collection_name}"
+
 
         # Check if the collection already exists
         try:
@@ -623,11 +708,22 @@ class QdrantHandler:
         except Exception as e:
             return f"Error retrieving collections: {str(e)}"
 
-    def advanced_search(self, collection_name: str, query: str = None,
-                        top_k: Optional[int] = None,
-                        filter_conditions: Optional[Dict[str, str]] = None, score_threshold: float = 0.60,
-                        with_payload: bool = True, with_vectors: bool = False, hnsw_ef: int = 512, exact: bool = False,
-                        keywords: Optional[List[str]] = None) -> Dict[str, List]:
+    def advanced_search(
+            self,
+            collection_name: str,
+            query: str = None,
+            top_k: Optional[int] = None,
+            filter_conditions: Optional[Dict[str, str]] = None,
+            score_threshold: float = 0.70,
+            with_payload: bool = True,
+            with_vectors: bool = False,
+            hnsw_ef: int = 512,
+            exact: bool = False,
+            keywords: Optional[Dict[str, List[str]]] = None,  # Changed to Dict
+            section_weight: float = 0.5,  # Added as parameters
+            paragraph_title_weight: float = 0.4,
+            text_weight: float = 0.1
+    ) -> Dict[str, List]:
         """
         Perform an advanced search in the Qdrant collection using hybrid search methods
     with sparse embeddings and dense vectors, applying rescoring mechanisms.
@@ -744,9 +840,14 @@ class QdrantHandler:
         A dictionary containing the processed search results, including section titles, paragraph titles,
         paragraph text, blockquotes, and rescored values.
         """
-        query_vector =  query_with_history(query)
-        # if keywords is None:
-        #     keywords= query.split()
+
+        query_vector = query_with_history(' '.join(preprocess_text(query)))
+
+        # Split the query into keywords if not provided
+        if keywords is None:
+            query_keywords = query.split()
+            keywords = {'OR': query_keywords}  # Default to OR logic for broader results
+
         # Initialize the processed_results variable as a defaultdict
         processed_results = defaultdict(list)
 
@@ -775,15 +876,7 @@ class QdrantHandler:
             hnsw_ef=hnsw_ef,
             exact=exact
         )
-        #----
-        # result, next_page_token = self.qdrant_client.scroll(
-        #     collection_name=collection_name,
-        #
-        #     limit=1000  # Limit to one result
-        # )
-        # print(result)
-        # input('Press Enter to continue...')
-        #---
+
         try:
             # Perform the query
             results = self.qdrant_client.query_points(
@@ -793,12 +886,13 @@ class QdrantHandler:
                 with_vectors=with_vectors,
                 query_filter=query_filter,  # Apply any filters
                 search_params=search_params,
-                # score_threshold=score_threshold,
+                # score_threshold=score_threshold,  # Uncomment if needed
             ).points
 
         except Exception as e:
             logging.error(f"Error during query to collection {collection_name}: {e}")
             return processed_results  # Return empty results on failure
+
         if not results:
             logging.info(f"No results found for collection: {collection_name}")
             return processed_results
@@ -810,19 +904,20 @@ class QdrantHandler:
 
             # Call _rescore_result and check if it returns None (i.e., a NOT keyword was found)
             adjusted_score = self._rescore_result(
-                query_vector=query_vector,
                 payload=payload,
                 keywords=keywords,
-                section_weight=0.4,
-                paragraph_title_weight=0.55,
-                text_weight=0.5,
+                section_weight=section_weight,  # Use dynamic weights
+                paragraph_title_weight=paragraph_title_weight,
+                text_weight=text_weight,
                 score_threshold=score_threshold,
-                initial_score =score,
+                initial_score=score,
                 query=query
-
             )
-            # print(result)
-            # input('Press Enter to continue...')
+
+            # print('score:', score)
+            # print('adjusted_score:', adjusted_score)
+            # print(payload.get('paragraph_title', "N/A"))
+            # print('____'*10)
             if adjusted_score is None:
                 # Skip the result if _rescore_result indicates a NOT keyword match
                 continue
@@ -832,136 +927,133 @@ class QdrantHandler:
             processed_results['paragraph_title'].append(payload.get('paragraph_title', "N/A"))
             processed_results['paragraph_text'].append(payload.get('paragraph_text', "N/A"))
             processed_results['paragraph_blockquote'].append(payload.get('paragraph_blockquote', "N/A"))
+            processed_results['metadata'].append(payload.get('metadata', "N/A"))
+
             processed_results['rescore'].append(adjusted_score)
             processed_results['paragraph_id'].append(result.id)
-            # new_bigrams = get_trigram_matches(payload.get('paragraph_text', "N/A"))
-
 
         # Rescore and sort the results
         self._sort_results(processed_results)
         return processed_results
 
-    def _rescore_result(self, query_vector:list,payload: Dict[str, str], initial_score: float, score_threshold: float,
-                        query: str, keywords: Optional[Dict[str, List[str]]] = None,
-                        section_weight: float = 0.5, paragraph_title_weight: float = 0.4, text_weight: float = 0.2,
-                        proximity_boost_weight: float = 0.3, proximity_threshold: int = 5,
-                        similarity_threshold: float = 0.7) -> Optional[float]:
+    def _rescore_result(
+            self,
+            payload: Dict[str, str],
+            initial_score: float,
+            score_threshold: float,
+            query: str,
+            keywords: Optional[Dict[str, List[str]]] = None,
+            section_weight: float = 1.0,
+            paragraph_title_weight: float = 1.0,
+            text_weight: float = 1.0,
+            proximity_boost_weight: float = 0.03,  # 0.33 for proximity boost
+            fuzzy_boost_weight: float = 0.06,  # 0.33 for fuzzy match
+            proximity_threshold: int = 3,
+            min_similarity: float = 0.7,
+    ) -> Optional[float]:
         """
-        Rescore the result based on:
-        - If keywords are None: use bigram matches between the query and the section/paragraph fields and apply the weights,
-          with additional exact keyword matches using lemmatization, stopword removal, fuzzy matching, proximity boosting, and synonym expansion.
-        - If keywords are provided: apply the keyword logic (AND, OR, NOT) with the same additional matching techniques.
+        Adjust scoring logic to incorporate keyword, proximity, and fuzzy match boosts.
+        All text is normalized before applying boosts, and different boosts are applied
+        based on whether matches occur in the section title, paragraph title, or paragraph text.
         """
 
-        # Extract fields from the payload
-        section_title = payload.get('section_title', "")
-        paragraph_title = payload.get('paragraph_title', "")
-        paragraph_text = payload.get('paragraph_text', "")
+        # Preprocess and normalize fields
+        section_tokens = normalize_text(payload.get('section_title', ""))
+        paragraph_title_tokens = normalize_text(payload.get('paragraph_title', ""))
+        paragraph_text_tokens = normalize_text(payload.get('paragraph_text', ""))
+        query_tokens = normalize_text(query)
+
+        # Compute token overlap
+        section_overlap = token_overlap(query_tokens, section_tokens)
+        paragraph_title_overlap = token_overlap(query_tokens, paragraph_title_tokens)
+        paragraph_text_overlap = token_overlap(query_tokens, paragraph_text_tokens)
 
         # Initialize adjusted score with the initial score
         adjusted_score = initial_score
 
-        # Generate query embedding using OpenAI's embedding model
+        # Calculate match counts
+        section_match_count = len(set(query_tokens).intersection(section_tokens))
+        paragraph_title_match_count = len(set(query_tokens).intersection(paragraph_title_tokens))
+        paragraph_text_match_count = len(set(query_tokens).intersection(paragraph_text_tokens))
 
+        # If any keyword is found in section or paragraph title, apply a 0.5 boost
+        if section_match_count > 0 or paragraph_title_match_count > 0:
+            adjusted_score += 0.5  # High relevance boost for titles
 
-        # Helper function: Apply fuzzy matching, proximity boosting, and synonym expansion
-        def process_text_for_keywords(text, keywords, weight):
-            expanded_keywords = set()
-            for keyword in keywords:
-                expanded_keywords.update(get_synonyms(keyword))
-            expanded_keywords.update(keywords)
+        # Apply boosts for paragraph text dynamically based on match count
+        if paragraph_text_match_count > 0:
+            paragraph_text_boost = text_weight * (0.01 * paragraph_text_match_count)
+            adjusted_score += paragraph_text_boost
 
-            # Apply fuzzy matching to the text
-            confidence = fuzzy_match(text, expanded_keywords)
-            dynamic_weight = weight * confidence  # Scale weight dynamically by fuzzy match confidence
-            return dynamic_weight
+        # Apply proximity boost if proximity is detected
+        if apply_proximity_boost(payload.get('paragraph_text', ""), query_tokens, proximity_threshold):
+            adjusted_score += proximity_boost_weight  # Proximity boost
 
-        # Normalize or adjust the score if necessary (logarithmic normalization)
-        def normalize_score(score):
-            return math.log(1 + score)
+        # Apply fuzzy match boost (assuming overlap gives some measure of fuzziness)
+        total_overlap = section_overlap + paragraph_title_overlap + paragraph_text_overlap
+        if total_overlap > 0:
+            fuzzy_boost = fuzzy_boost_weight * (total_overlap / len(query_tokens))
+            adjusted_score += fuzzy_boost
 
-        # Proximity boost logic
-        def apply_proximity_boost(text, keywords, base_weight):
-            boost = proximity_boost(text, keywords, proximity_threshold)
-            return base_weight if boost else 0
+        # Ensure score is within bounds
+        adjusted_score = min(1.0, max(0.0, adjusted_score))
 
-        # Bigram matching using embeddings
+        # Log the adjusted score for debugging
+        logging.debug(f"Adjusted score for document {payload.get('paragraph_id', 'N/A')}: {adjusted_score}")
 
+        # Apply the score threshold and return
+        return adjusted_score if adjusted_score >= score_threshold else None
 
-        # If keywords are None, use the query string for bigram matching, lemmatization, and apply the weights
-        if keywords is None:
-            # query_bigrams = generate_bigrams(query)  # Generate bigrams
-            query_tokens = preprocess_text(query)  # Preprocess query for exact keyword match
+    def _apply_keyword_logic(
+            self,
+            keywords: Dict[str, List[str]],
+            phrases: List[str],
+            section_tokens: List[str],
+            paragraph_title_tokens: List[str],
+            paragraph_text_tokens: List[str],
+    ) -> bool:
+        """
+        Apply keyword logic based on the provided keywords dictionary.
+        Supports "NOT", "AND", and "OR" logical operators.
+        """
+        # Process "NOT" keywords first
+        if "NOT" in keywords:
+            not_tokens = set()
+            for keyword in keywords["NOT"]:
+                not_tokens.update(preprocess_text(keyword, phrases))
+            if (
+                    token_in_text(not_tokens, section_tokens) or
+                    token_in_text(not_tokens, paragraph_title_tokens) or
+                    token_in_text(not_tokens, paragraph_text_tokens)
+            ):
+                return False  # Exclude this result if a "NOT" keyword is found
 
-            # trigram checking and keyword matches for each field using embedding similarity
-            adjusted_score += apply_trigram_embedding_boost(get_cache_embedding=self.get_cache_embedding,text=section_title, query_vector=query_vector, weight=section_weight,similarity_threshold=similarity_threshold)
-            adjusted_score += apply_trigram_embedding_boost(get_cache_embedding=self.get_cache_embedding,text=paragraph_title, query_vector=query_vector, weight=section_weight,similarity_threshold=similarity_threshold)
-            adjusted_score += apply_trigram_embedding_boost(get_cache_embedding=self.get_cache_embedding,text=paragraph_text,  query_vector=query_vector, weight=section_weight,similarity_threshold=similarity_threshold)
+        # Process "OR" logic (more inclusive)
+        if "OR" in keywords:
+            or_tokens = set()
+            for keyword in keywords["OR"]:
+                or_tokens.update(preprocess_text(keyword, phrases))
+            if (
+                    token_in_text(or_tokens, section_tokens) or
+                    token_in_text(or_tokens, paragraph_title_tokens) or
+                    token_in_text(or_tokens, paragraph_text_tokens)
+            ):
+                return True  # Include the result if any "OR" keyword is found
 
-            # Exact keyword matching with fuzzy logic and synonym expansion
-            adjusted_score += process_text_for_keywords(section_title, query_tokens, section_weight)
-            adjusted_score += process_text_for_keywords(paragraph_title, query_tokens, paragraph_title_weight)
-            adjusted_score += process_text_for_keywords(paragraph_text, query_tokens, text_weight)
+        # Process "AND" logic (less strict to allow partial matches)
+        if "AND" in keywords:
+            and_tokens = set()
+            for keyword in keywords["AND"]:
+                and_tokens.update(preprocess_text(keyword, phrases))
+            if (
+                    token_in_text(and_tokens, section_tokens) or
+                    token_in_text(and_tokens, paragraph_title_tokens) or
+                    token_in_text(and_tokens, paragraph_text_tokens)
+            ):
+                return True  # Include the result if at least one match from "AND" keywords is found
 
-            # Apply proximity boost for query tokens in paragraph text
-            adjusted_score += apply_proximity_boost(paragraph_text, query_tokens, proximity_boost_weight)
+        return True  # Default to including the result if no logic excludes it
 
-        # If keywords are provided, apply keyword logic (AND, OR, NOT) with the same matching techniques
-        else:
-            expanded_keywords = set()
-
-            # Process OR logic: Match if any keyword in the OR group is found
-            if "OR" in keywords:
-                for keyword in keywords["OR"]:
-                    expanded_keywords.update(get_synonyms(keyword))
-                expanded_keywords.update(keywords["OR"])
-
-            # Process AND logic: All keywords in the AND group must be present
-            if "AND" in keywords:
-                for keyword in keywords["AND"]:
-                    expanded_keywords.update(get_synonyms(keyword))
-                expanded_keywords.update(keywords["AND"])
-
-            # Handle "NOT" logic: Exclude results if any keyword in the NOT group is found
-            if "NOT" in keywords:
-                for keyword in keywords["NOT"]:
-                    keyword_normalized = normalize_text2(keyword)
-                    if (wildcard_match(keyword_normalized, section_title) or
-                            wildcard_match(keyword_normalized, paragraph_title) or
-                            wildcard_match(keyword_normalized, paragraph_text)):
-                        return None  # Exclude result if a NOT keyword is found
-
-            # Apply AND logic
-            if "AND" in keywords:
-                for keyword in keywords["AND"]:
-                    keyword_normalized = normalize_text2(keyword)
-                    adjusted_score += process_text_for_keywords(section_title, [keyword_normalized], section_weight)
-                    adjusted_score += process_text_for_keywords(paragraph_title, [keyword_normalized],
-                                                                paragraph_title_weight)
-                    adjusted_score += process_text_for_keywords(paragraph_text, [keyword_normalized], text_weight)
-
-            # Apply OR logic
-            if "OR" in keywords:
-                for keyword in keywords["OR"]:
-                    keyword_normalized = normalize_text2(keyword)
-                    if (process_text_for_keywords(section_title, [keyword_normalized], section_weight) or
-                            process_text_for_keywords(paragraph_title, [keyword_normalized], paragraph_title_weight) or
-                            process_text_for_keywords(paragraph_text, [keyword_normalized], text_weight)):
-                        adjusted_score += section_weight + paragraph_title_weight + text_weight
-                        break  # Exit once an OR match is found
-
-            # Apply proximity boost for keywords in paragraph text
-            adjusted_score += apply_proximity_boost(paragraph_text, expanded_keywords, proximity_boost_weight)
-
-        # Apply normalization to smooth out the score
-        adjusted_score = normalize_score(adjusted_score)
-
-        # Apply the threshold after rescoring
-        if adjusted_score < score_threshold:
-            return None  # Exclude the result if the score is below the threshold
-
-        # Return the adjusted score
-        return adjusted_score
     def _sort_results(self, processed_results: defaultdict) -> None:
         """
         Sort the processed results based on the adjusted score in descending order.
@@ -1142,4 +1234,22 @@ class QdrantHandler:
 
             # Return the newly created vector
             return vector
+
+
+    def delete_all_collections(self):
+        # Initialize the Qdrant client
+
+
+        # Fetch all collections
+        collections = [collection.name for collection in self.qdrant_client.get_collections().collections ]
+
+        # Loop through and delete each collection
+        for collection_name in collections:
+
+
+            print(f"Deleting collection: {collection_name}")
+            self.qdrant_client.delete_collection(collection_name=collection_name)
+
+        print("All collections have been deleted.")
+
 

@@ -23,56 +23,135 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 
 
-def set_style(style, font_name=None, font_size=None, bold=None, italic=None, alignment=None, space_after=None,
-              space_before=None, line_spacing=None, first_line_indent=None):
-    """
-    Helper function to set multiple style properties.
-    """
+def set_style(style, font_name=None, font_size=None, bold=None, alignment=None, line_spacing=None, space_after=None,
+              first_line_indent=None):
+    """Helper function to set common style attributes."""
+    font = style.font
+    paragraph_format = style.paragraph_format
+
     if font_name:
-        style.font.name = font_name
-        style._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)  # Compatibility for certain fonts
+        font.name = font_name
     if font_size:
-        style.font.size = font_size
+        font.size = font_size
     if bold is not None:
-        style.font.bold = bold
-    if italic is not None:
-        style.font.italic = italic
+        font.bold = bold
     if alignment:
-        style.paragraph_format.alignment = alignment
-    if space_after:
-        style.paragraph_format.space_after = space_after
-    if space_before:
-        style.paragraph_format.space_before = space_before
+        paragraph_format.alignment = alignment
     if line_spacing:
-        style.paragraph_format.line_spacing = line_spacing
+        paragraph_format.line_spacing = line_spacing
+    if space_after:
+        paragraph_format.space_after = space_after
     if first_line_indent:
-        style.paragraph_format.first_line_indent = first_line_indent
+        paragraph_format.first_line_indent = first_line_indent
 
 
-from docx.oxml import OxmlElement
+def add_multilevel_list(doc):
+    """Create multilevel numbering scheme in the document."""
+    numbering = doc._part.numbering_part.element  # Access the numbering part of the document
+    abstractNum = OxmlElement('w:abstractNum')
+    abstractNum.set(qn('w:abstractNumId'), '0')
+
+    levels = [
+        ('w:lvl', 'w:start', 'w:numFmt', 'decimal', 'w:lvlText', '%1', 'w:lvlJc', 'left', 0),
+        ('w:lvl', 'w:start', 'w:numFmt', 'decimal', 'w:lvlText', '%1.%2', 'w:lvlJc', 'left', 1),
+        ('w:lvl', 'w:start', 'w:numFmt', 'decimal', 'w:lvlText', '%1.%2.%3', 'w:lvlJc', 'left', 2),
+        ('w:lvl', 'w:start', 'w:numFmt', 'decimal', 'w:lvlText', '%1.%2.%3.%4', 'w:lvlJc', 'left', 3),
+        ('w:lvl', 'w:start', 'w:numFmt', 'decimal', 'w:lvlText', '%1.%2.%3.%4.%5', 'w:lvlJc', 'left', 4),
+    ]
+
+    for lvl, start, numFmt, fmt, lvlText, text, lvlJc, jc, ilvl in levels:
+        level = OxmlElement(lvl)
+        level.set(qn('w:ilvl'), str(ilvl))
+
+        start_val = OxmlElement(start)
+        start_val.set(qn('w:val'), '1')
+        level.append(start_val)
+
+        numFmt_val = OxmlElement(numFmt)
+        numFmt_val.set(qn('w:val'), fmt)
+        level.append(numFmt_val)
+
+        lvlText_val = OxmlElement(lvlText)
+        lvlText_val.set(qn('w:val'), text)
+        level.append(lvlText_val)
+
+        lvlJc_val = OxmlElement(lvlJc)
+        lvlJc_val.set(qn('w:val'), jc)
+        level.append(lvlJc_val)
+
+        abstractNum.append(level)
+
+    numbering.append(abstractNum)
+
+    num = OxmlElement('w:num')
+    num.set(qn('w:numId'), '1')
+    abstractNumId = OxmlElement('w:abstractNumId')
+    abstractNumId.set(qn('w:val'), '0')
+    num.append(abstractNumId)
+    numbering.append(num)
 
 
-def add_page_number(paragraph):
-    run = paragraph.add_run()
+def assign_numbering_to_style(doc, style_name, level):
+    """Assign multilevel numbering to a style."""
+    style = doc.styles[style_name]
+    pPr = style.element.get_or_add_pPr()
 
-    # Create a field code for the page number
-    fldChar1 = OxmlElement('w:fldChar')
-    fldChar1.set(qn('w:fldCharType'), 'begin')
+    numPr = OxmlElement('w:numPr')
+    ilvl = OxmlElement('w:ilvl')
+    ilvl.set(qn('w:val'), str(level))
+    numId = OxmlElement('w:numId')
+    numId.set(qn('w:val'), '1')  # The numId corresponding to the list definition
+    numPr.append(ilvl)
+    numPr.append(numId)
 
-    instrText = OxmlElement('w:instrText')
-    instrText.text = "PAGE"
+    pPr.append(numPr)
 
-    fldChar2 = OxmlElement('w:fldChar')
-    fldChar2.set(qn('w:fldCharType'), 'end')
 
-    # Append the elements in the correct order
-    run._r.append(fldChar1)
-    run._r.append(instrText)
-    run._r.append(fldChar2)
+def create_numbered_heading_style(doc):
+    """Create numbered heading styles and apply multilevel list."""
+    # Add multilevel list to the document for numbering
+    add_multilevel_list(doc)
+
+    # Define numbered heading styles (Heading 1, Heading 2, ..., Heading 5)
+    for level in range(5):  # Now supporting up to Heading 5
+        style_name = f'Heading {level + 1}'
+        if style_name not in doc.styles:
+            style = doc.styles.add_style(style_name, WD_STYLE_TYPE.PARAGRAPH)
+        else:
+            style = doc.styles[style_name]
+
+        set_style(style, font_name='Times New Roman', font_size=Pt(14 - level), bold=True,
+                  alignment=WD_ALIGN_PARAGRAPH.LEFT)
+        # Assign numbering to the heading style
+        assign_numbering_to_style(doc, style_name, level)
 
 
 def customize_doc_style(doc, header_title, block_quote_indent=Inches(0.5), left_margin=Inches(1.5)):
     # Set margins (1 inch all around, 1.5 inches on the left if needed for binding)
+    # Create a new paragraph style called 'Custom TOC Heading'
+    custom_heading_style = doc.styles.add_style('topic_sentence', WD_STYLE_TYPE.PARAGRAPH)
+
+    # Customize the appearance of 'Custom TOC Heading'
+    set_style(custom_heading_style, font_name='Times New Roman', font_size=Pt(14), bold=True,
+              alignment=WD_ALIGN_PARAGRAPH.LEFT)
+
+    # Set the custom style's outline level (e.g., equivalent to Heading 1 in TOC)
+    custom_heading_style.paragraph_format.outline_level = 1  # Equivalent to 'Heading 1' in TOC
+def add_page_number(paragraph):
+    """Add page number to the specified paragraph."""
+    run = paragraph.add_run()
+    fldChar = OxmlElement('w:fldChar')  # Create a new field character
+    fldChar.set(qn('w:fldCharType'), 'begin')  # Field type: begin
+    instrText = OxmlElement('w:instrText')  # Create instruction element
+    instrText.text = 'PAGE'  # This is the field code for page number
+    fldChar_end = OxmlElement('w:fldChar')  # Create end of field character
+    fldChar_end.set(qn('w:fldCharType'), 'end')  # Field type: end
+    run._r.append(fldChar)  # Add begin
+    run._r.append(instrText)  # Add instruction
+    run._r.append(fldChar_end)  # Add end
+
+
+def customize_doc_style(doc, header_title, block_quote_indent=Inches(0.5), left_margin=Inches(1.5)):
     # Set margins (1 inch all around, 1.5 inches on the left if needed for binding)
     for section in doc.sections:
         section.top_margin = Inches(1)
@@ -80,11 +159,11 @@ def customize_doc_style(doc, header_title, block_quote_indent=Inches(0.5), left_
         section.left_margin = left_margin
         section.right_margin = Inches(1)
 
-    # Customize 'Normal' style for body text in academic papers
+    # Customize 'Normal' style for body text in academic papers (1.5 line spacing)
     normal_style = doc.styles['Normal']
     set_style(normal_style, font_name='Times New Roman', font_size=Pt(12),
-              line_spacing=Pt(24), space_after=Pt(0), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
-              first_line_indent=Pt(18))  # Double spacing with first-line indent
+              line_spacing=1.5, space_after=Pt(0), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
+              first_line_indent=Inches(0.5))  # 1.5 line spacing with first-line indent of 0.5 inches
 
     # Add automatic page numbering, skipping the first page (title page)
     for section in doc.sections:
@@ -101,16 +180,43 @@ def customize_doc_style(doc, header_title, block_quote_indent=Inches(0.5), left_
               alignment=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Add Block Quote style (indented, single-spaced)
-    block_quote_style = doc.styles.add_style('Block Quote', WD_STYLE_TYPE.PARAGRAPH)
+    if 'Block Quote' in doc.styles:
+        block_quote_style = doc.styles['Block Quote']
+    else:
+        block_quote_style = doc.styles.add_style('Block Quote', WD_STYLE_TYPE.PARAGRAPH)
+
     set_style(block_quote_style, font_name='Times New Roman', font_size=Pt(12),
-              alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=Pt(12), first_line_indent=None)
+              alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=1.0, first_line_indent=None)
     block_quote_style.paragraph_format.left_indent = block_quote_indent
+
+    # Add numbered heading styles globally
+    create_numbered_heading_style(doc)
+
+    # Add title page formatting (optional)
+    title_page_section = doc.sections[0]
+    title_page_section.start_type = WD_SECTION.NEW_PAGE  # Ensure it's a new section
+
+    title_paragraph = doc.add_paragraph()
+    title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title_paragraph.add_run(header_title)
+    run.bold = True
+    run.font.size = Pt(16)
+
+    # Ensure the document starts on a new page after the title page
+    doc.add_section(WD_SECTION.NEW_PAGE)
 
     # Ensure use of section breaks when needed
     for paragraph in doc.paragraphs:
         # Manually add a section break at the end of each major section if required
         if paragraph.text.strip().lower() in ['introduction', 'conclusion', 'references']:
             doc.add_section(WD_SECTION.NEW_PAGE)  # Add a new section starting on a new page
+
+
+    # Customize the References section style with hanging indent
+    reference_style = doc.styles.add_style('References', WD_STYLE_TYPE.PARAGRAPH)
+    set_style(reference_style, font_name='Times New Roman', font_size=Pt(12),
+              line_spacing=1.5, space_after=Pt(12), alignment=WD_ALIGN_PARAGRAPH.LEFT)
+    reference_style.paragraph_format.first_line_indent = Inches(-0.5)  # Hanging indent of 0.5 inches
 
 
 class Docx_creation():

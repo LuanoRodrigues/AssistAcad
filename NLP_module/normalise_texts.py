@@ -1,14 +1,27 @@
+import ast
 import re
+from collections import defaultdict
 from datetime import datetime
 from random import random
-from sklearn.metrics.pairwise import cosine_similarity
 
-import torch
+from nipype.interfaces.fsl import PRELUDE
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.spatial.distance import cosine
+import numpy as np
+import nltk
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import WordNetLemmatizer
+from fuzzywuzzy import fuzz
 from itertools import tee
 import unidecode
+from tensorflow.python.framework.test_ops import in_polymorphic_twice
+from tqdm import tqdm
 
+# Modified function for trigram matching using GPU
+from transformers import BertTokenizer, BertModel
 import torch
 
+from Pychat_module.gpt_api import call_openai_api
 
 
 def normalize_text(text):
@@ -133,14 +146,7 @@ def clean_hyphenated_words(text):
 
     return cleaned_text
 
-def remove_urls_emails(text):
-    url_pattern = re.compile(
-        r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+|'
-        r'www\.(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+|'
-        r'(?:[a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?|'
-        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b)'
-    )
-    return url_pattern.sub(' ', text)
+
 
 def remove_bibliographic_references(text):
     # Example pattern to match bibliographic references
@@ -150,60 +156,6 @@ def remove_bibliographic_references(text):
 regex_sub = {
         "numerical_references_inline": "\\b(?:supra note \\d+)",
         "direct_citation_with_page": "\\d+\\.\\s[A-Z].+?,\\s(?:at\\s)?\\d+"}
-def apply_regex_substitutions(text, regex_patterns, replacement=""):
-    """
-    Apply multiple regex substitutions on the provided text.
-
-    Parameters:
-    text (str): The input text to be processed.
-    regex_patterns (list): A list of regex patterns to apply.
-    replacement (str): The replacement text for each match.
-
-    Returns:
-    str: The processed text with all substitutions applied.
-    """
-    for pattern in regex_patterns:
-        text = re.sub(pattern, replacement, text)
-    return text
-    def normalize_title(self,title):
-        """ Normalize the title by removing punctuation, converting to lower case, and stripping spaces. """
-        return re.sub(r'\W+', ' ', title).lower()
-
-    def parse_date(self,date_str):
-        """ Parse the ISO date string to a datetime object. """
-        return datetime.fromisoformat(date_str.rstrip('Z'))
-def clean_h2_title(html_string):
-    """
-       Extracts and cleans the text of the first <h2> tag found in the given HTML string.
-
-       Parameters:
-       - html_string (str): The HTML string to parse for an <h2> tag.
-
-       Returns:
-       - The cleaned text content of the first <h2> tag, with all HTML tags removed. Returns None if no <h2> tag is found.
-       """
-    # Use regular expression to extract text within <h2> tags
-    h2_text = re.search(r'<h2>(.*?)</h2>', html_string)
-    if h2_text:
-        # If found, return the cleaned text without HTML tags
-        return re.sub('<[^<]+?>', '', h2_text.group(1))
-    else:
-        # If not found, return None or handle the case appropriately
-        return None
-
-def split_text_into_chunks(text, chunk_size=3800, avg_token_length=4):
-    words = text.split()
-    approx_tokens = len(words) * avg_token_length
-
-    # Calculate the approximate number of words per chunk
-    words_per_chunk = chunk_size // avg_token_length
-
-    chunks = []
-    for i in range(0, len(words), words_per_chunk):
-        chunk = ' '.join(words[i:i + words_per_chunk])
-        chunks.append(chunk)
-
-    return chunks
 
 
 def get_last_four_tokens(input_string):
@@ -278,74 +230,118 @@ def wildcard_match(keyword: str, text: str) -> bool:
     return bool(regex.search(text))
 
 
-def add_paragraphs_to_structure(structure, search_paragraphs_by_query, collection_name):
+def process_themes(themes, more_subsection_get, collection_name, type_collection):
     """
-    Function to add paragraphs to each heading (h1, h2, h3) in the structure.
-    :param structure: The dictionary representing the list of themes, headings, and subheadings.
-    :param search_paragraphs_by_query: The function used to query for paragraphs.
-    :param collection_name: The name of the collection being queried.
+    Iterate through the original theme structure and append new subsections fetched from more_subsection_get
+    to the subsections key of each heading in the new_theme structure.
     """
+    # Initialize a new theme to hold the processed structure
 
-    def process_heading(heading):
-        """
-        Helper function to process paragraphs for a given heading or subheading.
-        :param heading: A dictionary representing the current heading or subheading.
-        """
-        title = heading.get('title', '')
-        print(f"Processing title: {title}")
+    # Iterate through each theme in the list of themes
+    for theme in themes:
+        theme_title = theme['theme']  # Get the title of the theme
 
-        try:
-            # Get paragraphs based on the title using the search function
-            paragraph_list = search_paragraphs_by_query(
-                collection_name=collection_name,
-                query=title,
-                filter_conditions=None,
-                with_payload=True,
-                with_vectors=False,
-                score_threshold=0.60
-            )
-        except Exception as e:
-            print(f"Error retrieving paragraphs for '{title}': {e}")
-            paragraph_list = None
-
-        # Check if paragraphs is a dict and properly extract data
-        if isinstance(paragraph_list, dict) and paragraph_list:
-            topic_sentences = paragraph_list.get('paragraph_title', [])
-            paragraphs = paragraph_list.get('paragraph_text', [])
-            blockquotes = paragraph_list.get('paragraph_blockquote', [])
-            paragraph_ids = paragraph_list.get('paragraph_id', [])
-
-            # Add paragraphs to the heading
-            heading['paragraphs'] = []
-
-            for i in range(len(paragraphs)):
-                paragraph_data = {
-                    'topic sentence': topic_sentences[i] if i < len(topic_sentences) else 'No topic sentence',
-                    'paragraph': paragraphs[i] if i < len(paragraphs) else 'No paragraph text',
-                    'paragraph_id': paragraph_ids[i] if i < len(paragraph_ids) else 'No ID',
-                    'blockquote': blockquotes[i] if i < len(blockquotes) else False
-                }
-                heading['paragraphs'].append(paragraph_data)
-
-            print(f"Added {len(paragraphs)} paragraphs to '{title}'")
-        else:
-            print(f"No paragraphs found for '{title}'")
-
-    # Process headings and subheadings for each theme
-    for theme in structure.get('themes', []):
-        for heading in theme.get('headings', []):
-            # Process the heading (h1 level)
-            process_heading(heading)
-
-            # Process subheadings (h2, h3 levels) if they exist
-            for subheading in heading.get('subheadings', []):
-                process_heading(subheading)
+        # Iterate through each heading under this theme (h1 level)
+        for heading in theme['outline']:
+            print('processing the heading:',heading)
+            # Process the subheadings of this heading and fetch additional subsections (more_subs)
+            new_subheadings = process_subheadings(heading, more_subsection_get, collection_name, type_collection, theme_title)
 
 
-import nltk
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
-from fuzzywuzzy import fuzz
+        #     subs.append(new_subheadings)
+        #     # Append the processed heading (with new subsections) to the new theme structure
+        # new_theme[theme_title].append({
+        #     'title': h1_title,
+        #     'level': heading['level'],
+        #     'subheadings':subs ,  # Directly assign fetched subheadings (with more_subs)
+        #     'paragraph_title': heading.get('paragraph_title', []),
+        #     'paragraph_text': heading.get('paragraph_text', []),
+        #     'paragraph_blockquote': heading.get('paragraph_blockquote', [])
+        # })
+
+    return themes
+
+
+def process_subheadings(subheading, more_subsection_get, collection_name, type_collection, parent_title):
+    """
+    Helper function that fetches subheadings using more_subsection_get and appends them to the original structure.
+    """
+    # Create the query for fetching more subsections
+    query = {'title': subheading['title'], 'level': subheading['level'], 'parent': parent_title}
+    # Fetch more subsections using the query
+    more_subs = more_subsection_get(query=query,
+                                    type_collection=type_collection,
+                                    collection_name=collection_name,
+                                    filter_conditions=None,
+                                    with_payload=True,
+                                    with_vectors=False,
+                                    score_threshold=0.7,
+                                    ai=True
+                                    )
+
+    if more_subs:
+
+        # Include all necessary fields like title, level, paragraph_title, paragraph_text, blockquote
+        subheading['subheadings']=more_subs
+
+        return subheading
+
+def update_response_with_paragraph_data(response, aggregated_paragraph_data):
+    # Extract the lists of paragraph information from the dictionary
+    paragraph_ids = [str(pid).strip() for pid in aggregated_paragraph_data.get('paragraph_id', [])]
+    paragraph_titles = aggregated_paragraph_data.get('paragraph_title', [])
+    paragraph_texts = aggregated_paragraph_data.get('paragraph_text', [])
+    paragraph_blockquotes = aggregated_paragraph_data.get('paragraph_blockquote', [])
+    section_titles = aggregated_paragraph_data.get('section_title', [])
+    section_metadata = aggregated_paragraph_data.get('metadata', [])
+
+    # Create a dictionary for quick lookup of paragraph data by id
+    paragraph_data_dict = {}
+    for i in range(len(paragraph_ids)):
+        paragraph_data_dict[paragraph_ids[i]] = {
+            'paragraph_title': paragraph_titles[i] if i < len(paragraph_titles) else 'N/A',
+            'paragraph_text': paragraph_texts[i] if i < len(paragraph_texts) else 'N/A',
+            'paragraph_blockquote': paragraph_blockquotes[i] if i < len(paragraph_blockquotes) else 'N/A',
+            'section_title': section_titles[i] if i < len(section_titles) else 'N/A',
+            'metadata': section_metadata[i] if i < len(section_metadata) else 'N/A'
+        }
+
+    # Function to process a single section recursively
+    def process_section(section):
+        updated_section = {
+            'title': section.get('title', 'N/A'),
+            'level': section.get('level', 'N/A'),
+            'paragraph_title': [],  # List of all paragraph titles
+            'paragraph_text': [],  # List of all paragraph texts
+            'section_title': [],  # List of section titles
+            'paragraph_id': [],  # List of paragraph ids
+            'paragraph_blockquote': [],  # List of blockquotes
+            'metadata': []  # List of metadata
+        }
+
+        # Replace paragraph_ids with actual paragraph data if available
+        for paragraph_id in section.get('paragraph_ids', []):
+            if paragraph_id in paragraph_data_dict:
+                paragraph_info = paragraph_data_dict[paragraph_id]
+                updated_section['paragraph_title'].append(paragraph_info.get('paragraph_title', 'N/A'))
+                updated_section['paragraph_text'].append(paragraph_info.get('paragraph_text', 'N/A'))
+                updated_section['section_title'].append(paragraph_info.get('section_title', 'N/A'))
+                updated_section['paragraph_id'].append(paragraph_id)
+                updated_section['paragraph_blockquote'].append(paragraph_info.get('paragraph_blockquote', 'N/A'))
+                updated_section['metadata'].append(paragraph_info.get('metadata', 'N/A'))
+
+        # Process subheadings recursively and add them to subsections
+        updated_section['subheadings'] = []
+
+        for subsection in section.get('subheadings', []):
+            # print('subsection:', subsection)
+            updated_section['subheadings'].append(process_section(subsection))
+
+        return updated_section
+
+
+    # Process the entire response recursively
+    return [process_section(section) for section in [response]]
 
 
 
@@ -353,56 +349,8 @@ lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
 
 
-# Preprocessing text: Lemmatization and stopword removal
-def preprocess_text(text):
-    tokens = text.split()
-    tokens = [lemmatizer.lemmatize(token) for token in tokens if token.lower() not in stop_words]
-    return tokens
 
 
-# Generate bigrams from preprocessed text
-def generate_bigrams(text):
-    tokens = preprocess_text(text)
-    return [' '.join(bigram) for bigram in zip(tokens, tokens[1:])]
-
-
-# Expand keywords with synonyms using WordNet
-def get_synonyms(word):
-    synonyms = set()
-    for syn in wordnet.synsets(word):
-        for lemma in syn.lemmas():
-            synonyms.add(lemma.name())
-    return synonyms
-
-
-# Apply FuzzyWuzzy for partial matching
-def fuzzy_match(text, keywords, threshold=95):
-    return any(fuzz.partial_ratio(text, keyword) > threshold for keyword in keywords)
-
-
-# Proximity-based boosting
-def proximity_boost(paragraph_text, keywords, threshold=5):
-    tokens = paragraph_text.split()
-    positions = {k: [i for i, token in enumerate(tokens) if token == k] for k in keywords}
-
-    for keyword1, pos1 in positions.items():
-        for keyword2, pos2 in positions.items():
-            if keyword1 != keyword2:
-                for p1 in pos1:
-                    for p2 in pos2:
-                        if abs(p1 - p2) <= threshold:
-                            return 1  # Boost score if keywords are close
-    return 0
-
-# Function to generate bigrams from text
-def generate_bigrams(text):
-    tokens = text.split()  # Split the text into words
-    it1, it2 = tee(tokens)
-    next(it2, None)
-    return [' '.join(bigram) for bigram in zip(it1, it2)]
-
-# Function to get BERT embeddings for a given text (bigram)
-# Function to generate bigrams from text
 
 def clean_and_normalize(text):
     # Convert text to lowercase
@@ -420,31 +368,3 @@ def clean_and_normalize(text):
 
     # Return cleaned words
     return ' '.join(words)
-# Preprocess text to remove stopwords
-def preprocess_text_remove_stopwords(text):
-    tokens = text.split()
-    return ' '.join([word.lower() for word in tokens if word.lower() not in stop_words])
-# Function to generate bigrams from text (with stopword removal)
-
-def generate_trigrams(text):
-    preprocessed_text = clean_and_normalize(text)  # Remove stopwords and normalize the text
-    tokens = preprocessed_text.split()  # Split the text into words
-    it1, it2, it3 = tee(tokens, 3)  # Create three iterators for trigrams
-    next(it2, None)  # Move second iterator one step ahead
-    next(it3, None)  # Move third iterator two steps ahead
-    next(it3, None)
-
-    return [' '.join(trigram) for trigram in zip(it1, it2, it3)]  # Join tokens into trigrams
-
-
-# Function to compute cosine similarity using GPU
-def compute_similarity(query_vector, trigram_vector):
-    # Convert to PyTorch tensors and move to GPU
-    query_tensor = torch.tensor(query_vector).cuda()
-    trigram_tensor = torch.tensor(trigram_vector).cuda()
-
-    # Compute cosine similarity
-    cosine_sim = torch.nn.functional.cosine_similarity(query_tensor, trigram_tensor, dim=0)
-    return cosine_sim.item()
-
-# Modified function for trigram matching using GPU

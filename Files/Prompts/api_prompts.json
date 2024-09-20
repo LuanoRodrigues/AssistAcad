@@ -1,0 +1,522 @@
+{"grouping_sections": {
+    "text": "You will receive a list of section titles. Your task is to group these titles into as many clear, unique, and distinct themes as possible and then organize them into a hierarchical outline. Instructions: 1. **Maximize groupings**: Your goal is to group as many titles as possible under each theme, provided that they share the same overarching idea. 2. **Merge overlapping or redundant titles**: If two or more titles are similar in meaning or cover the same topic, merge them under the same theme, while conserving common keywords in their section title. 3. **Create distinct, clear themes**: Ensure that each theme has a clear, concise title that accurately reflects the content. 4. **Organize sections comprehensively **: Within each theme, create an outline of sections using the main headings H1 related to the theme according to the provided data. 5. **Include all titles**: Make sure every section title is grouped into a theme. No titles should be left ungrouped even the subsections titles that are to specific should gain its own heading 1. Overall, the themes should encompass all the content of the sections dataset and the headings 1 within each theme should encompass all the main headings withing their particular theme, even the specific headings.",
+    "json_schema": {
+      "name": "themes_writer_v8",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "description": "This schema organizes section titles into distinct themes and a hierarchical outline for each theme.",
+        "properties": {
+          "themes": {
+            "type": "array",
+            "description": "A list of themes, each containing a hierarchical outline of grouped section titles.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "theme": {
+                  "type": "string",
+                  "description": "The overall title of the theme, summarizing its grouped content."
+                },
+                "outline": {
+                  "type": "array",
+                  "description": "An outline of section titles organized into headings and subheadings H1 under this theme.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "description": "A section title or heading H1 belonging to this theme."
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["H1"],
+                        "description": "The heading level H1 indicating the structure of the outline."
+                      }
+                    },
+                    "required": ["title", "level"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["theme", "outline"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["themes"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.3,
+      "top_p": 1,
+      "seed": 34
+    },
+    "content": "Your task is to group the section titles into broad themes, then organize each theme into a hierarchical structure using headings H1. The output should be in JSON format."
+  }
+
+,
+"getting_sections2": {
+    "text": "You will receive a list of sections and subsections. Your task is to organize these sections into a reflexive thematic review. Start by clustering the sections into the provided theme based on their content.  \n1. **Maximize headings**: Your goal is to group as many titles as possible under heading.\n2. **Filter irrelevant titles: If any section titles are not entirely relevant to the theme, exclude them and do not return them in the output.\n3. **Use clear hierarchy: Organize the sections using appropriate heading levels (h1, h2, h3, h4) to reflect the structure and depth of the content.\n4. **Use clear titles with one main idea only",
+     "json_schema": {
+    "name": "headings_writer",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "headings": {
+          "type": "array",
+          "description": "A list of headings under the theme, each with a title, level, and optional subheadings.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "A concise and clear title summarizing the central idea of the heading."
+              },
+              "level": {
+                "type": "string",
+                "enum": ["h1", "h2", "h3", "h4"],
+                "description": "The heading level (h1, h2, h3, or h4) defining the hierarchy of the headings."
+              },
+              "subheadings": {
+                "type": "array",
+                "description": "An optional list of subheadings under this heading, organized with proper nesting (h2 > h3 > h4).",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "description": "A concise and clear title for the subheading."
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": ["h2", "h3", "h4"],
+                      "description": "The heading level (h2, h3, or h4) for subheadings."
+                    },
+                    "subheadings": {
+                      "type": "array",
+                      "description": "Subheadings nested under h2, h3, or h4.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "description": "A concise and clear title for the deeper subheading."
+                          },
+                          "level": {
+                            "type": "string",
+                            "enum": ["h3", "h4"],
+                            "description": "The heading level (h3 or h4) for nested subheadings."
+                          },
+                          "subheadings": {
+                            "type": "array",
+                            "description": "Subheadings nested under h3 or h4.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string",
+                                  "description": "A concise and clear title for the deepest subheading."
+                                },
+                                "level": {
+                                  "type": "string",
+                                  "enum": ["h4"],
+                                  "description": "The heading level for the deepest subheading (h4 only)."
+                                }
+                              },
+                              "required": ["title", "level"],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": ["title", "level", "subheadings"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["title", "level", "subheadings"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["title", "level", "subheadings"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["headings"],
+      "additionalProperties": false
+    }
+
+  },
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.4,
+      "top_p": 0.9
+    },
+    "content": "Your task is to assign headings to  titles related to a given  theme. output is in json format."
+  }
+
+,
+  "getting_sections": {
+    "text": "You will receive a list of sections and subsections. Your task is to organize these sections into a reflexive thematic review. Start by clustering the sections into meaningful themes based on their content. A thematic review involves identifying patterns of meaning and organizing information around central concepts rather than listing sections independently. Use your judgment to merge any redundant or overlapping sections to create a more cohesive and unified structure.\n\nFollow these steps:\n\nTheme Creation: Group sections into larger themes that capture shared meanings. If two or more sections or subsections are similar or redundant, merge them under a unified heading. once a theme created, establish an hierarchical structure within the theme with h1, and its h2s, and analysing the h2s nesting their respective h3s and doing the same for h4s. The theme should be presented at the top level, followed by nested headings increasingly narrowing the tile in the levels of h1>h2>h3>h4. note: every subheadings key should contain three in order h2 followed by its h3 and h4",
+      "json_schema": {
+      "name": "themes_writer_v4",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "themes": {
+            "type": "array",
+            "description": "A list of themes, each containing a list of headings.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "theme": {
+                  "type": "string",
+                  "description": "The overall title of the theme."
+                },
+                "headings": {
+                  "type": "array",
+                  "description": "A list of headings under the theme, each with a title and a level.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "description": "A concise and clear title that summarizes the central idea of the heading."
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["h1", "h2", "h3","h4"],
+                        "description": "The heading level (h1, h2, h3 or h4) to define the hierarchy of the headings."
+                      },
+                      "subheadings": {
+                        "type": "array",
+                        "description": "An optional list of subheadings under this heading, each with a title and a level.",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string",
+                              "description": "A concise and clear title for the subheading."
+                            },
+                            "level": {
+                              "type": "string",
+                              "enum": ["h2", "h3","h4"],
+                              "description": "The heading level (h2, h3 or h4) for subheadings."
+                            }
+                          },
+                          "required": ["title", "level"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["title", "level", "subheadings"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["theme", "headings"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["themes"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 1000,
+      "temperature": 0.75,
+      "top_p": 0.9
+    },
+    "content": "You will receive a list of sections and subsections. Your task is to organize these sections into a hierarchical structure using HTML headings (h1, h2, h3, etc.) and assign titles to each section within a particularly theme. The theme will be at the top level, followed by nested headings and subsections. Use valid heading levels to create an organized structure that reflects the document's theme. Make sure to nest subsections within their parent sections where applicable. output is in json format."
+  }
+
+
+
+
+,
+  "thematic_review": {
+    "text": "You will be given a list of headings (e.g., h1, h2), titles, paragraphs, and topic sentences, and your task is to create a comprehensive thematic section review for each heading  using only the provided references. after selecting relevant quotes for the purpose of the section, pay attention on their topic sentence as it summarises their author ideas. Critically analyze the authors' ideas, form a coherent narrative that connects to the overall theme, offer insightful analysis that demonstrates a deep understanding of the subject, and appropriately cite the original material in the same format found. Use valid HTML heading levels (h1, h2, etc.) to reflect the hierarchical structure of the content. Ensure that each section is well-organized, contributing to the thematic flow supported by accurate in-text citations. Authors can be cited alone or together if they share the same argument, corroborating or refuting statements. Do not include irrelevant citations and do not use words in your output containing <stop_word_list>",
+    "json_schema": {
+      "name": "thematic_review_writer_v2",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "enum": ["h1", "h2", "h3"],
+            "description": "The valid HTML heading level (e.g., 'h1', 'h2', etc.) representing the section's hierarchy."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the heading that summarizes the content of the section."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "A cohesive paragraph of text written based on the provided references. Each paragraph should critically analyze the content and contribute to a coherent narrative that connects with the overarching theme."
+            }
+          }
+        },
+        "required": ["heading", "title", "paragraphs"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.4,
+      "top_p": 0.9
+    },
+    "content": "You will create thematic sections based on the given heading levels and paragraph content. Each section should consist of maximum three paragraphs, written solely based on the provided references. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme.output is in json format."
+  },
+
+  "cleaning_headings": {
+    "text": "I have topic sentences representing paragraphs. Your task is to organize them into a hierarchical structure using a detailed HTML headings (<h2>, <h3>, <h4>,<h5>, etc.). You will be provided with a list of dicts where each dict contains an 'id' representing a paragraph id and a topic sentence. Your response should include titles and associated paragraph IDs, structured hierarchically. Ensure logical nesting of headings based on content relevance, and each heading should group all relevant paragraph IDs.\"\nnote 1: consider their content with parent title as you will output headings below in the hierarchy to that context. note 2: provide a rich and detailed outline without excluding outlines or specific subsections. note 3:make sure to ouput no truncated and valid json format ```json",
+    "json_schema": {
+    "name": "headings_and_titles_generator_v3",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "subheadings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "A brief title summarizing the key idea of the section."
+              },
+              "level": {
+                "type": "string",
+                "enum": ["h2", "h3", "h4"],
+                "description": "HTML heading level indicating the section's hierarchy."
+              },
+              "paragraph_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "List of paragraph IDs grouped under this heading."
+                },
+                "description": "IDs of paragraphs associated with the heading."
+              },
+              "subheadings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "description": "A brief title summarizing the key idea of the sub-section."
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": ["h2", "h3", "h4"],
+                      "description": "HTML heading level for the subheading."
+                    },
+                    "paragraph_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "description": "List of paragraph IDs grouped under this subheading."
+                      },
+                      "description": "IDs of paragraphs associated with this subheading."
+                    },
+                    "subheadings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "description": "A brief title for deeper nested subheading."
+                          },
+                          "level": {
+                            "type": "string",
+                            "enum": ["h2", "h3", "h4"],
+                            "description": "HTML heading level for this nested subheading."
+                          },
+                          "paragraph_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "description": "List of paragraph IDs grouped under this nested subheading."
+                            },
+                            "description": "IDs of paragraphs associated with this nested subheading."
+                          }
+                        },
+                        "required": ["title", "level", "paragraph_ids"],
+                        "additionalProperties": false
+                      },
+                      "description": "Nested subheadings under this section."
+                    }
+                  },
+                  "required": ["title", "level", "paragraph_ids", "subheadings"],
+                  "additionalProperties": false
+                },
+                "description": "Subheadings nested under this main heading."
+              }
+            },
+            "required": ["title", "level", "paragraph_ids", "subheadings"],
+            "additionalProperties": false
+          },
+          "description": "A hierarchical structure of headings with nested subheadings and associated paragraph IDs."
+        }
+      },
+      "required": ["subheadings"],
+      "additionalProperties": false
+    }
+  },
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.0,
+      "top_p": 0.95
+    },
+        "content": "Your task is to organize topic sentences by assigning coherent HTML headings (h2,h3,h4) with corresponding titles and paragraph ids. Ensure proper nesting of headings to reflect the logical structure of the document. <h2> heading. Each heading should capture the essence of the grouped topic sentences. note 1: do no repeat the same paragraph id more than 5 times accros the headings. note 2:ouput is in json format ```json"
+
+  }
+
+,
+   "get_headings": {
+    "text": "I have clustered topic sentences representing paragraphs. Your task is to give them a cohesive and coherent structure by assigning headings in HTML tags (h1, h2, h3) nested where appropriate. The structure should be in the format: <h1> title </h1>, <h1> paragraph IDs </h1>, <h2> title </h2>, <h2> paragraph IDs </h2>, etc. You will receive a list of dicts with 'id' and 'p' (paragraph content). Your output should be a list of headings with their corresponding titles and the paragraph IDs associated with them. For example: [{'h1': {'title': 'Main Heading Title', 'paragraph_ids': ['67bc2e0e', 'a4c3cde6']}}, {'h2': {'title': 'Subsection Title', 'paragraph_ids': ['8c497488']}}]. Add an overarching theme at the top before the <h1> heading that represents the entire structure.o Ouput is in json format",
+    "json_schema": {
+      "name": "headings_and_titles_generator_v2",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "overarching_theme": {
+            "type": "string",
+            "description": "The overarching theme that summarizes the entire document, placed before the first <h1> heading."
+          },
+          "structure": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string",
+                  "enum": ["h1", "h2", "h3", "h4"],
+                  "description": "The HTML heading level representing the section's hierarchy."
+                },
+                "title": {
+                  "type": "string",
+                  "description": "A concise and clear title that summarizes the central idea of the section or subsection."
+                },
+                "paragraph_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "A list of paragraph IDs grouped under this heading."
+                  },
+                  "description": "The paragraph IDs associated with the heading."
+                }
+              },
+              "required": ["heading", "title", "paragraph_ids"],
+              "additionalProperties": false
+            },
+            "description": "An ordered list of HTML headings and their associated paragraph IDs, structured hierarchically. Ensure that each section has a logical flow, with headings nested where necessary."
+          }
+        },
+        "required": ["overarching_theme", "structure"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 800,
+      "temperature": 0.3,
+      "top_p": 0.95
+    },
+    "content": "Your task is to organize paragraph clusters by assigning coherent HTML headings (h1, h2,h3) with corresponding titles. Ensure proper nesting of headings to reflect the logical structure of the document. Begin by providing an overarching theme summarizing the entire content before the first <h1> heading. Each heading should capture the essence of the grouped paragraphs. Output should be formatted as: [{'h1': {'title': 'Main Heading', 'paragraph_ids': ['id1', 'id2']}}, {'h2': {'title': 'Subsection', 'paragraph_ids': ['id3']}}]."
+  },
+
+   "footnote": {
+    "text": "Your text goes here",
+    "json_schema": {
+      "name": "citation_extraction_v2",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "description": "The reference or citation being extracted."
+                },
+                "preceding_text": {
+                  "type": "string",
+                  "description": "The text preceding the reference, used to provide context for the citation."
+                },
+                "footnote": {
+                  "type": "string",
+                  "description": "The extracted footnote text corresponding to the reference."
+                }
+              },
+              "required": ["ref", "preceding_text", "footnote"],
+              "additionalProperties": false
+            },
+            "description": "A list of references, each containing the citation, preceding text, and footnote."
+          }
+        },
+        "required": ["references"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 800,
+      "temperature": 0.2,
+      "top_p": 0.95
+    },
+    "content": "Extract the references and footnotes from the given text and provide a structured JSON response with 'ref', 'preceding_text', and 'footnote'."
+  },
+   "find_title": {
+    "text": "Read carefully the paragraphs considering the context of the overall academic paper with <title> and <section/subsections>. After analyzing each paragraph in its context, return a list of paragraph titles summarizing the paragraph content in a declarative sentence affirming one fact central to the paragraph. Return a list of dicts, each with paragraph number and title.",
+    "json_schema": {
+      "name": "title_creator_v2",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "titles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paragraph_number": {
+                  "type": "integer",
+                  "description": "The sequential number of the paragraph being summarized."
+                },
+                "h3_title": {
+                  "type": "string",
+                  "description": "A declarative title summarizing the central idea of the paragraph in one or two sentences."
+                }
+              },
+              "required": ["paragraph_number", "h3_title"],
+              "additionalProperties": false
+            },
+            "description": "A list of titles, each corresponding to a paragraph number, summarizing the content of the paragraph."
+          }
+        },
+        "required": ["titles"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 800,
+      "temperature": 0.4,
+      "top_p": 0.9
+    },
+    "content": "You read each paragraph carefully and generate a declarative title in the form of one or two complete sentences. These sentences should summarize the paragraph's core fact or idea."
+  }
+}

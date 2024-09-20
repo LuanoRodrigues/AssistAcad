@@ -1,7 +1,16 @@
 import json
 import zipfile
-
+import json
+import markdown
+import pdfkit
 from docx import Document
+import pypandoc
+from docx import Document
+from scipy.signal import impulse
+from tensorflow.python.framework.test_ops import int_output
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt, Inches
+from docx.enum.style import WD_STYLE_TYPE
 doc = Document()
 from Word_modules.Creating_docx import customize_doc_style
 
@@ -95,176 +104,174 @@ def export_results(structure, filename="output", export_to=['doc','html']):
     if "json" in export_to:
         with open(f"{filename}.json", "w", encoding='utf-8') as json_file:
             json.dump(structure, json_file, ensure_ascii=False, indent=4)
-
-from docx import Document
 import json
+import markdown
+import pdfkit
 
-def export_structure(data, formats):
-    structure = data['themes']  # Extract the themes part from the data
-    document_title = data.get('theme', 'Document')  # Use a generic title if the theme is not provided
+# Mapping heading levels to DOCX heading styles
+level_map = {
+    'H1': 1,
+    'H2': 2,
+    'H3': 3,
+    'H4': 4,
+    'H5': 5,
+    'H6': 6
+}
 
-    # Function to export to DOCX
-    def write_to_docx(structure, filename):
-        try:
-            print(f"Processing DOCX export to {filename}...")
-            doc = Document()
-            customize_doc_style(doc, 'Thematic review raw')
+def add_paragraphs(doc, item):
+    """Helper function to add paragraphs and blockquotes."""
+    paragraph_titles = item.get('paragraph_title', [])
+    paragraph_texts = item.get('paragraph_text', [])
 
-            doc.add_heading(document_title, level=1)  # Use theme as the document title
+    metadata=item.get('metadata', [])
+    biblio=[]
+    # Add paragraphs if present
+    if paragraph_titles:
+        for i, title in enumerate(paragraph_titles):
+            doc.add_paragraph(title, style='IntenseQuote')  # Add title with style
+            if paragraph_texts and i < len(paragraph_texts):
+                doc.add_paragraph(paragraph_texts[i], style='Quote')  # Add text with style
+            if metadata:
+                # Use list comprehension to format each entry in metadata
+                references = [
+                    f"{entry.get('authors', 'Unknown Author')}. "
+                    f"({entry.get('date', 'Unknown Year')}). "
+                    f"{entry.get('title', 'Unknown Title')}."
+                    f"{f' {entry.get("journal")}' if entry.get('journal') else ''}"
+                    for entry in metadata
+                ]
+                print('references\n', references)
+                biblio.extend(references)
+    return  biblio
 
-            def add_to_docx(item):
-                level = item.get('level', 'h1')  # Get the level (h1, h2, etc.)
-                title = item.get('title', '')
-                paragraphs = item.get('paragraphs', [])
+def process_outline(doc, item,single_theme=False):
+    """Recursively process the outline and subheadings/subsections."""
+    title = item.get('title', '')
+    level_str = item.get('level', '')
+    level = level_map.get(level_str.upper(), None)
+    bibliography =[]
 
-                # Add title with the correct heading level
-                if level == 'h1':
-                    doc.add_heading(title, level=1)
-                elif level == 'h2':
-                    doc.add_heading(title, level=2)
-                elif level == 'h3':
-                    doc.add_heading(title, level=3)
+    # Add heading based on the level
+    if title and level is not None:
+        if single_theme and level_str.upper() == 'H1':
+            customize_doc_style(doc, title)
+        if single_theme and level_str.upper() != 'H1':
 
-                # Add paragraphs
-                for para in paragraphs:
-                    topic_sentence = para.get('topic sentence', '')
-                    paragraph_text = para.get('paragraph', '')
-                    blockquote = para.get('blockquote', False)
-
-                    # Add topic sentence (if available)
-                    if topic_sentence:
-                        doc.add_paragraph(topic_sentence, style='IntenseQuote')
-
-                    # Add paragraph text
-                    if paragraph_text:
-                        if blockquote:
-                            paragraph = doc.add_paragraph(paragraph_text)
-                            paragraph.style = 'Quote'  # Set style to Quote if blockquote is True
-                        else:
-                            doc.add_paragraph(paragraph_text)
-
-                # Recursively process subheadings
-                for subheading in item.get('subheadings', []):
-                    add_to_docx(subheading)
-
-            # Loop through all themes and headings
-            for current_theme in structure:
-                doc.add_heading(current_theme['theme'], level=1)  # Add theme as h1
-                for heading in current_theme.get('headings', []):
-                    add_to_docx(heading)
-
-            doc.save(filename)
-            print(f"Successfully saved DOCX to {filename}")
-        except Exception as e:
-            print(f"Error in DOCX export: {e}")
-
-    # Function to export to Markdown
-    def write_to_md(structure, filename):
-        try:
-            print(f"Processing Markdown export to {filename}...")
-
-            def format_md(item):
-                level = item.get('level', 'h1')
-                title = item.get('title', '')
-                paragraphs = item.get('paragraphs', [])
-
-                md_text = f"{'#' * int(level[-1])} {title}\n\n"
-
-                for para in paragraphs:
-                    topic_sentence = para.get('topic sentence', '')
-                    paragraph_text = para.get('paragraph', '')
-                    blockquote = para.get('blockquote', False)
-
-                    if topic_sentence:
-                        md_text += f"**{topic_sentence}**\n\n"
-
-                    if paragraph_text:
-                        if blockquote:
-                            md_text += f"> {paragraph_text}\n\n"
-                        else:
-                            md_text += f"{paragraph_text}\n\n"
-
-                # Recursively process subheadings
-                for subheading in item.get('subheadings', []):
-                    md_text += format_md(subheading)
-
-                return md_text
-
-            md_content = ""
-            for current_theme in structure:
-                md_content += f"# {current_theme['theme']}\n\n"
-                for heading in current_theme.get('headings', []):
-                    md_content += format_md(heading)
-
-            with open(filename, 'w') as f:
-                f.write(md_content)
-            print(f"Successfully saved Markdown to {filename}")
-        except Exception as e:
-            print(f"Error in Markdown export: {e}")
-
-    # Function to export to HTML
-    def write_to_html(structure, filename):
-        try:
-            print(f"Processing HTML export to {filename}...")
-
-            def format_html(item):
-                level = item.get('level', 'h1')
-                title = item.get('title', '')
-                paragraphs = item.get('paragraphs', [])
-
-                html_text = f"<{level}>{title}</{level}>\n"
-
-                for para in paragraphs:
-                    topic_sentence = para.get('topic sentence', '')
-                    paragraph_text = para.get('paragraph', '')
-                    blockquote = para.get('blockquote', False)
-
-                    if topic_sentence:
-                        html_text += f"<strong>{topic_sentence}</strong>\n"
-
-                    if paragraph_text:
-                        if blockquote:
-                            html_text += f"<blockquote>{paragraph_text}</blockquote>\n"
-                        else:
-                            html_text += f"<p>{paragraph_text}</p>\n"
-
-                # Recursively process subheadings
-                for subheading in item.get('subheadings', []):
-                    html_text += format_html(subheading)
-
-                return html_text
-
-            html_content = ""
-            for current_theme in structure:
-                html_content += f"<h1>{current_theme['theme']}</h1>\n"
-                for heading in current_theme.get('headings', []):
-                    html_content += format_html(heading)
-
-            with open(filename, 'w') as f:
-                f.write(f"<html>\n<body>\n{html_content}\n</body>\n</html>")
-            print(f"Successfully saved HTML to {filename}")
-        except Exception as e:
-            print(f"Error in HTML export: {e}")
-
-    # Function to export to JSON
-    def write_to_json(structure, filename):
-        try:
-            print(f"Processing JSON export to {filename}...")
-            with open(filename, 'w') as f:
-                json.dump(structure, f, indent=4)
-            print(f"Successfully saved JSON to {filename}")
-        except Exception as e:
-            print(f"Error in JSON export: {e}")
-
-    # Determine which formats to export
-    for fmt in formats:
-        if fmt == 'docx':
-            write_to_docx(structure, 'output.docx')
-        elif fmt == 'md':
-            write_to_md(structure, 'output.md')
-        elif fmt == 'html':
-            write_to_html(structure, 'output.html')
-        elif fmt == 'json':
-            write_to_json(structure, 'output.json')
+            level = level_map.get(level_str.upper(), None)-1
+            doc.add_heading(title, level=level)
         else:
-            print(f"Format {fmt} not supported.")
+            doc.add_heading(title, level=level)
+
+    # Add paragraphs (if any)
+    if 'paragraph_title' in item or 'paragraph_text' in item:
+        bibliography.extend(add_paragraphs(doc, item))
+
+
+    # Check for subheadings and process recursively
+    subheadings = item.get('subheadings', [])
+    if isinstance(subheadings, list):
+        for subheading in subheadings:
+            bibliography.extend(process_outline(doc, subheading,single_theme=single_theme)) # Recursively process subheadings
+
+    return bibliography
+
+def create_docx(filename, themes,type='raw'):
+    """Main function to create DOCX from themes and outlines."""
+    bibliographic= []
+    doc = Document()
+    if len(themes)==1:
+        customize_doc_style(doc, themes[0]['theme'])
+        for outline_item in themes[0].get('outline', []):
+           bibliographic.extend(process_outline(doc, outline_item,single_theme=False))  # Process each item in the outline
+
+    if len(themes)>1:
+
+        customize_doc_style(doc,'Thematic review')
+        for theme in themes:
+            for outline_item in theme.get('outline', []):
+                bibliographic.append(process_outline(doc, outline_item))  # Process each item in the outline
+        # Add a "References" heading
+    references_heading = doc.add_paragraph("References", style='Heading 1')
+    references_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # Add each reference with numbering
+    bibliographic= sorted(set(bibliographic), key=lambda ref: ref.split(",")[0])
+    for i, reference in enumerate(bibliographic, 1):
+        numbered_reference = f"{i}. {reference}"  # Add numbering to each reference
+        paragraph = doc.add_paragraph(numbered_reference, style='References')
+        paragraph.paragraph_format.first_line_indent = Inches(-0.5)  # Hanging indent
+        paragraph.paragraph_format.left_indent = Inches(
+            0.5)  # Indent the entire paragraph to preserve the hanging indent
+    doc.save(filename)
+
+def create_md(filename, themes):
+    content = ""
+    for theme in themes:
+        content += f"# {theme['theme']}\n\n"
+        for outline in theme['outline']:
+            content += f"## {outline.get('heading', '')}\n"
+            add_md_paragraphs(outline, content)
+            if 'subheadings' in outline:
+                add_md_subheadings(outline['subheadings'], content, level=3)
+    with open(filename, 'w') as f:
+        f.write(content)
+
+def add_md_paragraphs(item, content):
+    """Helper function to add paragraphs and blockquotes to markdown content"""
+    paragraph_titles = item.get('paragraph_title', [])
+    paragraph_texts = item.get('paragraph_text', [])
+    blockquotes = item.get('paragraph_blockquote', [])
+
+    print(f"Markdown - Adding paragraphs - Titles: {paragraph_titles}")
+    print(f"Markdown - Adding paragraphs - Texts: {paragraph_texts}")
+
+    for title, text in zip(paragraph_titles, paragraph_texts):
+        content += f"**{title}**\n\n{text}\n\n"
+
+    for blockquote in blockquotes:
+        content += f"> {blockquote}\n\n"
+
+def add_md_subheadings(subheadings, content, level=3):
+    """Recursively adds subheadings to markdown content"""
+    md_heading = "#" * level
+    for sub in subheadings:
+        content += f"{md_heading} {sub.get('heading', sub.get('title', ''))}\n\n"
+        add_md_paragraphs(sub, content)
+        if 'subheadings' in sub:
+            add_md_subheadings(sub['subheadings'], content, level + 1)
+
+def create_html(filename, themes):
+    md_content = ""
+    for theme in themes:
+        md_content += f"# {theme['theme']}\n\n"
+        for outline in theme['outline']:
+            md_content += f"## {outline.get('heading', '')}\n"
+            add_md_paragraphs(outline, md_content)
+            if 'subheadings' in outline:
+                add_md_subheadings(outline['subheadings'], md_content, level=3)
+    html_content = markdown.markdown(md_content)
+    with open(filename, 'w') as f:
+        f.write(html_content)
+
+def create_pdf(filename, themes):
+    html_filename = "temp.html"
+    create_html(html_filename, themes)
+    # Specify the path to wkhtmltopdf if necessary
+    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")  # Update with your actual path
+    pdfkit.from_file(html_filename, filename, configuration=config)
+
+def create_json(filename, themes):
+    with open(filename, 'w') as f:
+        json.dump(themes, f, indent=4)
+
+def export_data(filename, themes, export_to):
+    if 'docx' in export_to:
+        create_docx(f"{filename}.docx", themes)
+    if 'md' in export_to:
+        create_md(f"{filename}.md", themes)
+    if 'html' in export_to:
+        create_html(f"{filename}.html", themes)
+    if 'pdf' in export_to:
+        create_pdf(f"{filename}.pdf", themes)
+    if 'json' in export_to:
+        create_json(f"{filename}.json", themes)
+

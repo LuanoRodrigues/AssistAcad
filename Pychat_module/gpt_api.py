@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 from uuid import uuid4
 load_dotenv()  # Load environment variables from .env file
 
-from Zotero_module.zotero_data import prompts
+from pydantic import BaseModel
+
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
 import json
@@ -116,7 +117,7 @@ def prepare_batch_requests(text_to_send, id, content,schema):
     return results
 # Function to send bigrams in batch to the OpenAI Batch API for embeddings
 
-def call_openai_api(data,id,function, batch=False):
+def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini'):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     # Open and read the prompts from a JSON file
     with open(r'C:\Users\luano\Downloads\AcAssitant\Files\Prompts\api_prompts.json', 'r') as f:
@@ -135,7 +136,7 @@ def call_openai_api(data,id,function, batch=False):
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']
     config = prompts[function]['config']
-    max_tokens = config.get('max_tokens', 1000)  # Fallback to 500 if not defined
+    max_tokens = config.get('max_tokens', 4096)  # Fallback to 500 if not defined
     temperature = config.get('temperature', 0.4)  # Fallback to 0.4 if not defined
     top_p = config.get('top_p', 0.9)  # Fallback to 0.9 if not defined
 
@@ -146,7 +147,8 @@ def call_openai_api(data,id,function, batch=False):
 
     response = client.chat.completions.create(
 
-        model="gpt-4o-mini",
+        # model="gpt-4o-mini",
+        model=model,
 
         messages=[
             {"role": "system", "content": content},
@@ -166,9 +168,42 @@ def call_openai_api(data,id,function, batch=False):
     )
 
     message = response.choices[0].message.content.strip()
-    # return message, response.id
+    if isinstance(message, str):
+        message = ast.literal_eval(message)
     return message
 
+
+def retry_api_call(data, function, model='gpt-4o-mini',max_retries=3, delay=2):
+    attempt = 0
+    response = None
+    while attempt < max_retries:
+        try:
+            # Make the API call
+            response = call_openai_api(
+                data=data,
+                function=function,
+                id='',
+                model=model
+            )
+            print(f'Attempt {attempt + 1} successful')
+
+            # Parse response if it's a string
+            if isinstance(response, str):
+                response = ast.literal_eval(response)['subheadings']
+            return response  # Return if successful
+
+        except Exception as e:
+            attempt += 1
+            print(f'Error on attempt {attempt}: {e}')
+            print(f'Response: {response}')
+
+            if attempt < max_retries:
+                print(f'Retrying in {delay} seconds...')
+                time.sleep(delay)  # Wait before retrying
+            else:
+                print('Max retries reached. Aborting.')
+
+    return None  # Return None if all attempts fail
 
 def extract_text_from_pdf(file_path):
     doc = fitz.open(file_path)
