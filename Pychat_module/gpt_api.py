@@ -131,7 +131,7 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini'):
                             "remarkable", "in conclusion", "it is important to note",
                              "in this digital world"]
 
-    prompt = prompts[function]['text'] +f"\n text: {data}\nstop_words_list::\n{common_words_chatgpt}"
+    prompt = prompts[function]['text'] +f"\n text: {data}\n avoid these words in your output:\n{common_words_chatgpt}"
 
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']
@@ -168,8 +168,15 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini'):
     )
 
     message = response.choices[0].message.content.strip()
-    if isinstance(message, str):
-        message = ast.literal_eval(message)
+    try:
+        if isinstance(message, str):
+            message = ast.literal_eval(message)
+    except Exception as e:
+        print('err, trying again',e)
+        print(message)
+        print(data)
+        input('openai failed, data above')
+        message=call_openai_api(data=data,id=id,function=function,batch=batch,model=model)
     return message
 
 

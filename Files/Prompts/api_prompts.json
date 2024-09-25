@@ -1,5 +1,61 @@
-{"grouping_sections": {
-    "text": "You will receive a list of section titles. Your task is to group these titles into as many clear, unique, and distinct themes as possible and then organize them into a hierarchical outline. Instructions: 1. **Maximize groupings**: Your goal is to group as many titles as possible under each theme, provided that they share the same overarching idea. 2. **Merge overlapping or redundant titles**: If two or more titles are similar in meaning or cover the same topic, merge them under the same theme, while conserving common keywords in their section title. 3. **Create distinct, clear themes**: Ensure that each theme has a clear, concise title that accurately reflects the content. 4. **Organize sections comprehensively **: Within each theme, create an outline of sections using the main headings H1 related to the theme according to the provided data. 5. **Include all titles**: Make sure every section title is grouped into a theme. No titles should be left ungrouped even the subsections titles that are to specific should gain its own heading 1. Overall, the themes should encompass all the content of the sections dataset and the headings 1 within each theme should encompass all the main headings withing their particular theme, even the specific headings.",
+{
+ "getting_keywords": {
+    "text": "You will receive an academic paragraph along with its context. Your task is to extract 1 to 5 keywords or key phrases (bigrams) that best represent the main ideas of the paragraph, categorizing them into **topics**, **entities**, and **academic features**. Instructions: 1. **Summarize key arguments and main ideas**: Focus on extracting keywords that encapsulate the core arguments or concepts of the paragraph and group them under 'topics'. 2. **Include specific entities**: Identify and extract names of authors, organizations, companies, or international bodies, and group them under 'entities'. 3. **Highlight academic elements**: Extract terms related to academic features such as frameworks, methodologies, theoretical models, and key approaches, and group them under 'academic features'. 4. **Limit to 1-5 keywords**: Provide between 1 and 5 relevant keywords or key phrases, including a mix of single keywords and phrases (bigrams or trigrams). 5. **Avoid generic terms**: Exclude common stopwords and overly generic terms (e.g., 'and', 'the', 'research'), they should very specific to the paragraph text or paragraph title, not the section title.\nnote:make sure to ouput no truncated and valid json format ```json",
+    "json_schema": {
+      "name": "keywords_extraction_v2",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "description": "This schema categorizes extracted keywords into topics, entities, and academic features.",
+        "properties": {
+          "keywords": {
+            "type": "object",
+            "description": "The main heading for extracted keywords, containing nested categories.",
+            "properties": {
+              "topics": {
+                "type": "array",
+                "description": "A list of keywords or key phrases that summarize the main ideas and arguments of the paragraph.",
+                "items": {
+                  "type": "string",
+                  "description": "A single keyword or a phrase (bigram or trigram) representing a key topic."
+                }
+              },
+              "entities": {
+                "type": "array",
+                "description": "A list of specific entities mentioned in the paragraph, such as authors, organizations, companies, or international bodies. Return an empty list if no keyword is found",
+                "items": {
+                  "type": "string",
+                  "description": "An entity name such as an author, organization, company, or international body."
+                }
+              },
+              "academic_features": {
+                "type": "array",
+                "description": "A list of academic features such as frameworks, methodologies, theoretical models, or approaches.Return an empty list if no keyword is found",
+                "items": {
+                  "type": "string",
+                  "description": "A keyword or phrase representing an academic concept or feature (e.g., framework, method)."
+                }
+              }
+            },
+            "required": ["topics", "entities", "academic_features"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["keywords"],
+        "additionalProperties": false
+      }
+    },
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.2,
+      "top_p": 0.85
+    },
+    "content": "Your task is to categorize the keywords extracted from the paragraph into **topics** (core ideas and arguments), **entities** (authors, organizations, etc.), and **academic features** (frameworks, methodologies, etc.). Output the results in JSON format, using 'keywords' as the main heading with nested categories.\nnote:make sure to ouput no truncated and valid json format ```json"
+  }
+,
+
+  "grouping_sections": {
+    "text": "You will receive a list of section titles. Your task is to group these titles into as many clear, unique, and distinct themes as possible and then organize them into a hierarchical outline. Instructions: 1. **Maximize groupings**: Your goal is to group as many titles as possible under each theme, provided that they share the same overarching idea. 2. **Merge overlapping or redundant titles**: If two or more titles are similar in meaning or cover the same topic, merge them under the same theme, while conserving common keywords in their section title. 3. **Create distinct, clear themes**: Ensure that each theme has a clear, concise title that accurately reflects the content. 4. **Organize sections comprehensively **: Within each theme, create an outline of sections using the main headings H1 related to the theme according to the provided data. 5. **Include all titles**: Make sure every section title is grouped into a theme. No titles should be left ungrouped even the subsections titles that are to specific should gain its own heading 1. Overall, the themes should encompass all the content of the sections dataset and the headings 1 within each theme should encompass all the main headings withing their particular theme, even the specific headings.\nnote:make sure to ouput no truncated and valid json format ```json",
     "json_schema": {
       "name": "themes_writer_v8",
       "strict": true,
@@ -379,7 +435,7 @@
       "temperature": 0.0,
       "top_p": 0.95
     },
-        "content": "Your task is to organize topic sentences by assigning coherent HTML headings (h2,h3,h4) with corresponding titles and paragraph ids. Ensure proper nesting of headings to reflect the logical structure of the document. <h2> heading. Each heading should capture the essence of the grouped topic sentences. note 1: do no repeat the same paragraph id more than 5 times accros the headings. note 2:ouput is in json format ```json"
+        "content": "Your task is to organize topic sentences by assigning coherent HTML headings (h2,h3,h4) with corresponding titles and paragraph ids. Ensure proper nesting of headings to reflect the logical structure of the document. <h2> heading. Each heading should capture the essence of the grouped topic sentences. note 1: do no repeat the same paragraph id more than 5 times accross the headings. note 2:ouput is in json format ```json"
 
   }
 

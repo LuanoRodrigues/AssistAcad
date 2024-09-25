@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import fitz
@@ -10,6 +11,7 @@ from pathlib import Path
 import math
 from collections import defaultdict
 
+from nibabel.brikhead import filepath
 from openai import files
 from sklearn.utils.multiclass import type_of_target
 from sympy import pprint
@@ -17,7 +19,7 @@ from tests.test_conversions import test_hn_atx_headings
 
 from Vector_Database.qdrant_handler import QdrantHandler
 from qdrant_client.http.exceptions import UnexpectedResponse
-from File_management.exporting_files import export_data
+from File_management.exporting_files import export_data, convert_zotero_to_md
 from Vector_Database.embedding_handler import query_with_history,check_existing_query
 from Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
@@ -27,6 +29,8 @@ from NLP_module.PDFs_nlp import find_phrase_in_pdf
 from Reference_processing.Grobid_references import parse_grobid_xml_to_dict,extract_citations_grobid
 
 from alive_progress import alive_bar, alive_it,config_handler
+
+from Word_modules.md_config import convert_zotero_to_md_with_id
 from Zotero_module.zotero_data import note_update,book,initial_book,note_summary_schema
 from progress.bar import Bar
 from Pychat_module.gpt_api import process_pdf, write_batch_requests_to_file, create_batch, upload_batch_file, \
@@ -121,6 +125,10 @@ def generate_cabecalho(zot, item_id,dict_response=False,links=True):
     # Fetch the item by ID
     item = zot.item(item_id)
     data = item
+    # Access the attachment details directly
+    attachment_info = data['links'].get('attachment')
+
+
     link1 = ""
     link2 = ""
     authors = None
@@ -137,7 +145,6 @@ def generate_cabecalho(zot, item_id,dict_response=False,links=True):
         # If there is an error, print out the error and the format that caused it.
         # Ensure authors is set to None or an empty list if there is an error
         print(f"Error when parsing authors: {e}")
-    print(data)
     title = data['data'].get('title')
     date = data['data'].get('date')
 
@@ -167,9 +174,17 @@ def generate_cabecalho(zot, item_id,dict_response=False,links=True):
     publication_title = data['data'].get('publicationTitle')
     if item['data']['itemType'] in ['note', 'attachment', 'linkAttachment', 'fileAttachment']:
         return  # Exit the function as we cannot proceed
+    citation_key = None
+    extra_data = data['data'].get('extra')
+
+    if extra_data:
+        for line in extra_data.split('\n'):
+            if 'Citation Key' in line:
+                citation_key = line.split(': ')[1]
     # Format the current date and time
     now = datetime.now().strftime("%d-%m-%Y at %H:%M")
     link1 = link2 = ''
+
     if links:
         data_wos = get_document_info1(query1)
         if data_wos:
@@ -216,7 +231,17 @@ def generate_cabecalho(zot, item_id,dict_response=False,links=True):
         return {'authors': authors,
                 'date': date,
                 'journal': publication_title,
-                'title': title}
+                'title': title,
+                'abstract':abstract,
+                'doi':doi,
+                "item_type":item_type,
+                "url":item['data'].get('url'),
+                "conferenceName":item['data'].get('conferenceName'),
+                "pages":item['data'].get('pages'),
+                "short_title":item['data'].get('shortTitle'),
+                'item_id':key,
+                'citation_key':citation_key,
+                'attachment':attachment_info}
     return metadata.strip()
 
 def parse_headings_with_html_content(html_file,pdf,user_id='9047943',
@@ -828,7 +853,8 @@ class Zotero:
                               store_only=True,
                               update=True,
                                          processing_batch=False,
-                                         database_name=''):
+                                         database_name='',
+                                         overwrite_payload=False):
 
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
         loop=True
@@ -853,7 +879,7 @@ class Zotero:
             pdf = note['pdf']
             file_name = r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\\"  + collection_name+ ".jsonl"
             if item_start:
-                if item_start==id or index1==9:
+                if item_start==id or index1==21:
                     loop=True
             note_id = None
             try:
@@ -862,6 +888,7 @@ class Zotero:
             except Exception as e:
                 print('err with note_id: ', e)
                 print(note_id)
+                print(note['note_info'])
                 print(keys)
                 pass
 
@@ -878,7 +905,8 @@ class Zotero:
                                              store_only=store_only,
                                              processing_batch=processing_batch,
                                              rewrite=rewrite,
-                                             database_name=database_name
+                                             database_name=database_name,
+                                             overwrite_payload=overwrite_payload
                                              )
 
         if batch:
@@ -887,9 +915,10 @@ class Zotero:
             batch_id = create_batch(batch_input_file_id)
             check_save_batch_status(batch_id)
 
-    def insert_title_paragraphs(self,zotero_collection,database_name,item_id=None,insert_database=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,note_id=None,rewrite=False):
+    def insert_title_paragraphs(self,zotero_collection,database_name,item_id=None,insert_database=False,overwrite_payload=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,note_id=None,rewrite=False):
         metadata = generate_cabecalho(zot=self.zot, item_id=item_id, dict_response=True, links=False)
-
+        tags_md=[]
+        keywords= None
         if note_id is None:
 
             note_id =self.get_children_notes(item_id=item_id,get_note='Paragraphs')
@@ -942,6 +971,7 @@ class Zotero:
 
                 for n,h2 in enumerate(soup.find_all('h2')):
                     section_title = h2.get_text()
+                    markdown_content += f"## {section_title}\n\n"
                     if section_title.lower() not in stop_sections:
                         section_data = {'title':title,'h2': section_title, 'paragraphs': []}
                         paragraphs = []
@@ -1026,8 +1056,39 @@ class Zotero:
                                         h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
                                         # Move to the next h3 element for the next iteration
                                         h3_elem = h3_elem.find_next_sibling('h3')
-                                        if insert_database:
+                                        if overwrite_payload:
 
+                                            context = f'\ncontext:section title:{section_title} paragraph title:{matching_title['h3_title']}\nnote: do not include {metadata['authors']} in entities'
+
+                                            keywords = call_openai_api(function='getting_keywords', data=paragraph['paragraph']+ context,
+                                                                       id='')
+
+
+                                            hash_object = hashlib.sha256(matching_title['h3_title'].encode('utf-8'))
+
+                                            # Convert the hash to an integer and limit it to 8 digits
+                                            paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)
+
+                                            new_payload=  {
+                                               "paragraph_count ": str(i + 1),
+                                               "article_title":title.get_text(),
+                                               "section_title":section_title,
+                                               "paragraph_title":matching_title['h3_title'],
+                                               "paragraph_blockquote":paragraph['blockquote'],
+                                               "paragraph_text":paragraph['paragraph'],
+                                               "metadata":metadata,
+                                               "keywords":keywords
+                                            }
+                                            handler.clear_and_set_payload(collection_name=collection_name, new_payload=new_payload,
+                                                                   point_id=paragraph_id)
+
+
+                                        if insert_database:
+                                            context = f'\ncontext:section title:{section_title} paragraph title:{matching_title['h3_title']}'
+
+                                            keywords = call_openai_api(function='getting_keywords',
+                                                                       data=paragraph['paragraph'] + context,
+                                                                       id='')
                                             time.sleep(4)
                                             handler.process_and_append(
                                                                        collection_name=collection_name,
@@ -1038,12 +1099,18 @@ class Zotero:
                                                                        paragraph_blockquote=paragraph['blockquote'],
                                                                        paragraph_text=paragraph['paragraph'],
                                                                        metadata=metadata,
+                                                                       keywords=keywords,
+
                                                                        )
                                         if create_md_file:
+                                            hash_object = hashlib.sha256(matching_title['h3_title'].encode('utf-8'))
+                                            paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)
+
                                             # Append to markdown content
-                                            markdown_content += f"## {section_title}\n\n"
-                                            markdown_content += f"### {matching_title['h3_title']}\n\n"
-                                            markdown_content += f"> {paragraph['paragraph']}\n\n"
+
+                                            markdown_content += f">[!important] > ### {matching_title['h3_title']}\n\n"
+                                            markdown_content += f"> {convert_zotero_to_md_with_id(html_paragraph=paragraph['blockquote'],item_id=item_id,paragraph_id=str(paragraph_id),keywords=" ".join(self.convert_to_obsidian_tags(keywords)))}\n\n"
+
 
                     results.append(section_data)
 
@@ -1051,8 +1118,11 @@ class Zotero:
                     return batch_requests
 
                 if create_md_file:
-                    filepath= r"C:\Users\luano\Downloads\AcAssitant\Files\md_files"+"\\"+parentItem+".md"
+
+                    filepath= r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Paragraphs"+"\\"+metadata['citation_key']+".md"
                     with open(filepath, "w",encoding='utf-8') as md_file:
+                        if tags_md:
+                            markdown_content = markdown_content + "\n\n" +" ".join(tags_md)
                         md_file.write(markdown_content)
                         self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
 
@@ -1064,6 +1134,18 @@ class Zotero:
                 # updated_note_content = str(soup)
                 # self.update_note(note, updated_note_content,tag=tags)
 
+    # Convert keywords into Obsidian tag format
+    def convert_to_obsidian_tags(self,keywords_dict):
+        tags = []
+
+        # Loop through the categories (topics, entities, academic_features)
+        for category, words in keywords_dict['keywords'].items():
+            for word in words:
+                # Convert each keyword into a tag with a hash (#) and replace spaces with underscores
+                tag = f"#{word.replace(' ', '_').replace(".","").replace("'","").replace(",","")}"
+                tags.append(tag)
+
+        return tags
     def create_citation_from_pdf1(self, collection_name, article_title="", update=True,batch=False,store_only=True):
 
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
@@ -2510,7 +2592,35 @@ class Zotero:
                     self.create_item_with_attachment(file_path, collection_key)
         except Exception as e:
             print(f"Failed to process directory '{directory_path}': {e}")
+    def summary_gpt(self,collection_name='Law and evidence',update=False):
+        api = ChatGPT(**self.chat_args)
+        dir=r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Paragraphs"
+        collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        dir_path = Path(dir)
+        md_files = list(dir_path.rglob("*.md"))
+        md_files = [str(file) for file in md_files]
+        data=None
+        filepath=None
+        item_ids = [i['item_id'] for t, i in collection_data[("items")]["papers"].items()]
+        for item_id in item_ids:
 
+            metadata = generate_cabecalho(zot=self.zot, item_id=item_id, dict_response=True, links=False)
+            print([os.path.split(i)[-1].replace('.md','') for i in md_files])
+            print(metadata['citation_key'] + ".md")
+
+            if metadata['citation_key'] in [os.path.split(i)[-1].replace('.md','') for i in md_files]:
+                filepath = r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Paragraphs" + "\\" + \
+                           "summary_"+metadata['citation_key'] + ".md"
+
+                # Write each dictionary as a new line in the file
+                for prompt in note_update.values():
+                    file=filepath = r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Paragraphs" + "\\"+metadata['citation_key'] + ".md"
+                    data=""
+                    data += api.interact_with_page(path=file,prompt=prompt)
+            if data and filepath:
+                with open(filepath, "w", encoding='utf-8') as md_file:
+                    md_file.write(data)
+                    self.attach_file_to_item(parent_item_id=item_id, file_path=filepath, tag_name='md_summaries')
     def creating_training_data_gpt(self,file_path,data_list):
         api = ChatGPT(**self.chat_args)
         """
@@ -2553,7 +2663,8 @@ class Zotero:
         # note = values["note"]
         # #         id = values['item_id']
         # #         pdf = values['pdf']
-        # #
+
+
         def clean_headings(heading):
             stop_words = [
                 'introduction', 'conclusion', 'abstract', 'summary', 'notes', 'references', 'bibliography',
@@ -2599,72 +2710,72 @@ class Zotero:
 
         if report=='report 1':
         #
-            sections=[]
-            data = [i['note']['note_info'] for  t, i in collection_data[("items")]["papers"].items() ]
-
-            for notes in data:
-                if notes:
-                    for notes_info in notes:
-                        if notes_info:
-                            soup = BeautifulSoup(notes_info['note_content'], 'html.parser')
-                            h2_tags =[ clean_headings(h2.get_text()) for h2 in soup.find_all('h2') if clean_headings(h2.get_text()) ]
-                            sections.extend(h2_tags)
-
-            grouping_themes =call_openai_api(function='grouping_sections',
-                                             data=sections,
-                                             id='',
-                                             model='gpt-4o-2024-08-06'
-                                             )
-            # Grouping collection sections
-            # grouping_themes = {'themes': [{'theme': 'Cyber Attribution Frameworks and Challenges', 'outline': [{'title': 'Deconstructing Cyber Attribution', 'level': 'H1'}, {'title': 'The Role of Cyber Attribution in Deterrence and Accountability', 'level': 'H1'}, {'title': 'The Challenge of Attribution to Nation-State Actors', 'level': 'H1'}, {'title': 'Attribution Processes Today', 'level': 'H1'}, {'title': 'New Developments in Advancing Attribution', 'level': 'H1'}, {'title': 'Institutionalizing Transnational Attribution', 'level': 'H1'}, {'title': 'Current Practice', 'level': 'H1'}]}, {'theme': 'Legal Aspects of Cyber Attribution', 'outline': [{'title': 'Advantages and Difficulties of Regulating Evidentiary Requirements', 'level': 'H1'}, {'title': 'Establishment of Evidentiary Rules via Customary International Law', 'level': 'H1'}, {'title': 'Legal Deficiencies in Public Attribution', 'level': 'H1'}, {'title': 'Toward a Norm on Responsible Public Attribution', 'level': 'H1'}, {'title': 'The Law of Attribution', 'level': 'H1'}, {'title': 'Legal Challenges in Attributing Unlawful Cyber Intrusions', 'level': 'H1'}, {'title': 'Prospects for International Legal Regulation', 'level': 'H1'}]}, {'theme': 'Evidentiary Standards and Proof in Cyber Operations', 'outline': [{'title': 'Burden of Proof', 'level': 'H1'}, {'title': 'The Standard of Proof', 'level': 'H1'}, {'title': 'Means of Proof of Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues in the Context of Cyber Operations', 'level': 'H1'}, {'title': 'Evidentiary Standards Before the International Court of Justice', 'level': 'H1'}]}, {'theme': 'Cyber Attacks and State Responsibility', 'outline': [{'title': 'Cyber-Attacks and the Russian-Georgian Conflict', 'level': 'H1'}, {'title': 'The Tallinn Manual and State Responsibility', 'level': 'H1'}, {'title': 'Complying with International Law on Attribution', 'level': 'H1'}, {'title': 'Cyber Attacks as Internationally Wrongful Acts', 'level': 'H1'}, {'title': 'Attribution of Cyber Operations to a State Under International Law', 'level': 'H1'}]}, {'theme': 'Cyber Proxies and Plausible Deniability', 'outline': [{'title': 'Cyber Proxies: What We Know', 'level': 'H1'}, {'title': 'The Illogic of Plausible Deniability', 'level': 'H1'}, {'title': 'Assessment of Russian Cyberspace Activities', 'level': 'H1'}]}, {'theme': 'Policy and Strategic Considerations in Cyber Attribution', 'outline': [{'title': 'Criminal Charges as Policy Considerations', 'level': 'H1'}, {'title': 'How Attribution Relates to Policy', 'level': 'H1'}, {'title': 'The Relationship Between Attribution and Action', 'level': 'H1'}]}, {'theme': 'Countermeasures and Responses to Cyber Operations', 'outline': [{'title': 'Retorsion and Other Lawful Responses', 'level': 'H1'}, {'title': 'Countermeasures', 'level': 'H1'}, {'title': 'Actions Taken Out of Necessity', 'level': 'H1'}, {'title': 'Resort to Sanctions from a Legal Perspective', 'level': 'H1'}, {'title': 'Consequential Coercive Diplomacy Through Economic Sanctions', 'level': 'H1'}]}, {'theme': 'Technical and Practical Challenges in Cyber Attribution', 'outline': [{'title': 'Technical and Practical Challenges', 'level': 'H1'}, {'title': 'On the Problem of Cyber Attribution', 'level': 'H1'}, {'title': 'The Design of the Internet and the Difficulty of Attribution', 'level': 'H1'}]}]}
-            # print('grouping')
+            # sections=[]
+            # data = [i['note']['note_info'] for  t, i in collection_data[("items")]["papers"].items() ]
             #
+            # for notes in data:
+            #     if notes:
+            #         for notes_info in notes:
+            #             if notes_info:
+            #                 soup = BeautifulSoup(notes_info['note_content'], 'html.parser')
+            #                 h2_tags =[ clean_headings(h2.get_text()) for h2 in soup.find_all('h2') if clean_headings(h2.get_text()) ]
+            #                 sections.extend(h2_tags)
+            #
+            # # grouping_themes =call_openai_api(function='grouping_sections',
+            # #                                  data=sections,
+            # #                                  id='',
+            # #                                  model='gpt-4o-2024-08-06'
+            # #                                  )
+            # # Grouping collection sections
+            # grouping_themes = {'themes': [{'theme': 'Cyber Attribution Frameworks and Processes', 'outline': [{'title': 'Deconstructing Cyber Attribution: A Proposed Framework and Lexicon', 'level': 'H1'}, {'title': 'Cyber Attribution in Scholarly and Policy Debate', 'level': 'H1'}, {'title': 'Deconstructing (and Reconstructing) Cyber Attribution', 'level': 'H1'}, {'title': 'Attribution Processes Today', 'level': 'H1'}, {'title': 'New Developments in Advancing Attribution', 'level': 'H1'}, {'title': 'Institutionalizing Transnational Attribution', 'level': 'H1'}, {'title': 'The Practice and Purposes of Attribution', 'level': 'H1'}, {'title': 'Designing Attribution', 'level': 'H1'}, {'title': 'A New Model for Attribution', 'level': 'H1'}, {'title': 'Technical Cyber Attribution', 'level': 'H1'}]}, {'theme': 'Legal Aspects of Cyber Attribution', 'outline': [{'title': 'The Role of Cyber Attribution in Deterrence and Accountability', 'level': 'H1'}, {'title': 'Legal Deficiencies That Encourage Ill-Substantiated Public Attribution', 'level': 'H1'}, {'title': 'The Law of Attribution', 'level': 'H1'}, {'title': 'Legal Challenges in Attributing an Unlawful Cyber Intrusion', 'level': 'H1'}, {'title': 'Prospects for International Legal Regulation', 'level': 'H1'}, {'title': 'Cyber Armed Attacks and Self-Defense', 'level': 'H1'}, {'title': 'Attribution of State Responsibility in Cyberspace', 'level': 'H1'}, {'title': 'The Tallinn Manual and State Responsibility', 'level': 'H1'}, {'title': 'Complying with International Law on Attribution: The Russia DNC Hack', 'level': 'H1'}, {'title': 'The International Law Problems with Countermeasures in Cyber', 'level': 'H1'}, {'title': 'Assessing the State of Attribution Law', 'level': 'H1'}, {'title': 'The National Security Implications of the International Law on Attribution', 'level': 'H1'}]}, {'theme': 'Evidentiary Standards and Challenges', 'outline': [{'title': 'Advantages and Difficulties of Regulating Evidentiary Requirements', 'level': 'H1'}, {'title': 'Establishment of Evidentiary Rules via Customary International Law', 'level': 'H1'}, {'title': 'Three Lenses to Interrogate Public Attribution', 'level': 'H1'}, {'title': 'Burden of Proof', 'level': 'H1'}, {'title': 'The Standard of Proof', 'level': 'H1'}, {'title': 'Means of Proof of Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues in the Context of Cyber Operations', 'level': 'H1'}, {'title': 'Cyber-Attacks and Evidentiary Difficulties: Estonia and Georgia', 'level': 'H1'}, {'title': 'Evidentiary Standards Before the International Court of Justice', 'level': 'H1'}, {'title': 'Possible Means to Address the Evidentiary Dilemma in Cyberspace', 'level': 'H1'}, {'title': 'The International Law of Evidence', 'level': 'H1'}, {'title': 'Burden of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Standard of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Methods of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Presumptions and Inferences in the Cyber Context', 'level': 'H1'}, {'title': 'Inadmissible Evidence', 'level': 'H1'}]}, {'theme': 'Cyber Conflict and State Responsibility', 'outline': [{'title': 'Cyber-Attacks and the Russian-Georgian Conflict', 'level': 'H1'}, {'title': 'Cyber-Attacks as Internationally Wrongful Acts', 'level': 'H1'}, {'title': 'Adverse Cyber Operations and Possible Responses', 'level': 'H1'}, {'title': 'Causality and Attribution', 'level': 'H1'}, {'title': 'The Present State of Cyber Attribution', 'level': 'H1'}, {'title': 'Proposals for International Attribution Mechanisms', 'level': 'H1'}, {'title': 'Developing Evidence for Attribution and Victim State Responses', 'level': 'H1'}, {'title': 'Assessment of Russian Cyberspace Activities', 'level': 'H1'}, {'title': 'Current International Law Has Limited Utility to Counter Russian Cyber Proxies', 'level': 'H1'}]}, {'theme': 'Policy and Strategic Implications of Attribution', 'outline': [{'title': 'Deciding How and When a “Victim” State May Respond', 'level': 'H1'}, {'title': 'Retorsion and Other Lawful Responses', 'level': 'H1'}, {'title': 'Countermeasures', 'level': 'H1'}, {'title': 'Actions Taken Out of Necessity', 'level': 'H1'}, {'title': 'Resort to Sanctions from a Legal Perspective', 'level': 'H1'}, {'title': 'The US, the EU and the UK Counter-Cyber Sanction Regimes and Their Implementation', 'level': 'H1'}, {'title': 'How to Measure the Effectiveness of Sanctions', 'level': 'H1'}, {'title': 'Consequential Coercive Diplomacy Through Economic Sanctions', 'level': 'H1'}, {'title': 'Implement a Rapid Attribution Strategy', 'level': 'H1'}]}, {'theme': 'Cyber Attribution: Challenges and Solutions', 'outline': [{'title': 'The Challenge of Attribution to Nation-State Actors', 'level': 'H1'}, {'title': 'Technical and Practical Challenges', 'level': 'H1'}, {'title': 'The Attribution Problem', 'level': 'H1'}, {'title': 'On the Problem of Cyber Attribution', 'level': 'H1'}, {'title': 'What is Attribution About?', 'level': 'H1'}, {'title': 'The Design of the Internet and the Difficulty of Attribution', 'level': 'H1'}, {'title': 'How Attribution Judgments Are Made', 'level': 'H1'}, {'title': 'Attribution from the Standpoint of the Adversary', 'level': 'H1'}, {'title': 'Identifying Cybercrime, Cyberterrorism, and Cyberwarfare: Taxonomy', 'level': 'H1'}]}, {'theme': 'Case Studies and Empirical Analysis', 'outline': [{'title': "NotPetya, Merck, Mondelez and Lloyd's of London - An Overview", 'level': 'H1'}, {'title': 'Case Studies', 'level': 'H1'}, {'title': 'Cyber Proxies: What We Know', 'level': 'H1'}, {'title': 'The Illogic of Plausible Deniability', 'level': 'H1'}, {'title': 'Empirical Strategy', 'level': 'H1'}, {'title': 'The Park Jin Hyok Case: Salient Features', 'level': 'H1'}]}, {'theme': 'Conceptual and Theoretical Frameworks', 'outline': [{'title': 'Conceptual Framework', 'level': 'H1'}, {'title': 'Criminal Charges as Policy: Considerations', 'level': 'H1'}, {'title': 'Theory of Criminal Justice', 'level': 'H1'}, {'title': 'The Nature of Cyber-Attack', 'level': 'H1'}, {'title': 'Existing Principles of Jus ad Bellum', 'level': 'H1'}]}]}
+            # # print('grouping')
+            # #
+            # print(grouping_themes)
+            # # Step 1: Create a mapping of numbers to themes
+            # themes_list = {n + 1: theme['theme'] for n, theme in enumerate(grouping_themes['themes'])}
+            # # Step 2: Display the available themes
+            # for n,theme in enumerate(grouping_themes['themes']):
+            #
+            #     print(f"{n+1}. {theme['theme']}")
+            # # Step 3: Loop to get valid user input for theme selection
+            # # Step 3: Loop to get valid user input for theme selection
+            # loop = True
+            # while loop:
+            #     # Get user input for theme selection (multiple choices allowed)
+            #     choice = input("What theme(s) would you pick? (Enter numbers separated by spaces): ")
+            #
+            #     # Check if the input is empty
+            #     if not choice.strip():
+            #         print("Input cannot be empty. Please enter valid numbers.")
+            #         continue
+            #
+            #     # Convert user input to a list of integers
+            #     try:
+            #         selected_numbers = [int(num) for num in choice.split()]
+            #     except ValueError:
+            #         print("Invalid input. Please enter numbers only.")
+            #         continue
+            #
+            #     # Check if all selected numbers are valid (i.e., in the available themes list)
+            #     if all(num in themes_list for num in selected_numbers):
+            #         loop = False
+            #         print("You've selected the following themes:")
+            #         for num in selected_numbers:
+            #             print(f"- {themes_list[num]}")
+            #     else:
+            #         print("Invalid selection. Please enter valid theme numbers.")
+            #
+            # # Step 4: Split the input into individual choices and filter the selected themes
+            # chosen_themes = [theme for n, theme in enumerate(grouping_themes['themes']) if str(n+1) in choice.split()]
+            # # Themes={'themes':[theme for theme in grouping_themes['themes'] if theme['theme'] in chosen_themes]}
+            # # Step 5: Display the selected themes
+            # if chosen_themes:
+            #     print(f"You selected: chosen_theme")
+            # else:
+            #     print("No valid theme selected.")
+            # print(chosen_themes)
 
-            # Step 1: Create a mapping of numbers to themes
-            themes_list = {n + 1: theme['theme'] for n, theme in enumerate(grouping_themes['themes'])}
-            # Step 2: Display the available themes
-            for n,theme in enumerate(grouping_themes['themes']):
-
-                print(f"{n+1}. {theme['theme']}")
-            # Step 3: Loop to get valid user input for theme selection
-            # Step 3: Loop to get valid user input for theme selection
-            loop = True
-            while loop:
-                # Get user input for theme selection (multiple choices allowed)
-                choice = input("What theme(s) would you pick? (Enter numbers separated by spaces): ")
-
-                # Check if the input is empty
-                if not choice.strip():
-                    print("Input cannot be empty. Please enter valid numbers.")
-                    continue
-
-                # Convert user input to a list of integers
-                try:
-                    selected_numbers = [int(num) for num in choice.split()]
-                except ValueError:
-                    print("Invalid input. Please enter numbers only.")
-                    continue
-
-                # Check if all selected numbers are valid (i.e., in the available themes list)
-                if all(num in themes_list for num in selected_numbers):
-                    loop = False
-                    print("You've selected the following themes:")
-                    for num in selected_numbers:
-                        print(f"- {themes_list[num]}")
-                else:
-                    print("Invalid selection. Please enter valid theme numbers.")
-
-            # Step 4: Split the input into individual choices and filter the selected themes
-            chosen_themes = [theme for n, theme in enumerate(grouping_themes['themes']) if str(n+1) in choice.split()]
-            # Themes={'themes':[theme for theme in grouping_themes['themes'] if theme['theme'] in chosen_themes]}
-            # Step 5: Display the selected themes
-            if chosen_themes:
-                print(f"You selected: chosen_theme")
-            else:
-                print("No valid theme selected.")
-            print(chosen_themes)
-
-            themes = process_themes(themes=chosen_themes,more_subsection_get=self.search_paragraphs_by_query,type_collection=type_collection,collection_name=collection_name)
+            # themes = process_themes(themes=chosen_themes,more_subsection_get=self.search_paragraphs_by_query,type_collection=type_collection,collection_name=collection_name)
             # print('new themes')
             # print(themes)
             # input('is that right')
@@ -2673,11 +2784,11 @@ class Zotero:
 
             # Recursively add paragraphs to each title and child title in the Themes
 
-
-            with open('textfinal.txt', 'w', encoding='utf-8') as f:
-                f.write(str(themes))
-            # with open('textfinal.txt', 'r', encoding='utf-8') as f:
-            #     themes = ast.literal_eval(f.read())
+            #
+            # with open('textfinal.txt', 'w', encoding='utf-8') as f:
+            #     f.write(str(themes))
+            with open('textfinal.txt', 'r', encoding='utf-8') as f:
+                themes = ast.literal_eval(f.read())
             # print(themes['themes'][0]['theme'])
                         # response= call_openai_api(data=str(data_to)+'\nthe data is inside the h1:Responses and Consequences of Cyber Attribution', function='cleaning_headings',id='')
 
@@ -2685,7 +2796,9 @@ class Zotero:
 
 
 
-            export_data(themes=themes,export_to=['docx'],filename='chosen_themes')
+            export_data(themes=themes,
+                        export_to=['md'],
+                        filename=r'C:\Users\luano\Downloads\AcAssitant\Files\bib_files\cyber evidence')
 
     def search_paragraphs_by_query(self,
                                    collection_name,  # Now we should have a valid collection name
@@ -2761,6 +2874,7 @@ class Zotero:
                         range(len(aggregated_results['paragraph_text']))]
         with open('aggregate.txt', 'w') as f:
             f.write(json.dumps(aggregated_results))
+
         print('aggregated results size:',len(aggregated_results['paragraph_title']))
         size_results= len(aggregated_results['paragraph_title'])
         if ai:

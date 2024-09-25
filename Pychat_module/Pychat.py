@@ -267,7 +267,7 @@ class ChatGPT:
             if self.chat_id == "Statements Database":
                 self.chat_id = "/g/g-zc9XeRbjL"
             if self.chat_id == "summary":
-                self.chat_id = "/g/g-PM8cJsFgY-academic-summary-assistant"
+                self.chat_id = "/g/g-rZwalopdL-markdown-research-paper-reviewer"
             if self.chat_id == "meu":
                 self.chat_id = "/g/g-8dBHrjLA4"
                 # self.chat_id="/gpts/editor/g-8dBHrjLA4"
@@ -742,32 +742,35 @@ class ChatGPT:
 
     def click_files_button(self):
         xpath_list = [
-            # Precise XPath for the main div containing the button
-            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/div",
+            # Direct XPath from provided element structure
+            "/html/body/div[1]/div[2]/main/div[1]/div[2]/div/div[1]/div/form/div/div[2]/div[2]/div/div[1]/div/div/div/span[2]/span/button",
 
-            # XPath for the button with specific ID within the flex flex-col div
-            "//div[contains(@class, 'flex flex-col')]//button[@id='radix-:ra:' and @aria-haspopup='menu']",
+            # Relative XPath focusing on button attributes and position within a form
+            "//form//button[contains(@class, 'flex items-center') and @aria-label='Attach files']",
 
-            # XPath for the button with specific class attributes within the flex flex-col div
-            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']",
+            # XPath targeting the SVG element inside the button
+            "//button//*[name()='svg' and contains(@viewBox, '0 0 24 24')]",
 
-            # XPath for the div with specific attributes within the flex flex-col div
-            "//div[contains(@class, 'flex flex-col')]//div[@type='button' and @aria-haspopup='dialog' and @data-state='closed']",
+            # XPath using aria-label to specifically identify the button for accessibility
+            "//button[@aria-label='Attach files']",
 
-            # Additional XPath for the SVG path within the button
-            "//div[contains(@class, 'flex flex-col')]//button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5') and @aria-disabled='false']/svg/path[@fill='currentColor' and @fill-rule='evenodd']",
+            # XPath using combined class attributes for precise targeting
+            "//button[contains(@class, 'justify-center') and contains(@class, 'rounded-full')]",
 
-            # XPath for any button within the specified main div path
-            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/div/button",
+            # Structural XPath focusing on nested div elements
+            "//div[@class='composer-parent']//button[contains(@class, 'text-token-text-primary')]",
 
-            # XPath for any element with aria-haspopup attribute set to menu
-            "//*[@aria-haspopup='menu']",
+            # XPath for buttons with specific aria roles within certain divs
+            "//div[contains(@class, 'flex-col')]//button[@aria-disabled='false']",
 
-            # Updated XPath directly from the selector provided
-            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/span/div/button[2]",
+            # XPath based on sibling and child relationship
+            "//div[contains(@class, 'flex')]//span/following-sibling::span/button",
 
-            # Additional XPath based on CSS selector hierarchy
-            "//*[@id='__next']/div[1]/div[2]/main/div[1]/div[2]/div[1]/div/form/div/div[2]/div/div/div[1]/span/div/button[contains(@class, 'flex items-center justify-center h-8 w-8 rounded-full text-token-text-primary dark:text-white focus-visible:outline-black dark:focus-visible:outline-white mb-1 ml-1.5')]"
+            # XPath using position predicates for buttons within specific section
+            "(//div[contains(@class, 'flex')]/button)[2]",  # assuming the button is the second button in a div
+
+            # XPath to target any button with specific SVG path rules within it
+            "//button//svg/path[contains(@fill-rule, 'evenodd')]/ancestor::button"
         ]
 
         for selector in xpath_list:

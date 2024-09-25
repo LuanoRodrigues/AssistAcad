@@ -1,10 +1,12 @@
 import json
+import os.path
 import zipfile
 import json
 import markdown
 import pdfkit
 from docx import Document
-import pypandoc
+from docx2pdf import convert
+import json
 from docx import Document
 from scipy.signal import impulse
 from tensorflow.python.framework.test_ops import int_output
@@ -13,6 +15,7 @@ from docx.shared import Pt, Inches
 from docx.enum.style import WD_STYLE_TYPE
 doc = Document()
 from Word_modules.Creating_docx import customize_doc_style
+md_root=r"C:\Users\luano\OneDrive - University College London\Obsidian\cyber evidence"
 
 def export_results(structure, filename="output", export_to=['doc','html']):
     export_to = export_to or ['doc', 'html', 'md', 'json']
@@ -104,9 +107,6 @@ def export_results(structure, filename="output", export_to=['doc','html']):
     if "json" in export_to:
         with open(f"{filename}.json", "w", encoding='utf-8') as json_file:
             json.dump(structure, json_file, ensure_ascii=False, indent=4)
-import json
-import markdown
-import pdfkit
 
 # Mapping heading levels to DOCX heading styles
 level_map = {
@@ -175,7 +175,7 @@ def process_outline(doc, item,single_theme=False):
 
     return bibliography
 
-def create_docx(filename, themes,type='raw'):
+def create_docx(filename, themes):
     """Main function to create DOCX from themes and outlines."""
     bibliographic= []
     doc = Document()
@@ -203,75 +203,193 @@ def create_docx(filename, themes,type='raw'):
             0.5)  # Indent the entire paragraph to preserve the hanging indent
     doc.save(filename)
 
+
+    convert(filename)
+
+
 def create_md(filename, themes):
-    content = ""
+    """Main function to create Markdown from themes and outlines."""
+    filename= os.path.join(md_root,filename)
+    md_content = ""
+    bibliography = []
+
     for theme in themes:
-        content += f"# {theme['theme']}\n\n"
-        for outline in theme['outline']:
-            content += f"## {outline.get('heading', '')}\n"
-            add_md_paragraphs(outline, content)
+        md_content += f"# {theme['theme']}\n\n"  # Add the main theme as H1
+        for outline in theme.get('outline', []):
+            md_content += f"## {outline.get('title', '')}\n"  # Add the outline's main title as H2
+
+            # Add paragraphs and subheadings recursively
+            outline_content, outline_biblio = add_md_paragraphs(outline)
+            md_content += outline_content
+            bibliography.extend(outline_biblio)
+
             if 'subheadings' in outline:
-                add_md_subheadings(outline['subheadings'], content, level=3)
-    with open(filename, 'w') as f:
-        f.write(content)
+                subheadings_content, sub_biblio = add_md_subheadings(outline['subheadings'], level=3)
+                md_content += subheadings_content
+                bibliography.extend(sub_biblio)
 
-def add_md_paragraphs(item, content):
-    """Helper function to add paragraphs and blockquotes to markdown content"""
+    # Add a "References" section with numbering
+    if bibliography:
+        md_content += "\n# References\n\n"
+        bibliography = sorted(set(bibliography))  # Remove duplicates and sort
+        for i, ref in enumerate(bibliography, 1):
+            md_content += f"{i}. {ref}\n\n"
+
+    # Save the generated Markdown content to a file
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(md_content)
+
+
+def add_md_paragraphs(item):
+    """Helper function to add paragraphs and blockquotes to markdown content."""
     paragraph_titles = item.get('paragraph_title', [])
-    paragraph_texts = item.get('paragraph_text', [])
-    blockquotes = item.get('paragraph_blockquote', [])
+    paragraph_texts = item.get('paragraph_blockquote', [])
+    metadata = item.get('metadata', [])
+    biblio = []
 
-    print(f"Markdown - Adding paragraphs - Titles: {paragraph_titles}")
-    print(f"Markdown - Adding paragraphs - Texts: {paragraph_texts}")
+    md_content = ""
 
-    for title, text in zip(paragraph_titles, paragraph_texts):
-        content += f"**{title}**\n\n{text}\n\n"
+    # Add paragraph titles and texts if present
+    if paragraph_titles:
+        for i, title in enumerate(paragraph_titles):
+            md_content += f"**{title}**\n\n"  # Bold title in Markdown format
+            if paragraph_texts and i < len(paragraph_texts):
+                md_content += f"{paragraph_texts[i]}\n\n"  # Add corresponding text
 
-    for blockquote in blockquotes:
-        content += f"> {blockquote}\n\n"
+        if metadata:
+            # Use list comprehension to format metadata references in markdown
+            references = [
+                f"{entry.get('authors', 'Unknown Author')}. "
+                f"({entry.get('date', 'Unknown Year')}). "
+                f"{entry.get('title', 'Unknown Title')}."
+                f"{f' *{entry.get("journal", "")}*' if entry.get('journal') else ''}"
+                for entry in metadata
+            ]
+            biblio.extend(references)
 
-def add_md_subheadings(subheadings, content, level=3):
-    """Recursively adds subheadings to markdown content"""
-    md_heading = "#" * level
+    return md_content, biblio
+
+
+def add_md_subheadings(subheadings, level=3):
+    """Recursively adds subheadings and paragraphs to markdown content."""
+    md_content = ""
+    bibliography = []
+
     for sub in subheadings:
-        content += f"{md_heading} {sub.get('heading', sub.get('title', ''))}\n\n"
-        add_md_paragraphs(sub, content)
+        md_heading = "#" * level
+        title = sub.get('title', sub.get('heading', ''))
+        md_content += f"{md_heading} {title}\n\n"  # Add heading with Markdown syntax
+
+        # Add paragraphs under the subheading
+        paragraphs_content, biblio = add_md_paragraphs(sub)
+        md_content += paragraphs_content
+        bibliography.extend(biblio)
+
+        # Recursively handle sub-subheadings
         if 'subheadings' in sub:
-            add_md_subheadings(sub['subheadings'], content, level + 1)
+            sub_content, sub_biblio = add_md_subheadings(sub['subheadings'], level + 1)
+            md_content += sub_content
+            bibliography.extend(sub_biblio)
+
+    return md_content, bibliography
+
+
 
 def create_html(filename, themes):
+    """Main function to create HTML from themes and outlines."""
     md_content = ""
+
     for theme in themes:
-        md_content += f"# {theme['theme']}\n\n"
-        for outline in theme['outline']:
-            md_content += f"## {outline.get('heading', '')}\n"
-            add_md_paragraphs(outline, md_content)
+        md_content += f"# {theme['theme']}\n\n"  # Add theme as H1
+        for outline in theme.get('outline', []):
+            md_content += f"## {outline.get('title', '')}\n\n"  # Add main outline title as H2
+
+            # Add paragraphs and subheadings recursively
+            outline_content, _ = add_md_paragraphs(outline)
+            md_content += outline_content
+
             if 'subheadings' in outline:
-                add_md_subheadings(outline['subheadings'], md_content, level=3)
-    html_content = markdown.markdown(md_content)
-    with open(filename, 'w') as f:
+                sub_content, _ = add_md_subheadings(outline['subheadings'], level=3)
+                md_content += sub_content
+
+    # Convert the Markdown content to HTML
+    html_content = markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
+
+    # Save the HTML content to a file
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(html_content)
 
-def create_pdf(filename, themes):
-    html_filename = "temp.html"
-    create_html(html_filename, themes)
-    # Specify the path to wkhtmltopdf if necessary
-    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")  # Update with your actual path
-    pdfkit.from_file(html_filename, filename, configuration=config)
 
 def create_json(filename, themes):
     with open(filename, 'w') as f:
         json.dump(themes, f, indent=4)
 
-def export_data(filename, themes, export_to):
+def export_data(filename, themes, export_to=['docx','md','html','json']):
     if 'docx' in export_to:
         create_docx(f"{filename}.docx", themes)
     if 'md' in export_to:
         create_md(f"{filename}.md", themes)
     if 'html' in export_to:
         create_html(f"{filename}.html", themes)
-    if 'pdf' in export_to:
-        create_pdf(f"{filename}.pdf", themes)
+
     if 'json' in export_to:
         create_json(f"{filename}.json", themes)
 
+
+import re
+import urllib.parse
+
+
+def convert_zotero_to_md(html_paragraph):
+    # Decode the HTML-encoded string
+    decoded_paragraph = urllib.parse.unquote(html_paragraph)
+
+    # Extract the annotation data
+    annotation_regex = re.search(r'data-annotation="([^"]+)"', decoded_paragraph)
+    if annotation_regex:
+        annotation_data = urllib.parse.unquote(annotation_regex.group(1))
+        annotation_uri_match = re.search(r'"attachmentURI":"([^"]+)"', annotation_data)
+        page_match = re.search(r'"pageLabel":"([^"]+)"', annotation_data)
+
+        if annotation_uri_match and page_match:
+            annotation_uri = annotation_uri_match.group(1)
+            page_number = page_match.group(1)
+            annotation_link = f"[Go to annotation](zotero://open-pdf/library/items/{annotation_uri.split('/')[-1]}?page={page_number}&annotation=undefined)"
+        else:
+            annotation_link = ""
+    else:
+        annotation_link = ""
+
+    # Extract the highlighted text
+    highlight_regex = re.search(r'>([^<]+)</span>', decoded_paragraph)
+    highlighted_text = highlight_regex.group(1) if highlight_regex else ""
+
+    # Extract the citation information (including author and year)
+    citation_regex = re.search(r'data-citation="([^"]+)"', decoded_paragraph)
+    if citation_regex:
+        citation_data = urllib.parse.unquote(citation_regex.group(1))
+        citation_uri_match = re.search(r'"uris":\["([^"]+)"\]', citation_data)
+        locator_match = re.search(r'"locator":"([^"]+)"', citation_data)
+
+        # Now extract the author and year dynamically
+        author_regex = re.search(r'<span class="citation-item">([^,]+)', decoded_paragraph)
+        year_regex = re.search(r', (\d{4})', decoded_paragraph)
+
+        if citation_uri_match and locator_match and author_regex and year_regex:
+            citation_uri = citation_uri_match.group(1)
+            page_locator = locator_match.group(1)
+            author = author_regex.group(1)
+            year = year_regex.group(1)
+            citation_link = f"[{author}, {year}, p. {page_locator}](zotero://select/library/items/{citation_uri.split('/')[-1]})"
+        else:
+            citation_link = ""
+    else:
+        citation_link = ""
+
+    # Combine all the extracted parts into the final markdown format
+    md_output = f"{annotation_link} {highlighted_text} ({citation_link})"
+
+    return md_output
+
+
+# Example usage

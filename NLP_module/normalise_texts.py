@@ -275,7 +275,7 @@ def process_subheadings(subheading, more_subsection_get, collection_name, type_c
                                     filter_conditions=None,
                                     with_payload=True,
                                     with_vectors=False,
-                                    score_threshold=0.7,
+                                    score_threshold=0.60,
                                     ai=True
                                     )
 

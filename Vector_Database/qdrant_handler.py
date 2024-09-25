@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import time
 from difflib import SequenceMatcher
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union, Tuple
 import math
 import re
 # from NLP_module.normalise_texts import
@@ -13,7 +13,9 @@ import nltk
 import numpy as np
 from nltk import ngrams, PorterStemmer
 from nltk.corpus import wordnet, stopwords
+from tensorboard.compat.tensorflow_stub.tensor_shape import vector
 
+from NLP_module.patterns_data import patterns_number_brackets
 # from NLP_module.normalise_texts import
 from Vector_Database.embedding_handler import get_embedding,query_with_history
 from qdrant_client import QdrantClient
@@ -60,6 +62,25 @@ def get_synonyms_dynamic(token: str) -> List[str]:
             synonyms.add(lemma.name())  # Get all the lemma names for synonyms
 
     return list(synonyms)
+
+
+def normalize_text2(text: str) -> List[str]:
+    """
+    Normalize the input text by lowercasing, removing non-alphanumeric characters,
+    and splitting into tokens. This replaces the previous preprocess function.
+    """
+    # Convert to lowercase
+    normalized_text = text.lower()
+
+    # Remove non-alphanumeric characters (except spaces)
+    normalized_text = re.sub(r'[^a-z0-9\s]', '', normalized_text)
+
+    # Split text into tokens (words)
+    tokens = normalized_text.split()
+
+    return tokens
+
+
 # Load spaCy model
 nlp = spacy.load('en_core_web_sm')
 def calculate_dynamic_weights(overlap: float, proximity: int) -> Dict[str, float]:
@@ -340,7 +361,7 @@ class QdrantHandler:
     def __init__(self, qdrant_url="http://localhost:6333"):
         self.qdrant_client = QdrantClient(url=qdrant_url)
 
-    def process_and_append(self, metadata,paragraph_count,collection_name, article_title,section_title, paragraph_title, paragraph_text, paragraph_blockquote):
+    def process_and_append(self, metadata,paragraph_count,collection_name, article_title,section_title, keywords, paragraph_title, paragraph_text, paragraph_blockquote):
         """Process embeddings and append data to the collection."""
 
         # Get embeddings for both title and text
@@ -356,7 +377,8 @@ class QdrantHandler:
             paragraph_blockquote=paragraph_blockquote,  # Blockquote (if available)
             text_embedding=text_embedding,  # Embedding for the text
             paragraph_count=paragraph_count,
-            metadata=metadata
+            metadata=metadata,
+            keywords=keywords,
         )
 
         # Check if the operation was successful
@@ -436,7 +458,7 @@ class QdrantHandler:
                     on_disk_payload=False  # Store payload data on disk to save RAM
                 )
 
-    def append_data(self, collection_name,text_embedding,metadata='', paragraph_count='',article_title='',section_title='', paragraph_title='', paragraph_text='', paragraph_blockquote='',
+    def append_data(self, collection_name,text_embedding,metadata='', keywords='',paragraph_count='',article_title='',section_title='', paragraph_title='', paragraph_text='', paragraph_blockquote='',
                     custom_id='',vector=True):
         """
         Insert embeddings for paragraph title and paragraph text into the collection with proper handling for both vectors.
@@ -458,7 +480,8 @@ class QdrantHandler:
                 "paragraph_blockquote": paragraph_blockquote,  # Include blockquote information
                 "custom_id": custom_id,  # Store the custom ID in the payload
                 "paragraph_count":paragraph_count,
-                "metadata":metadata
+                "metadata":metadata,
+                "keywords":keywords
             }
 
             # Insert data into Qdrant with both title and text embeddings
@@ -716,7 +739,7 @@ class QdrantHandler:
             filter_conditions: Optional[Dict[str, str]] = None,
             score_threshold: float = 0.70,
             with_payload: bool = True,
-            with_vectors: bool = False,
+            with_vectors: bool = True,
             hnsw_ef: int = 512,
             exact: bool = False,
             keywords: Optional[Dict[str, List[str]]] = None,  # Changed to Dict
@@ -899,6 +922,7 @@ class QdrantHandler:
 
         # Process results and apply rescoring
         for result in results:
+
             payload = result.payload
             score = result.score  # Qdrant similarity score
 
@@ -914,9 +938,9 @@ class QdrantHandler:
                 query=query
             )
 
-            # print('score:', score)
-            # print('adjusted_score:', adjusted_score)
-            # print(payload.get('paragraph_title', "N/A"))
+            print('score:', score)
+            print('adjusted_score:', adjusted_score)
+            print(payload.get('paragraph_title', "N/A"))
             # print('____'*10)
             if adjusted_score is None:
                 # Skip the result if _rescore_result indicates a NOT keyword match
@@ -935,6 +959,7 @@ class QdrantHandler:
         # Rescore and sort the results
         self._sort_results(processed_results)
         return processed_results
+
 
     def _rescore_result(
             self,
@@ -967,9 +992,16 @@ class QdrantHandler:
         section_overlap = token_overlap(query_tokens, section_tokens)
         paragraph_title_overlap = token_overlap(query_tokens, paragraph_title_tokens)
         paragraph_text_overlap = token_overlap(query_tokens, paragraph_text_tokens)
+        # Apply keyword logic and get combined weight
+        # Apply keyword logic and get combined weight
+        include_result, keyword_weight = self._apply_keyword_logic(
+            keywords, query_tokens, section_tokens, paragraph_title_tokens, paragraph_text_tokens,
+            section_weight, paragraph_title_weight, text_weight  # Passing the weights here
+        )
 
         # Initialize adjusted score with the initial score
         adjusted_score = initial_score
+        adjusted_score += keyword_weight  # This now includes the field-specific weight + keyword weight
 
         # Calculate match counts
         section_match_count = len(set(query_tokens).intersection(section_tokens))
@@ -1006,53 +1038,70 @@ class QdrantHandler:
 
     def _apply_keyword_logic(
             self,
-            keywords: Dict[str, List[str]],
+            keywords: Dict[str, Union[List[str], Dict[str, float]]],  # Supports both list of keywords and weighted dict
             phrases: List[str],
             section_tokens: List[str],
             paragraph_title_tokens: List[str],
             paragraph_text_tokens: List[str],
-    ) -> bool:
+            section_weight: float,
+            paragraph_title_weight: float,
+            text_weight: float
+    ) -> Tuple[bool, float]:
         """
         Apply keyword logic based on the provided keywords dictionary.
-        Supports "NOT", "AND", and "OR" logical operators.
+        Supports "NOT", "AND", and "OR" logical operators, and calculates combined weights.
+
+        Returns a tuple:
+        - Boolean indicating whether the result should be included
+        - Float value representing the combined weight (if applicable).
         """
+        combined_weight = 0.0
+
         # Process "NOT" keywords first
         if "NOT" in keywords:
             not_tokens = set()
             for keyword in keywords["NOT"]:
-                not_tokens.update(preprocess_text(keyword, phrases))
+                not_tokens.update(normalize_text2(keyword))
             if (
                     token_in_text(not_tokens, section_tokens) or
                     token_in_text(not_tokens, paragraph_title_tokens) or
                     token_in_text(not_tokens, paragraph_text_tokens)
             ):
-                return False  # Exclude this result if a "NOT" keyword is found
+                return False, 0.0  # Exclude this result if a "NOT" keyword is found
 
-        # Process "OR" logic (more inclusive)
+        # Process "OR" logic (inclusive matching)
         if "OR" in keywords:
             or_tokens = set()
             for keyword in keywords["OR"]:
-                or_tokens.update(preprocess_text(keyword, phrases))
-            if (
-                    token_in_text(or_tokens, section_tokens) or
-                    token_in_text(or_tokens, paragraph_title_tokens) or
-                    token_in_text(or_tokens, paragraph_text_tokens)
-            ):
-                return True  # Include the result if any "OR" keyword is found
+                or_tokens.update(normalize_text2(keyword))
+                if token_in_text(or_tokens, section_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * 1 # Apply field-specific weight
+                elif token_in_text(or_tokens, paragraph_title_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * 1
+                elif token_in_text(or_tokens, paragraph_text_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * 1
+            if combined_weight > 0:
+                return True, combined_weight  # Include if any "OR" keyword is found and weight is calculated
 
-        # Process "AND" logic (less strict to allow partial matches)
+        # Process "AND" logic (strict matching)
         if "AND" in keywords:
             and_tokens = set()
+            match_count = 0
             for keyword in keywords["AND"]:
-                and_tokens.update(preprocess_text(keyword, phrases))
-            if (
-                    token_in_text(and_tokens, section_tokens) or
-                    token_in_text(and_tokens, paragraph_title_tokens) or
-                    token_in_text(and_tokens, paragraph_text_tokens)
-            ):
-                return True  # Include the result if at least one match from "AND" keywords is found
+                and_tokens.update(normalize_text2(keyword))
+                if token_in_text(and_tokens, section_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * section_weight
+                    match_count += 1
+                elif token_in_text(and_tokens, paragraph_title_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * paragraph_title_weight
+                    match_count += 1
+                elif token_in_text(and_tokens, paragraph_text_tokens):
+                    combined_weight += keywords.get(keyword, 1.0) * text_weight
+                    match_count += 1
+            if match_count == len(keywords["AND"]):  # Only include if all "AND" keywords match
+                return True, combined_weight
 
-        return True  # Default to including the result if no logic excludes it
+        return True, combined_weight  # Default to include the result and return accumulated weight
 
     def _sort_results(self, processed_results: defaultdict) -> None:
         """
@@ -1079,7 +1128,36 @@ class QdrantHandler:
     def qdrant_collections(self,col_name):
         collection = [collection.name for collection in self.qdrant_client.get_collections().collections if collection.name.split("_")[-1]==col_name]
         return collection
+    def clear_and_set_payload(self, collection_name, new_payload, point_id):
+        try:
+            # Clear the current payload for the given point ID using the correct points_selector
+            self.qdrant_client.clear_payload(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(points=[int(point_id)])  # Ensure point_id is an integer
+            )
+            print(f"Payload cleared for point ID {point_id}.")
+            vector= get_embedding(new_payload['paragraph_title'])
+            # Set the new payload for the given point ID without modifying the vector
+            self.qdrant_client.set_payload(
+                collection_name=collection_name,
+                payload=new_payload,
+                points=[int(point_id)],  # Ensure point_id is an integer
+                vector=vector,
+            )
+            print(f"New payload set for point ID {point_id}: {new_payload}")
 
+            # Fetch and print the updated payload and vector for verification
+            updated_point = self.qdrant_client.retrieve(
+                collection_name=collection_name,
+                ids=[int(point_id)]
+            )[0]
+
+            print(f"Final payload for point ID {point_id}: {updated_point.payload}")
+            print(f"Vector for point ID {point_id} updated: {updated_point.vector}")
+
+        except Exception as e:
+            print(f"Error during clear and set payload to collection {collection_name}\nid:{point_id}\nerr: {e}")
+            print(e)
     def update_collection_config(self,collection_name):
         # Initialize Qdrant client
         client = QdrantClient(url="http://localhost:6333")
