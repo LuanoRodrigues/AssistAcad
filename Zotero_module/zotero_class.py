@@ -1,8 +1,7 @@
 import hashlib
 import json
 import os
-import fitz
-import re
+
 import ast
 import time
 import pickle
@@ -11,15 +10,12 @@ from pathlib import Path
 import math
 from collections import defaultdict
 
-from nibabel.brikhead import filepath
-from openai import files
-from sklearn.utils.multiclass import type_of_target
-from sympy import pprint
-from tests.test_conversions import test_hn_atx_headings
+
 
 from Vector_Database.qdrant_handler import QdrantHandler
 from qdrant_client.http.exceptions import UnexpectedResponse
-from File_management.exporting_files import export_data, convert_zotero_to_md
+from File_management.exporting_files import export_data, convert_zotero_to_md, export_to_word_written, clean_themes, \
+    export_written
 from Vector_Database.embedding_handler import query_with_history,check_existing_query
 from Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
@@ -2784,7 +2780,7 @@ class Zotero:
 
             # Recursively add paragraphs to each title and child title in the Themes
 
-            #
+
             # with open('textfinal.txt', 'w', encoding='utf-8') as f:
             #     f.write(str(themes))
             with open('textfinal.txt', 'r', encoding='utf-8') as f:
@@ -2792,13 +2788,37 @@ class Zotero:
             # print(themes['themes'][0]['theme'])
                         # response= call_openai_api(data=str(data_to)+'\nthe data is inside the h1:Responses and Consequences of Cyber Attribution', function='cleaning_headings',id='')
 
+        # with open('outline.txt', 'r', encoding='utf-8') as f:
+        #
+        #     section = ast.literal_eval(f.read())
+        #     # print(section)
+        #     print(section)
+        #     da =clean_themes(themes)
+        #     for theme in da:
+        #         outline=theme['outline']
+        #         title= theme['title']
+        #         print(title)
+            # data= call_openai_api(data=section,id='',function='writing_sections')
+            # print(data)
+        #     with open('outline_writen.txt', 'w', encoding='utf-8') as f:
+        #         f.write(str(data))
+        #     with open('outline_writen.txt', 'r', encoding='utf-8') as f:
+        #         section=ast.literal_eval(f.read())
 
+            # with open('theme_writen.txt', 'r', encoding='utf-8') as f:
+            #             section=ast.literal_eval(f.read())
+        #     export_to_word_written(data=[section],filename='test_writen')
+        # #     print(section)
+        with open('theme_writen.txt', 'r', encoding='utf-8') as theme_file:
+            themes_writen=ast.literal_eval(theme_file.read())
+            print(themes_writen)
+            # export_written()
+            # export_to_word_written(data=themes,filename='newtest_gpt4')
+            # print(type(a))
 
-
-
-            export_data(themes=themes,
-                        export_to=['md'],
-                        filename=r'C:\Users\luano\Downloads\AcAssitant\Files\bib_files\cyber evidence')
+            # export_data(themes=themes,
+            #             export_to=['md'],
+            #             filename=r'C:\Users\luano\Downloads\AcAssitant\Files\bib_files\cyber evidence')
 
     def search_paragraphs_by_query(self,
                                    collection_name,  # Now we should have a valid collection name

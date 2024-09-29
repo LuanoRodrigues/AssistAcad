@@ -2,23 +2,30 @@ import json
 import os.path
 import zipfile
 import json
+from typing import List
+from bs4 import BeautifulSoup, NavigableString
+from typing import List, Tuple
 import markdown
+import markdownify
 import pdfkit
+from bs4 import BeautifulSoup
 from docx import Document
 from docx2pdf import convert
 import json
 from docx import Document
 from scipy.signal import impulse
-from tensorflow.python.framework.test_ops import int_output
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, Inches
 from docx.enum.style import WD_STYLE_TYPE
-doc = Document()
+
+from Pychat_module.gpt_api import call_openai_api
+
 from Word_modules.Creating_docx import customize_doc_style
 md_root=r"C:\Users\luano\OneDrive - University College London\Obsidian\cyber evidence"
 
 def export_results(structure, filename="output", export_to=['doc','html']):
     export_to = export_to or ['doc', 'html', 'md', 'json']
+    doc = Document()
 
     # Export as HTML
     if "html" in export_to:
@@ -391,5 +398,358 @@ def convert_zotero_to_md(html_paragraph):
 
     return md_output
 
+#aaaa
 
-# Example usage
+# Define the heading level map
+level_map = {
+    'h1': 1,
+    'h2': 2,
+    'h3': 3,
+    'h4': 4,
+    'h5': 5,
+    'h6': 6
+}
+
+def html_to_text_with_level(html_content: str) -> List[Tuple[str, int]]:
+    """
+    Convert HTML content to plain text and detect header level using BeautifulSoup.
+    Returns a list of tuples [(text, level)] where level is from 1 to 6 for H1-H6 tags, 0 for paragraphs.
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    elements = []
+    level_map = {'h1': 1, 'h2': 2, 'h3': 3, 'h4': 4, 'h5': 5, 'h6': 6}
+
+    # Define the tags to process
+    target_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p']
+
+    # Iterate over each target tag in the content
+    for tag in soup.find_all(target_tags):
+        tag_name = tag.name.lower()
+        texts = []
+
+        for content in tag.descendants:
+            if isinstance(content, NavigableString):
+                # Append regular text
+                texts.append(content.strip())
+            # elif content.name == 'ref':
+            #     # Append reference text inline, wrapped in parentheses
+            #     ref_text = content.get_text(strip=True)
+            #     # Optionally, format the reference as needed (e.g., add parentheses or superscript)
+            #     texts.append(f"({ref_text})")
+
+        # Join all parts with a space to ensure proper spacing
+        text = ' '.join(filter(None, texts)).strip()
+        level = level_map.get(tag_name, 0)
+        elements.append((text, level))
+
+    return elements
+def export_to_word_written(data: List[dict], filename: str):
+    """
+    Export the data to a Word file with correct heading levels and paragraphs, preserving inline references.
+    """
+    data=clean_themes(data)
+    for theme in data:
+        outline =theme['outline']
+
+        doc = Document()
+        customize_doc_style(doc,header_title=theme['theme'])
+        for entry in outline:
+            section = entry.get('section', {})
+
+            # Writing Introduction
+            if 'introduction' in section:
+                intro_elements = html_to_text_with_level(section['introduction'])
+                for text, level in intro_elements:
+                    if level > 0:
+                        doc.add_heading(text, level=level)
+                    else:
+                        doc.add_paragraph(text, style='Normal')
+
+            # Writing Body Text
+            if 'body_text' in section:
+                for body in section['body_text']:
+                    body_elements = html_to_text_with_level(body)
+                    for element_text, element_level in body_elements:
+
+                        if element_level > 0:
+
+                            doc.add_heading(element_text, level=element_level)
+                        else:
+                            doc.add_paragraph(element_text, style='Normal')
+
+            # Writing Conclusion
+            if 'conclusion' in section:
+                conclusion_elements = html_to_text_with_level(section['conclusion'])
+                for text, level in conclusion_elements:
+                    if level > 0:
+                        doc.add_heading(text, level=level)
+                    else:
+                        doc.add_paragraph(text, style='Normal')
+
+        # Save the document to the specified filename
+        doc.save(f"{filename}.docx")
+
+def export_to_markdown(data: List[dict]):
+    """
+    Export the data to Markdown files by converting HTML to Markdown.
+    """
+    import os
+    from bs4 import BeautifulSoup
+    import re
+
+    def process_ref_tags(paragraph):
+        """
+        Replace <ref> tags in the paragraph with the desired format.
+        """
+        def replace_ref(match):
+            ref_tag = match.group(0)
+            soup = BeautifulSoup(ref_tag, 'html.parser')
+            ref = soup.find('ref')
+            if ref:
+                ref_id = ref.get('id', '')
+                ref_text = ref.get_text(strip=True)
+                # Extract author, year, page from ref_text
+                # Assuming ref_text format: '(Author, Year, p. Page)'
+                ref_text_clean = ref_text.strip('()')
+                # Split by comma
+                parts = [part.strip() for part in ref_text_clean.split(',')]
+                if len(parts) >= 2:
+                    author = parts[0]
+                    year = parts[1]
+                    page = ''
+                    if len(parts) > 2:
+                        page = parts[2]
+                    else:
+                        page = ''
+                    # Generate citation_key, e.g., 'ridAttributingCyberAttacks2015'
+                    # For simplicity, take the first author's last name, first word of title, and year
+                    # This is a placeholder; in practice, you'd have a mapping or a more sophisticated method
+                    first_author_last_name = author.split()[0].lower()
+                    year_number = re.sub(r'\D', '', year)
+                    citation_key = f"{first_author_last_name}{year_number}"
+                    paragraph_id = ref_id
+                    # Reconstruct the reference
+                    new_ref = f"([{author}, {year}, {page}]({citation_key}#^{paragraph_id}))"
+                    return new_ref
+                else:
+                    return ref_text
+            else:
+                return match.group(0)
+
+        # Replace all <ref>...</ref> with the desired format
+        paragraph = re.sub(r'<ref.*?>.*?</ref>', replace_ref, paragraph)
+        return paragraph
+
+    for entry in data:
+        section = entry.get('section', {})
+
+        # Combine introduction, body_text, and conclusion into one HTML content
+        html_contents = []
+        if 'introduction' in section:
+            html_contents.append(section['introduction'])
+        if 'body_text' in section:
+            html_contents.extend(section['body_text'])
+        if 'conclusion' in section:
+            html_contents.append(section['conclusion'])
+
+        for html_content in html_contents:
+            # Parse the HTML content
+            soup = BeautifulSoup(html_content, 'html.parser')
+
+            # Process the content
+            # Find all h1 tags
+            h1_tags = soup.find_all('h1')
+            if not h1_tags:
+                continue  # No h1 in this content
+            for h1 in h1_tags:
+                h1_text = h1.get_text(strip=True)
+                # Create a folder named after the h1
+                folder_name = h1_text
+                os.makedirs(folder_name, exist_ok=True)
+
+                # Collect all elements under this h1 until the next h1
+                content_under_h1 = []
+                sibling = h1.find_next_sibling()
+                while sibling and sibling.name != 'h1':
+                    content_under_h1.append(sibling)
+                    sibling = sibling.find_next_sibling()
+
+                # Now, process the content under h1
+                # We need to process headings and their content
+                i = 0
+                while i < len(content_under_h1):
+                    elem = content_under_h1[i]
+                    if elem.name and elem.name.startswith('h') and elem.name != 'h1':
+                        heading_level = int(elem.name[1])
+                        heading_text = elem.get_text(strip=True)
+                        # Create a file named after the heading
+                        # Replace invalid filename characters
+                        filename_safe = re.sub(r'[\\/*?:"<>|]', "_", heading_text)
+                        file_path = os.path.join(folder_name, f"{filename_safe}.md")
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            # Write the heading as Markdown
+                            heading_md = '#' * heading_level + ' ' + heading_text
+                            f.write(heading_md + '\n\n')
+                            # Collect content under this heading
+                            j = i + 1
+                            while j < len(content_under_h1):
+                                next_elem = content_under_h1[j]
+                                if next_elem.name and next_elem.name.startswith('h'):
+                                    next_heading_level = int(next_elem.name[1])
+                                    if next_heading_level <= heading_level:
+                                        # This is a same or higher level heading, stop collecting
+                                        break
+                                # Process paragraph or other elements
+                                if next_elem.name == 'p':
+                                    paragraph_html = str(next_elem)
+                                    # Replace <ref> tags
+                                    paragraph_html = process_ref_tags(paragraph_html)
+                                    # Convert HTML to Markdown
+                                    paragraph_md = markdownify.markdownify(paragraph_html, heading_style="ATX")
+                                    f.write(paragraph_md + '\n\n')
+                                elif next_elem.name and next_elem.name.startswith('h'):
+                                    # Skip processing, will be handled in outer loop
+                                    pass
+                                else:
+                                    # Other content
+                                    # Convert HTML to Markdown
+                                    other_html = str(next_elem)
+                                    other_md = markdownify.markdownify(other_html, heading_style="ATX")
+                                    f.write(other_md + '\n\n')
+                                j += 1
+                            i = j - 1  # Update i to continue from the new position
+                    i += 1
+
+
+def export_to_html(data: List[dict], filename: str):
+    """
+    Export the data to an HTML file by aggregating all HTML content.
+    """
+    html_content = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n<title>Exported Section</title>\n</head>\n<body>\n"
+
+    for entry in data:
+        section = entry.get('section', {})
+
+        # Introduction
+        if 'introduction' in section:
+            html_content += section['introduction'] + "\n\n"
+
+        # Body Text
+        if 'body_text' in section:
+            for body in section['body_text']:
+                html_content += body + "\n\n"
+
+        # Conclusion
+        if 'conclusion' in section:
+            html_content += section['conclusion'] + "\n\n"
+
+    html_content += "</body>\n</html>"
+
+    # Write to HTML file
+    with open(f"{filename}.html", "w", encoding='utf-8') as html_file:
+        html_file.write(html_content)
+
+def export_to_json(data: List[dict], filename: str):
+    """
+    Export the data to a JSON file.
+    """
+    with open(f"{filename}.json", "w", encoding='utf-8') as json_file:
+        json.dump(data, json_file, indent=4, ensure_ascii=False)
+
+def export_to_pdf_writen(word_filename: str, pdf_filename: str):
+    """
+    Convert a Word document to PDF using docx2pdf.
+    """
+    convert(f"{word_filename}.docx", f"{pdf_filename}.pdf")
+
+def export_written(filename: str, sections: List[dict], format: List[str] = ['md','docx','pdf','html','json']):
+    """
+    Export the extracted sections data into various formats.
+
+    Parameters:
+    - filename: The base name for the exported files.
+    - sections: The list of section dictionaries.
+    - format: List of formats to export to. Options: 'md', 'docx', 'pdf', 'html', 'json'.
+    """
+    supported_formats = {'md', 'docx', 'pdf', 'html', 'json'}
+    requested_formats = set(format)
+
+    # Validate requested formats
+    invalid_formats = requested_formats - supported_formats
+    if invalid_formats:
+        raise ValueError(f"Unsupported format(s): {', '.join(invalid_formats)}. Supported formats are: {', '.join(supported_formats)}")
+
+    # Export to Markdown
+    if 'md' in requested_formats:
+        export_to_markdown(sections, filename)
+        print(f"Exported to {filename}.md")
+
+    # Export to Word Document
+    if 'docx' in requested_formats or 'pdf' in requested_formats:
+        export_to_word_written(sections, filename)
+        print(f"Exported to {filename}.docx")
+
+    # Export to PDF
+    if 'pdf' in requested_formats:
+        export_to_pdf_writen(filename, filename)
+        print(f"Exported to {filename}.pdf")
+
+    # Export to HTML
+    if 'html' in requested_formats:
+        export_to_html(sections, filename)
+        print(f"Exported to {filename}.html")
+
+    # Export to JSON
+    if 'json' in requested_formats:
+        export_to_json(sections, filename)
+        print(f"Exported to {filename}.json")
+
+
+def clean_outline(item):
+    """Recursively clean the outline to retain only necessary keys, removing 'N/A' and empty values."""
+    cleaned_item = {
+        'title': item.get('title', ''),
+        'level': item.get('level', ''),
+        'content': []
+    }
+
+    # Only add paragraph-related fields if they are not empty
+    paragraph_title = item.get('paragraph_title', [])
+    paragraph_text = item.get('paragraph_text', [])
+    paragraph_id = item.get('paragraph_id', [])
+
+    if paragraph_title:
+        for i in range(len(paragraph_title)):
+            cleaned_item['content'].append(
+                {'paragraph_title': paragraph_title[i], 'paragraph_quoted': paragraph_text[i],
+                 'paragraph_id': paragraph_id[i]})
+        cleaned_item['paragraph_count'] = len(paragraph_text)
+
+    # Recursively clean subheadings, removing those without a title
+    subheadings = item.get('subheadings', [])
+    cleaned_subheadings = [
+        clean_outline(subheading) for subheading in subheadings
+
+    ]
+
+    # Only include subheadings if there are any valid ones
+    if cleaned_subheadings:
+        cleaned_item['subheadings'] = cleaned_subheadings
+
+    return cleaned_item
+
+
+def clean_themes(themes):
+    """Iterate through the themes and clean each outline."""
+    cleaned_themes = []
+    for theme in themes:
+        cleaned_theme = {
+            'theme': theme.get('theme', ''),
+
+            'outline': [call_openai_api(data=clean_outline(outline_item),function='writing_sections',id='',model='gpt-4o-2024-08-06',batch=False) for outline_item in theme.get('outline', [])]
+        }
+
+        cleaned_themes.append(cleaned_theme)
+        with open('theme_writen.txt', 'w', encoding='utf-8') as theme_file:
+            theme_file.write(json.dumps(cleaned_themes, indent=4, ensure_ascii=False))
+    return cleaned_themes

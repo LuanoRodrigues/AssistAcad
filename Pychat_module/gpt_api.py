@@ -19,7 +19,6 @@ load_dotenv()  # Load environment variables from .env file
 
 from pydantic import BaseModel
 
-tokenizer = tiktoken.get_encoding("cl100k_base")
 
 import json
 
@@ -117,22 +116,23 @@ def prepare_batch_requests(text_to_send, id, content,schema):
     return results
 # Function to send bigrams in batch to the OpenAI Batch API for embeddings
 
-def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini'):
+def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini',eval=True):
+    time.sleep(30)
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     # Open and read the prompts from a JSON file
     with open(r'C:\Users\luano\Downloads\AcAssitant\Files\Prompts\api_prompts.json', 'r') as f:
         prompts = json.load(f)  # Load the JSON content into a Python dictionary
-    common_words_chatgpt = ["intricacies", "complexities", "nuance", "sophisticated", "multifaceted", "complicated",
-                            "intricate", "complex", "nuanced", "sophistication", "comprehensive", "dynamic",
-                            "innovative", "advanced", "challenging", "revolutionary", "cutting-edge", "pioneering",
-                            "state-of-the-art", "groundbreaking", "meticulous", "rigorous", "exhaustive", "in-depth",
-                            "thorough", "detailed", "elaborate", "extensive", "delve",  "realm", "notably",
-                            "arguably", "pivotal", "vital", "moreover", "navigate", "embark", "explore",
-                            "remarkable", "in conclusion", "it is important to note",
-                             "in this digital world"]
+    # common_words_chatgpt = ["intricacies", "complexities", "nuance", "sophisticated", "multifaceted", "complicated",
+    #                         "intricate", "complex", "nuanced", "sophistication", "comprehensive", "dynamic",
+    #                         "innovative", "advanced", "challenging", "revolutionary", "cutting-edge", "pioneering",
+    #                         "state-of-the-art", "groundbreaking", "meticulous", "rigorous", "exhaustive", "in-depth",
+    #                         "thorough", "detailed", "elaborate", "extensive", "delve",  "realm", "notably",
+    #                         "arguably", "pivotal", "vital", "moreover", "navigate", "embark", "explore",
+    #                         "remarkable", "in conclusion", "it is important to note",
+    #                          "in this digital world","intricacies","interplay","complexity"]
 
-    prompt = prompts[function]['text'] +f"\n text: {data}\n avoid these words in your output:\n{common_words_chatgpt}"
-
+    prompt = prompts[function]['text'] +f"\n text: {data}\n avoid these words in your output:\nEnsure the JSON is valid and not truncated."
+    logit_bias= prompts['logit_bias']
     schema=prompts[function]['json_schema']
     content =prompts[function]['content']
     config = prompts[function]['config']
@@ -160,24 +160,27 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini'):
             "type": "json_schema",
             "json_schema": schema
         },
+        logit_bias=logit_bias,
 
-        max_tokens=max_tokens,  # Use max_tokens from config
+        # max_tokens=max_tokens,  # Use max_tokens from config
         temperature=temperature,  # Use temperature from config
         top_p=top_p,  # Use top_p from config
-        stop=["intricate", "complex", "nuanced", "pivotal",]
     )
 
     message = response.choices[0].message.content.strip()
-    try:
-        if isinstance(message, str):
-            message = ast.literal_eval(message)
-    except Exception as e:
-        print('err, trying again',e)
-        print(message)
-        print(data)
-        input('openai failed, data above')
-        message=call_openai_api(data=data,id=id,function=function,batch=batch,model=model)
+    print('response\n',response)
+    if eval:
+        try:
+            if isinstance(message, str):
+                message = ast.literal_eval(message)
+        except Exception as e:
+            print('err, trying again',e)
+            print(message)
+            print(data)
+            input('openai failed, data above')
+            message=call_openai_api(data=data,id=id,function=function,batch=batch,model=model)
     return message
+
 
 
 def retry_api_call(data, function, model='gpt-4o-mini',max_retries=3, delay=2):

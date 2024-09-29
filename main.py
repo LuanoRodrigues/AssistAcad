@@ -1,21 +1,6 @@
-import ast
-
-from docx.oxml import parse_xml
-from pymupdf.mupdf import pdf_annot_type
-from tensorflow.lite.python.schema_py_generated import CombinerType
-from tqdm import tqdm
-
-from NLP_module.normalise_texts import update_response_with_paragraph_data
-from Pychat_module.gpt_api import call_openai_api
-from Vector_Database.qdrant_handler import get_headings_for_clusters, write_and_export_sections, QdrantHandler, \
-    replace_ids_with_content
 
 
 from Zotero_module.zotero_class import  Zotero
-import nltk
-
-import nltk
-import nltk
 
 
 
@@ -55,7 +40,6 @@ library_id = library_id,
 
 prompt ="""Generate 3 questions in three dicts whose answers will be the text,system content. the output is jsonl format:{"messages":[{"role":"system","content":"You are an expert in responding questions from  academic papers statements, ensuring the output is formatted in HTML and includes in-text citations."},{"role":"user","content":[generate the question here about the following content assitant ]},{"role":"assistant","content":"While it is likely that international judicial forums will not relax standards of proof to accommodate the obvious cyber-challenges, circumstantial evidence is available as a potentially viable route to prove a violation. Since state to state disputes have been more commonly addressed in the International Court of Justice (‘‘ICJ / Court’’)” (Aravindakshan, 2021, p. 286)"}]}
  note1:the questions should not contain authors name. The questions should be academic about the academic topic. note2: output jsonl format in one line for every question in a codeblock"""
-
 # write_and_export_sections()
 # zt.search_paragraphs_by_query(query="academic topic",collection_name='a')
 # zt.update_all(collection_name='Law and evidence',update=True,article_title='A DUE DILIGENCE STANDARD OF ATTRIBUTION IN CYBERSPACE',pdf=False)
@@ -163,7 +147,7 @@ pdf =r"C:\Users\luano\Zotero\storage\9WSSD7MF\(T Mikanagi, 2021).pdf"
 from Vector_Database.qdrant_handler import QdrantHandler
 #
 import hashlib
-zt.summary_gpt()
+# zt.summary_gpt()
 
 
 data='“Each of the levels of the attribution process represents a discrete analytical challenge, relies on specific input data and specific expertise, and illuminates a separate aspect of successful attribution (see Figure 2). The analysis on each level needs to be informed and tempered by the others. Though the attribution process typically has a beginning and an end, the cycle does not necessarily follow a specific sequential or chronological order, as hypotheses are confronted with new details and new details give rise to new hypotheses in turn. Nevertheless, the layers represent separate tasks that, though they interrelate, will be analysed individually here. Usually so-called ‘indicators of compromise’ trigger the attribution process. Such indicators raise specific technical questions. More questions are likely to follow only after more facts have been gathered. On occasion, the attribution process may begin on the operational or strategic level. Sometimes the ‘first knowers’ of an incident will be above the technical level. Guided by non-forensic sources of intelligence, or by the broader geopolitical context — sometimes even by intuition — the possibility of malicious activity may be identified before technical indicators flag it, or indeed even before it begins. Attribution can go either way: the strategic and operational layers may inform the subsequent technical analysis, or vice versa.” (Rid e Buchanan, 2015, p. 9)'
@@ -184,31 +168,31 @@ def workingWith_search():
     search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
     # search_handler.delete_all_collections()
     # input('')
-    one_search=search_handler.advanced_search(collection_name='NGCR7JSU_paragraph_title',query='Findings', keywords=findings_keywords)
+    one_search=search_handler.advanced_search(collection_name='NGCR7JSU_paragraph_title',query='attribution', keywords=findings_keywords)
     print(len(one_search['paragraph_title']))
     # Step 4: Print out the results
     for titles in one_search['paragraph_title']:
         print(titles)
     input('continue')
-    # Step 2: Perform the search in the collection for top 10 similar paragraphs
-    search_results = zt.search_paragraphs_by_query(
-        type_collection='paragraph_title',
-        collection_name='Law and evidence',  # Now we should have a valid collection name
-            query='Findings',  # The embedding for the query
-        # top_k=10,  # Retrieve top 10 similar paragraphs
-        filter_conditions=None,  # No specific filter, searching across all data
-        with_payload=True,  # Return payload (paragraph text)
-        with_vectors=False,  # No need to return vectors
-        score_threshold=0.7,  # Only return results with a score >= 0.75 (optional)
-        # offset=0,  # Starting from the first result
-        # limit=10  # Limit to 10 results
-    )
-    print(len(search_results['paragraph_title']))
-    # Step 4: Print out the results
-    for titles in search_results['paragraph_title']:
-        print(titles)
+    # # Step 2: Perform the search in the collection for top 10 similar paragraphs
+    # search_results = zt.search_paragraphs_by_query(
+    #     type_collection='paragraph_title',
+    #     collection_name='Law and evidence',  # Now we should have a valid collection name
+    #         query='Findings',  # The embedding for the query
+    #     # top_k=10,  # Retrieve top 10 similar paragraphs
+    #     filter_conditions=None,  # No specific filter, searching across all data
+    #     with_payload=True,  # Return payload (paragraph text)
+    #     with_vectors=False,  # No need to return vectors
+    #     score_threshold=0.7,  # Only return results with a score >= 0.75 (optional)
+    #     # offset=0,  # Starting from the first result
+    #     # limit=10  # Limit to 10 results
+    # )
+    # print(len(search_results['paragraph_title']))
+    # # Step 4: Print out the results
+    # for titles in search_results['paragraph_title']:
+    #     print(titles)
 #
-# workingWith_search()
+workingWith_search()
 
 
 # handler.replace_custom_id_with_embedding(input_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_input.jsonl',
