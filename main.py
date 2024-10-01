@@ -48,30 +48,23 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 # extract_citations_grobid(pdf_path=pdf,file_name="attributing.xml")
 # update_quote(note_id="VWPNFE2J",pdf=pdf,zot=zt.zot,xml_path=xml)
 #rewrite ["75995D72","Y3EEKUDQ"]
-# zt.processing_collection_paragraphs(collection_name='Law and evidence',
-#                                     item_start='Tre',
-#                               insert_database=True,
-#                               create_md_file=True,
-#                               update_paragraph_notes=False,
-#                               batch=False,
-#                               store_only=False,
-#                               update=False,
-#                                     rewrite=True,
-#                                     database_name='paragraph_title',
-#                                     overwrite_payload=False
-#                               # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
-# )
+zt.processing_collection_paragraphs(collection_name='Law and evidence',
+                                    # item_start='Tre',
+                              insert_database=True,
+                              create_md_file=True,
+                              update_paragraph_notes=False,
+                              batch=False,
+                              store_only=False,
+                              update=False,
+                                    rewrite=True,
+                                    database_name='paragraph_title',
+                                    overwrite_payload=False,
+                                    # corpus=True
+                              # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
+)
 
 
-# zt.insert_title_paragraphs(item_id='NGCR7JSU',note_id='8ERNL6GE',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True,overwrite_payload=False,database_name='paragraph_title',create_md_file=True)
-keywords = {
-    "AND": ["attribution","cyber"],  # All keywords must appear
-    "OR": ["challenge", "legal"],  # Any one of these keywords can appear
-    "NOT": ["introduction","section"]  # Exclude results with these keywords
-}
-bk="""<blockquote>
-<p><span class="highlight" data-annotation="%7B%22attachmentURI%22%3A%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2FAZN6P3JU%22%2C%22pageLabel%22%3A%2231%22%2C%22position%22%3A%7B%22pageIndex%22%3A28%2C%22rects%22%3A%5B%5B64.62548%2C313.672418%2C388.4639300000001%2C324.127304%5D%2C%5B53.6884%2C301.71614800000003%2C388.42009600000017%2C312.171034%5D%2C%5B53.6884%2C289.759888%2C388.4060864%2C302.37437520000003%5D%2C%5B53.6882%2C277.49325%2C388.46373100000005%2C288.45225%5D%2C%5B53.6882%2C265.832878%2C388.4089370000001%2C276.287764%5D%2C%5B53.6882%2C253.63551000000004%2C388.4198940000001%2C264.59451%5D%2C%5B53.6882%2C241.92033800000002%2C249.55840699999993%2C252.375224%5D%5D%7D%2C%22citationItem%22%3A%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2F75995D72%22%5D%2C%22locator%22%3A%2231%22%7D%7D">“A third common assumption is that the most industrialised and connected countries are the most vulnerable countries, while less advanced and thus less vulnerable countries have an advantage.88 Attribution again reverses this logic: the larger a government’s technical prowess, and the larger the pool of talent and skills at its disposal, the higher will be that state’s ability to hide its own covert operations, uncover others, and respond accordingly.”</span> <span class="citation" data-citation="%7B%22citationItems%22%3A%5B%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2F9047943%2Fitems%2F75995D72%22%5D%2C%22locator%22%3A%2231%22%7D%5D%2C%22properties%22%3A%7B%7D%7D">(<span class="citation-item">Rid e Buchanan, 2015, p. 31</span>)</span></p>
-</blockquote>"""
+# a =zt.insert_title_paragraphs(item_id='NGCR7JSU',note_id='8ERNL6GE',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True,overwrite_payload=False,database_name='paragraph_title',create_md_file=False,corpus=False)
 
 root=r"C:\Users\luano\OneDrive - University College London\Obsidian\cyber evidence\test.md"
 from Word_modules.md_config import convert_zotero_to_md_with_id
@@ -158,22 +151,7 @@ data='“Each of the levels of the attribution process represents a discrete ana
 
 def workingWith_search():
     from Vector_Database.qdrant_handler import QdrantHandler
-    findings_keywords = {
-        "OR": [
-            "finding", "result", "conclusion", "shows", "revealed", "demonstrates",
-            "indicates", "observed", "confirms", "established", "proven", "outcome",
-            "reveals", "study shows", "was found", "was observed"
-        ]
-    }
-    search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
-    # search_handler.delete_all_collections()
-    # input('')
-    one_search=search_handler.advanced_search(collection_name='NGCR7JSU_paragraph_title',query='attribution', keywords=findings_keywords)
-    print(len(one_search['paragraph_title']))
-    # Step 4: Print out the results
-    for titles in one_search['paragraph_title']:
-        print(titles)
-    input('continue')
+
     # # Step 2: Perform the search in the collection for top 10 similar paragraphs
     # search_results = zt.search_paragraphs_by_query(
     #     type_collection='paragraph_title',
@@ -192,7 +170,35 @@ def workingWith_search():
     # for titles in search_results['paragraph_title']:
     #     print(titles)
 #
-workingWith_search()
+def one_search():
+    # Initialize the QdrantHandler
+    search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
+    # search_handler.get_all_collections_payloads_and_save_csv()
+    # Define your query and collection
+    query = 'cyber*'
+    collection_name = 'NGCR7JSU_paragraph_title'
+
+    # Define keywords for filtering (optional)
+    keywords = {
+        "AND": ["network", "security"],
+        "OR": ["attack", "breach"],
+        "NOT": ["outdated"]
+    }
+
+    # Perform the search, using the cache if available
+    results = search_handler.hybrid_search(collection_name=collection_name, query=query,update=True)
+    print(results.keys())
+    # Check if results are not empty before processing
+    if not results:
+        print("No results found.")
+    else:
+        # Print the results
+        for title, text, score in zip(results['paragraph_title'], results['paragraph_text'],results['score']):
+            print(f"Title: {title}\nText: {text}\n,score: {score}")
+
+
+# one_search()
+# workingWith_search()
 
 
 # handler.replace_custom_id_with_embedding(input_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_input.jsonl',

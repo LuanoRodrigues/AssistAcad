@@ -1,28 +1,171 @@
-import ast
 import re
-from collections import defaultdict
-from datetime import datetime
-from random import random
 
-from nipype.interfaces.fsl import PRELUDE
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy.spatial.distance import cosine
-import numpy as np
+from random import random
+from typing import Optional, Set
+
+import unicodedata
+from nltk.tokenize import word_tokenize
+
 import nltk
+from nltk import word_tokenize
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
-from fuzzywuzzy import fuzz
-from itertools import tee
+import spacy
+from spacy.tokens import Span
+
 import unidecode
-from tensorflow.python.framework.test_ops import in_polymorphic_twice
-from tqdm import tqdm
+from spacy.matcher import PhraseMatcher
 
-# Modified function for trigram matching using GPU
-from transformers import BertTokenizer, BertModel
-import torch
 
-from Pychat_module.gpt_api import call_openai_api
+import re
+import unicodedata
+from typing import Optional, Set
+def preprocess_text(text):
+    # Lowercasing
+    text = text.lower()
+    # Remove non-alphabetic characters (basic cleaning, you can expand this)
+    text = re.sub(r'[^a-z\s]', '', text)
+    # Tokenize
+    tokens = word_tokenize(text)
+    return tokens
 
+
+def preprocess_text2(
+    text: str,
+    ngrams: int = 1,
+    custom_stopwords: Optional[Set[str]] = None,
+    remove_accents: bool = True,
+    preserve_named_entities: bool = True,
+    preserve_noun_phrases: bool = True
+) -> str:
+    """
+    Preprocesses the input text for TF-IDF vectorization, dynamically preserving important phrases.
+
+    Args:
+        text (str): The text to preprocess.
+        ngrams (int): The number of n-grams to generate. Default is 1 (unigrams).
+        custom_stopwords (set, optional): A custom set of stopwords to remove from the text.
+        remove_accents (bool): Whether to remove accents and diacritics from the text.
+        preserve_named_entities (bool): Whether to preserve named entities as single tokens.
+        preserve_noun_phrases (bool): Whether to preserve noun phrases as single tokens.
+
+    Returns:
+        str: The preprocessed text as a string with tokens or n-grams.
+    """
+    import spacy
+    from nltk.corpus import stopwords
+    from spacy.tokens import Span
+
+    # Initialize SpaCy model inside the function
+    nlp = spacy.load("en_core_web_sm")  # Keep 'tagger', 'parser', and 'ner' enabled
+
+    # Helper function to remove accents
+    def normalize_text(input_text: str) -> str:
+        if remove_accents:
+            input_text = unicodedata.normalize('NFKD', input_text).encode('ASCII', 'ignore').decode('utf-8', 'ignore')
+        return input_text
+
+    # Remove citations in the format (author, year, p. number)
+    citation_pattern = r'\((?:[A-Za-z\s&]+,\s*\d{4}(?:,\s*p\.\s*\d+)?)\)'
+    text = re.sub(citation_pattern, '', text)
+
+    # Normalize text (remove accents)
+    text = normalize_text(text)
+
+    # Lowercase text
+    text = text.lower()
+
+    # Remove other patterns like author (year)
+    text = re.sub(r'\b[A-Za-z]+\s*\(\d{4}\)', '', text)
+
+    # Remove standalone numbers and dates
+    text = re.sub(r'\b\d{1,4}\b', '', text)
+
+    # Remove standalone letters
+    text = re.sub(r'\b[a-zA-Z]\b', '', text)
+
+    # Remove special characters except hyphens and underscores
+    text = re.sub(r'[^a-zA-Z\s\-_]', '', text)
+
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # Process text with SpaCy
+    doc = nlp(text)
+
+    # Initialize stopwords
+    if custom_stopwords is not None:
+        stop_words = set(custom_stopwords)
+    else:
+        from nltk.corpus import stopwords
+        stop_words = set(stopwords.words('english'))
+        # Add any additional domain-specific stopwords if necessary
+        stop_words.update({'may', 'also', 'states', 'state', 'us', 'would', 'could', 'one', 'two'})
+
+    # Create a list to hold processed tokens
+    processed_tokens = []
+
+    # Keep track of tokens that are part of preserved spans
+    preserved_token_indices = set()
+
+    # Preserve named entities
+    if preserve_named_entities:
+        for ent in doc.ents:
+            # Replace spaces with underscores in named entities
+            token = ent.text.replace(' ', '_')
+            processed_tokens.append(token)
+            preserved_token_indices.update(range(ent.start, ent.end))
+
+    # Preserve noun phrases
+    if preserve_noun_phrases:
+        filtered_noun_phrases = get_filtered_noun_phrases(doc, stop_words)
+        for token in filtered_noun_phrases:
+            processed_tokens.append(token)
+
+    # Process remaining tokens
+    for token in doc:
+        # Skip tokens that are part of preserved spans
+        if token.i in preserved_token_indices:
+            continue
+        # Remove stopwords and punctuation
+        if token.text in stop_words or token.is_punct or token.is_space:
+            continue
+        # Lemmatize the token
+        lemma = token.lemma_
+        # Exclude stopwords after lemmatization
+        if lemma in stop_words:
+            continue
+        processed_tokens.append(lemma)
+
+    # Remove consecutive duplicates
+    def remove_consecutive_duplicates(tokens):
+        result = []
+        previous = None
+        for token in tokens:
+            if token != previous:
+                result.append(token)
+                previous = token
+        return result
+
+    tokens = remove_consecutive_duplicates(processed_tokens)
+
+    # Generate n-grams if specified
+    if ngrams > 1:
+        ngrams_list = []
+        for i in range(len(tokens) - ngrams + 1):
+            ngram = '_'.join(tokens[i:i + ngrams])
+            ngrams_list.append(ngram)
+        return ' '.join(ngrams_list)
+    else:
+        return ' '.join(tokens)
+
+def get_filtered_noun_phrases(doc, stop_words):
+    preserved_tokens = []
+    for chunk in doc.noun_chunks:
+        tokens = [token.text for token in chunk if token.text.lower() not in stop_words]
+        if tokens:
+            preserved_tokens.append('_'.join(tokens))
+    return preserved_tokens
 
 def normalize_text(text):
     """
@@ -345,26 +488,6 @@ def update_response_with_paragraph_data(response, aggregated_paragraph_data):
 
 
 
-lemmatizer = WordNetLemmatizer()
-stop_words = set(stopwords.words('english'))
 
 
 
-
-
-def clean_and_normalize(text):
-    # Convert text to lowercase
-    text = text.lower()
-
-    # Remove non-alphanumeric characters (punctuation, symbols, etc.)
-    text = re.sub(r'[^a-z0-9\s]', '', text)
-
-    # Tokenize text
-    words = nltk.word_tokenize(text)
-
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-    words = [word for word in words if word not in stop_words]
-
-    # Return cleaned words
-    return ' '.join(words)

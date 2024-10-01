@@ -1,4 +1,5 @@
 {
+
  "getting_keywords": {
     "text": "You will receive an academic paragraph along with its context. Your task is to extract 1 to 5 keywords or key phrases (bigrams) that best represent the main ideas of the paragraph, categorizing them into **topics**, **entities**, and **academic features**. Instructions: 1. **Summarize key arguments and main ideas**: Focus on extracting keywords that encapsulate the core arguments or concepts of the paragraph and group them under 'topics'. 2. **Include specific entities**: Identify and extract names of authors, organizations, companies, or international bodies, and group them under 'entities'. 3. **Highlight academic elements**: Extract terms related to academic features such as frameworks, methodologies, theoretical models, and key approaches, and group them under 'academic features'. 4. **Limit to 1-5 keywords**: Provide between 1 and 5 relevant keywords or key phrases, including a mix of single keywords and phrases (bigrams or trigrams). 5. **Avoid generic terms**: Exclude common stopwords and overly generic terms (e.g., 'and', 'the', 'research'), they should very specific to the paragraph text or paragraph title, not the section title.\nnote:make sure to ouput no truncated and valid json format ```json",
     "json_schema": {
@@ -47,15 +48,66 @@
     },
     "config": {
       "max_tokens": 4096,
-      "temperature": 0.2,
-      "top_p": 0.85
+      "temperature": 0.3,
+      "top_p": 1
     },
     "content": "Your task is to categorize the keywords extracted from the paragraph into **topics** (core ideas and arguments), **entities** (authors, organizations, etc.), and **academic features** (frameworks, methodologies, etc.). Output the results in JSON format, using 'keywords' as the main heading with nested categories.\nnote:make sure to ouput no truncated and valid json format ```json"
   }
 ,
 
-  "grouping_sections": {
-    "text": "You will receive a list of section titles. Your task is to group these titles into as many clear, unique, and distinct themes as possible and then organize them into a hierarchical outline. Instructions: 1. **Maximize groupings**: Your goal is to group as many titles as possible under each theme, provided that they share the same overarching idea. 2. **Merge overlapping or redundant titles**: If two or more titles are similar in meaning or cover the same topic, merge them under the same theme, while conserving common keywords in their section title. 3. **Create distinct, clear themes**: Ensure that each theme has a clear, concise title that accurately reflects the content. 4. **Organize sections comprehensively **: Within each theme, create an outline of sections using the main headings H1 related to the theme according to the provided data. 5. **Include all titles**: Make sure every section title is grouped into a theme. No titles should be left ungrouped even the subsections titles that are to specific should gain its own heading 1. Overall, the themes should encompass all the content of the sections dataset and the headings 1 within each theme should encompass all the main headings withing their particular theme, even the specific headings.\nnote:make sure to ouput no truncated and valid json format ```json",
+  "writing_sections": {
+    "text": "You will receive a main title along with its headings and subheadings. Each subheading includes a paragraph_title that summarizes raw quotes, the raw quotes themselves with academic references, a paragraph_id, and a paragraph count. Your are a PhD researcher and your objective is to generate a comprehensive thematic section review for each heading using only the provided references. **Introduction**: Create an insightful introduction using an `<h2>` tag. For smaller sections, include up to 2 paragraphs; for larger sections, include up to 5 paragraphs. The introduction should provide background and context to help understand the subsequent content being preceded by the h1 section title. - **Body Text**: Develop the main content where all raw quotes are analyzed and assessed to form a cohesive narrative around the theme. go subsection by subsection gathering the raw quotes and writing the academic section. Each analysis should include in-text citations in the format `<ref id=paragraph_id>(author, year, page)</ref>`. Ensure that all raw quotes are analysed and provide a <h2>Unused references</h2> section at the end of the body_text if paragraph are not relevant and unused.Use appropriate HTML heading levels (`<h2>`, `<h3>`, `<h4>`, `<h5>`) to reflect the content hierarchy. - **Conclusion**: Summarize the key findings and discuss the implications and other relevant aspects in an academic tone using an `<h2>` tag. Ensure that the output is a well-organized JSON object with a single key named 'section', containing `introduction`, `body_text`, and `conclusion`, all formatted in HTML. The JSON must be valid, not truncated. Take your time to ensure thoroughness and accuracy. Do not return subsections with only one paragraph,as the idea is to make a thematic review whose arguments are supported by many authors",
+
+    "json_schema": {
+      "name": "writing_sections",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "description": "This schema structures a comprehensive thematic section review with a single 'section' key containing introduction, body_text, and conclusion in HTML format.",
+        "properties": {
+          "section": {
+            "type": "object",
+            "description": "A structured section containing introduction, body_text, and conclusion, all formatted in HTML.",
+            "properties": {
+              "introduction": {
+                "type": "string",
+                "description": "The introduction section providing insightful analysis and background/context. Use HTML formatting with an <h2>Introduction</h2> tag and up to 2 paragraphs for small sections or up to 5 paragraphs for large sections. The introduction is preceeded by the h1 section title."
+              },
+              "body_text": {
+                "type": "array",
+                "description": "The main body of text containing the analysis of quotes in HTML format with appropriate headings and subheadings (h2, h3, h4, h5). Each item should include in-text citations enclosed by <ref> tags, for example <ref id=paragraph_id>(author, year, page)</ref>. Ensure all references from the provided dataset analysed, and if paragraphs are not relevant and not used, provide a list of them in form of endnote <h2>Unused References</h2><li id=paragraph_id>(author,year, page)</li>",
+                "items": {
+                  "type": "string",
+                  "description": "A section of the body text in HTML format, including headings, subheadings, and in-text citations with the format (author, year, page) enclosed by <ref id=paragraph_id> tags."
+                }
+              },
+              "conclusion": {
+                "type": "string",
+                "description": "The conclusion section summarizing key findings and implications, formatted in HTML with an <h2> tag."
+              }
+            },
+            "required": ["introduction", "body_text", "conclusion"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["section"],
+        "additionalProperties": false
+      }
+    },
+
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.3,
+      "top_p": 0.9
+    },
+
+    "content": "You will write a section based on the given heading levels and paragraph content. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme using all the references provided.The output should be in JSON format with a single key named 'section', which includes `introduction`, `body_text`, and `conclusion`—all in HTML format with appropriate tags for headings, paragraphs, and `<ref>` tags for citations. Ensure the JSON is valid, not truncated, and that all paragraphs are analyzed and referenced with `<ref>` tags."
+  }
+
+
+,
+ "grouping_sections": {
+   "text": "You will receive a list of section titles. Your task is to group these titles into as many clear, unique, and distinct themes as possible and then organize them into a hierarchical outline. Instructions: 1. **Maximize groupings**: Your goal is to group as many titles as possible under each theme, provided that they share the same overarching idea. 2. **Merge overlapping or redundant titles**: If two or more titles are similar in meaning or cover the same topic, merge them under the same theme, while conserving common keywords in their section title. 3. **Create distinct, clear themes**: Ensure that each theme has a clear, concise title that accurately reflects the content. 4. **Organize sections comprehensively **: Within each theme, create an outline of sections using the main headings H1 related to the theme according to the provided data. 5. **Include all titles**: Make sure every section title is grouped into a theme. No titles should be left ungrouped even the subsections titles that are to specific should gain its own heading 1. Overall, the themes should encompass all the content of the sections dataset and the headings 1 within each theme should encompass all the main headings withing their particular theme, even the specific headings.\nnote:make sure to ouput no truncated and valid json format json",
     "json_schema": {
       "name": "themes_writer_v8",
       "strict": true,
@@ -111,6 +163,8 @@
     },
     "content": "Your task is to group the section titles into broad themes, then organize each theme into a hierarchical structure using headings H1. The output should be in JSON format."
   }
+
+
 
 ,
 "getting_sections2": {
@@ -289,7 +343,7 @@
       "temperature": 0.75,
       "top_p": 0.9
     },
-    "content": "You will receive a list of sections and subsections. Your task is to organize these sections into a hierarchical structure using HTML headings (h1, h2, h3, etc.) and assign titles to each section within a particularly theme. The theme will be at the top level, followed by nested headings and subsections. Use valid heading levels to create an organized structure that reflects the document's theme. Make sure to nest subsections within their parent sections where applicable. output is in json format."
+    "content": "You will receive a list of sections and subsections. Your task is to organize these sections into a hierarchical structure using HTML headings (h1, h2, h3, etc.) and assign titles to each section within a particularly theme. The theme will be at the top level, followed by nested headings and subsections. Use valid heading levels to create an organized structure that reflects the document's theme. Make sure to nest subsections within their parent sections where applicable. make sure to ouput no truncated and valid json format"
   }
 
 
@@ -330,7 +384,7 @@
       "temperature": 0.4,
       "top_p": 0.9
     },
-    "content": "You will create thematic sections based on the given heading levels and paragraph content. Each section should consist of maximum three paragraphs, written solely based on the provided references. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme.output is in json format."
+    "content": "You will create thematic sections based on the given heading levels and paragraph content. Each section should consist of maximum three paragraphs, written solely based on the provided references. Analyze the paragraphs critically, discuss the authors' ideas, and form a coherent narrative that connects with the theme. Transition smoothly between paragraphs and provide insight into the theme.make sure to ouput no truncated and valid json format."
   },
 
   "cleaning_headings": {
@@ -432,147 +486,71 @@
   },
     "config": {
       "max_tokens": 4096,
-      "temperature": 0.0,
-      "top_p": 0.95
-    },
-        "content": "Your task is to organize topic sentences by assigning coherent HTML headings (h2,h3,h4) with corresponding titles and paragraph ids. Ensure proper nesting of headings to reflect the logical structure of the document. <h2> heading. Each heading should capture the essence of the grouped topic sentences. note 1: do no repeat the same paragraph id more than 5 times accross the headings. note 2:ouput is in json format ```json"
-
-  }
-
-,
-   "get_headings": {
-    "text": "I have clustered topic sentences representing paragraphs. Your task is to give them a cohesive and coherent structure by assigning headings in HTML tags (h1, h2, h3) nested where appropriate. The structure should be in the format: <h1> title </h1>, <h1> paragraph IDs </h1>, <h2> title </h2>, <h2> paragraph IDs </h2>, etc. You will receive a list of dicts with 'id' and 'p' (paragraph content). Your output should be a list of headings with their corresponding titles and the paragraph IDs associated with them. For example: [{'h1': {'title': 'Main Heading Title', 'paragraph_ids': ['67bc2e0e', 'a4c3cde6']}}, {'h2': {'title': 'Subsection Title', 'paragraph_ids': ['8c497488']}}]. Add an overarching theme at the top before the <h1> heading that represents the entire structure.o Ouput is in json format",
-    "json_schema": {
-      "name": "headings_and_titles_generator_v2",
-      "strict": true,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "overarching_theme": {
-            "type": "string",
-            "description": "The overarching theme that summarizes the entire document, placed before the first <h1> heading."
-          },
-          "structure": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "heading": {
-                  "type": "string",
-                  "enum": ["h1", "h2", "h3", "h4"],
-                  "description": "The HTML heading level representing the section's hierarchy."
-                },
-                "title": {
-                  "type": "string",
-                  "description": "A concise and clear title that summarizes the central idea of the section or subsection."
-                },
-                "paragraph_ids": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "description": "A list of paragraph IDs grouped under this heading."
-                  },
-                  "description": "The paragraph IDs associated with the heading."
-                }
-              },
-              "required": ["heading", "title", "paragraph_ids"],
-              "additionalProperties": false
-            },
-            "description": "An ordered list of HTML headings and their associated paragraph IDs, structured hierarchically. Ensure that each section has a logical flow, with headings nested where necessary."
-          }
-        },
-        "required": ["overarching_theme", "structure"],
-        "additionalProperties": false
-      }
-    },
-    "config": {
-      "max_tokens": 800,
       "temperature": 0.3,
-      "top_p": 0.95
-    },
-    "content": "Your task is to organize paragraph clusters by assigning coherent HTML headings (h1, h2,h3) with corresponding titles. Ensure proper nesting of headings to reflect the logical structure of the document. Begin by providing an overarching theme summarizing the entire content before the first <h1> heading. Each heading should capture the essence of the grouped paragraphs. Output should be formatted as: [{'h1': {'title': 'Main Heading', 'paragraph_ids': ['id1', 'id2']}}, {'h2': {'title': 'Subsection', 'paragraph_ids': ['id3']}}]."
+      "top_p": 1,
+      "seed": 34
+    }
   },
 
-   "footnote": {
-    "text": "Your text goes here",
-    "json_schema": {
-      "name": "citation_extraction_v2",
-      "strict": true,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "references": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "ref": {
-                  "type": "string",
-                  "description": "The reference or citation being extracted."
-                },
-                "preceding_text": {
-                  "type": "string",
-                  "description": "The text preceding the reference, used to provide context for the citation."
-                },
-                "footnote": {
-                  "type": "string",
-                  "description": "The extracted footnote text corresponding to the reference."
-                }
-              },
-              "required": ["ref", "preceding_text", "footnote"],
-              "additionalProperties": false
-            },
-            "description": "A list of references, each containing the citation, preceding text, and footnote."
-          }
-        },
-        "required": ["references"],
-        "additionalProperties": false
-      }
-    },
-    "config": {
-      "max_tokens": 800,
-      "temperature": 0.2,
-      "top_p": 0.95
-    },
-    "content": "Extract the references and footnotes from the given text and provide a structured JSON response with 'ref', 'preceding_text', and 'footnote'."
-  },
-   "find_title": {
-    "text": "Read carefully the paragraphs considering the context of the overall academic paper with <title> and <section/subsections>. After analyzing each paragraph in its context, return a list of paragraph titles summarizing the paragraph content in a declarative sentence affirming one fact central to the paragraph. Return a list of dicts, each with paragraph number and title.",
-    "json_schema": {
-      "name": "title_creator_v2",
-      "strict": true,
-      "schema": {
-        "type": "object",
-        "properties": {
-          "titles": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "paragraph_number": {
-                  "type": "integer",
-                  "description": "The sequential number of the paragraph being summarized."
-                },
-                "h3_title": {
-                  "type": "string",
-                  "description": "A declarative title summarizing the central idea of the paragraph in one or two sentences."
-                }
-              },
-              "required": ["paragraph_number", "h3_title"],
-              "additionalProperties": false
-            },
-            "description": "A list of titles, each corresponding to a paragraph number, summarizing the content of the paragraph."
-          }
-        },
-        "required": ["titles"],
-        "additionalProperties": false
-      }
-    },
-    "config": {
-      "max_tokens": 800,
-      "temperature": 0.4,
-      "top_p": 0.9
-    },
-    "content": "You read each paragraph carefully and generate a declarative title in the form of one or two complete sentences. These sentences should summarize the paragraph's core fact or idea."
-  }
+"logit_bias": {
+    "112958": -100,
+    "291": -100,
+    "49070": -100,
+    "125466": -100,
+    "161791": -100,
+    "36278": -100,
+    "59389": -100,
+    "142528": -100,
+    "25334": -100,
+    "74609": -100,
+    "8012": -100,
+    "174421": -100,
+    "112044": -100,
+    "16796": -100,
+    "14012": -100,
+    "18186": -100,
+    "12990": -100,
+    "20282": -100,
+    "59214": -100,
+    "19412": -100,
+    "61174": -100,
+    "107046": -100,
+    "2608": -100,
+    "13108": -100,
+    "13037": -100,
+    "43094": -100,
+    "100544": -100,
+    "138397": -100,
+    "68524": -100,
+    "115863": -100,
+    "306": -100,
+    "37383": -100,
+    "21182": -100,
+    "14633": -100,
+    "65742": -100,
+    "19055": -100,
+    "122273": -100,
+    "38880": -100,
+    "66480": -100,
+    "76297": -100,
+    "96138": -100,
+    "16632": -100,
+    "99766": -100,
+    "23690": -100,
+    "60061": -100,
+    "14326": -100,
+    "32144": -100,
+    "26342": -100,
+    "480": -100,
+    "382": -100,
+    "3378": -100,
+    "316": -100,
+    "7477": -100,
+    "495": -100,
+    "7058": -100,
+    "2375": -100,
+    "9145": -100,
+    "3350": -100,
+    "1511": -100
+}
 }

@@ -1,179 +1,144 @@
 import hashlib
+import os
 import json
-from datetime import time
-from difflib import SequenceMatcher
-from typing import List, Dict, Optional, Union, Tuple
-import math
-import re
-# from NLP_module.normalise_texts import
-from collections import defaultdict
 import logging
+import pickle
+from collections import defaultdict
 
-import nltk
+from fastembed.embedding import TextEmbedding
+from fastembed.sparse import SparseTextEmbedding
+from fastembed.late_interaction import LateInteractionTextEmbedding
+
+
+
+import joblib
 import numpy as np
-from nltk import ngrams, PorterStemmer
-from nltk.corpus import wordnet, stopwords
-from tensorboard.compat.tensorflow_stub.tensor_shape import vector
+import pandas as pd
+from nltk import WordNetLemmatizer, word_tokenize
+from qdrant_client import QdrantClient, models
+from qdrant_client.grpc import TextIndexParams, TokenizerType
+from qdrant_client.http.models import (
+    SearchParams,
+    Filter,
+    Range,
+    MatchValue,
+    FieldCondition,
+    MatchText,
+    SparseVector,
+)
+from typing import List, Optional, Dict, Tuple, Union
 
-from NLP_module.patterns_data import patterns_number_brackets
-# from NLP_module.normalise_texts import
+
+from collections import defaultdict, Counter
+import numpy as np
+from qdrant_client.conversions.common_types import SparseVector, SparseVectorParams, HnswConfigDiff
+from sentence_transformers import SentenceTransformer
+
 from Vector_Database.embedding_handler import get_embedding,query_with_history
 from qdrant_client import QdrantClient
-from qdrant_client.grpc import SparseVectorParams, Modifier
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from qdrant_client.http import models  # Import models from qdrant_client.http
 from qdrant_client.http.exceptions import UnexpectedResponse
 from sklearn.cluster._hdbscan import hdbscan
 from sklearn.decomposition import LatentDirichletAllocation as LDA
 from sklearn.cluster import AgglomerativeClustering, KMeans
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import cosine_distances
-# from Vector_Database.embedding_handler import query_with_history
-from qdrant_client.http.models import VectorParams, SparseVectorParams, Distance, Modifier
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
 from Pychat_module.gpt_api import call_openai_api
 import uuid
 from File_management.exporting_files import export_results
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
 from yellowbrick.cluster import KElbowVisualizer
-from kneed import KneeLocator
-import matplotlib.pyplot as plt
-# Helper Functions
 
-def extract_phrases(query: str, max_n: int = 3) -> List[str]:
-    tokens = [word for word in nltk.word_tokenize(query.lower()) if word.isalnum()]
-    phrases = set()
-    for n in range(2, max_n + 1):
-        for gram in ngrams(tokens, n):
-            phrases.add(' '.join(gram))
-    return list(phrases)
+
+
+import re
+
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 import spacy
+from rank_bm25 import BM25Okapi
 
+# Sentence Transformer for dense embeddings
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
-def get_synonyms_dynamic(token: str) -> List[str]:
+dense_embedding_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+bm42_embedding_model = SparseTextEmbedding("Qdrant/bm42-all-minilm-l6-v2-attentions")
+colbert_embedding_model = LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+# Preprocessing functions (assuming they are defined elsewhere or include them)
+def preprocess_text(text: str) -> str:
     """
-    Dynamically fetch synonyms for the given token using WordNet.
+    Preprocesses the input text for BM25 and dense embeddings.
     """
-    synonyms = set()
+    # Implement your preprocessing here (e.g., lowercase, remove punctuation, tokenize)
+    # For demonstration, we'll just lowercase and remove non-alphanumeric characters
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return text
 
-    for syn in wordnet.synsets(token):
-        for lemma in syn.lemmas():
-            synonyms.add(lemma.name())  # Get all the lemma names for synonyms
-
-    return list(synonyms)
-
-
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+def token_in_text(tokens: set, text_tokens: List[str]) -> bool:
+    return any(token in text_tokens for token in tokens)
 def normalize_text2(text: str) -> List[str]:
     """
     Normalize the input text by lowercasing, removing non-alphanumeric characters,
-    and splitting into tokens. This replaces the previous preprocess function.
+    and splitting into tokens.
     """
-    # Convert to lowercase
     normalized_text = text.lower()
-
-    # Remove non-alphanumeric characters (except spaces)
     normalized_text = re.sub(r'[^a-z0-9\s]', '', normalized_text)
-
-    # Split text into tokens (words)
     tokens = normalized_text.split()
-
     return tokens
 
 
-# Load spaCy model
-nlp = spacy.load('en_core_web_sm')
-def calculate_dynamic_weights(overlap: float, proximity: int) -> Dict[str, float]:
-    """
-    Dynamically calculate weights based on overlap and proximity.
-    Overlap is a value between 0 and 1, proximity is the distance between tokens.
-    """
-    # Base weights for different sections, dynamically scaled by overlap
-    section_weight = 1.0 + (overlap * 0.5)  # Scale section weight by overlap
-    paragraph_title_weight = 1.0 + (overlap * 0.3)  # Slightly less emphasis on paragraph title
-    text_weight = 1.0 + (overlap * 0.2)  # Less weight on main text overlap
+def preprocess_text2(text: str, phrases: Optional[List[str]] = None) -> List[str]:
+    nlp = spacy.load("en_core_web_sm")
 
-    # Apply proximity boost dynamically
-    proximity_boost_weight = 0.5 + (1.0 / (proximity + 1))  # Inversely proportional to proximity
-
-    return {
-        'section_weight': section_weight,
-        'paragraph_title_weight': paragraph_title_weight,
-        'text_weight': text_weight,
-        'proximity_boost_weight': proximity_boost_weight
-    }
-
-
-def preprocess_text(text: str, phrases: Optional[List[str]] = None) -> List[str]:
     """
     Preprocess text by lowercasing, replacing phrases, removing non-alphabetic characters,
     lemmatizing, and extracting only nouns and adjectives using spaCy.
-
-    :param text: Input text to be processed.
-    :param phrases: Optional list of phrases to replace with underscores.
-    :return: List of lemmatized tokens (nouns and adjectives only).
     """
-    # Lowercase the text
     text = text.lower()
-    stopwords_tailored = ['attribution','state','cyber']
-    # Replace custom phrases with underscore versions (e.g., "New York" -> "New_York")
+    stopwords_tailored = ['attribution', 'state', 'cyber']
+
     if phrases:
         for phrase in phrases:
             phrase_pattern = re.escape(phrase)
             text = re.sub(r'\b' + phrase_pattern + r'\b', phrase.replace(' ', '_'), text)
 
-    # Remove non-alphabetic characters except underscores
     text = re.sub(r'[^a-zA-Z_\s]', '', text)
-
-    # Process text using spaCy to get nouns and adjectives
     doc = nlp(text)
-
-    # Extract lemmas for nouns, proper nouns, and adjectives, excluding stop words and punctuation
-    tokens = [token.lemma_.lower() for token in doc if
-              token.pos_ in {"NOUN", "PROPN", "ADJ"} and not token.is_stop and not token.is_punct and token.lemma_.lower() not in stopwords_tailored]
+    tokens = [token.lemma_ for token in doc if
+              token.pos_ in {"NOUN", "PROPN", "ADJ"} and not token.is_stop and token.lemma_ not in stopwords_tailored]
 
     return tokens
 
-def get_synonyms(word: str) -> set:
-    synonyms = set()
-    for syn in wordnet.synsets(word):
-        for lemma in syn.lemmas():
-            name = lemma.name().replace('_', ' ').lower()
-            if name != word:
-                synonyms.add(name)
-    return synonyms
 
 
-# Example text normalization function
 def normalize_text(text: str) -> List[str]:
     """
     Normalize the text by converting to lowercase, removing punctuation, and stemming words.
     """
-    # Lowercase and remove punctuation
     text = text.lower()
     text = re.sub(r'[^\w\s]', '', text)
-
-    # Tokenize text
     tokens = text.split()
-
-    # Apply stemming or lemmatization
     ps = PorterStemmer()
     tokens = [ps.stem(token) for token in tokens if token not in stopwords.words('english')]
-
     return tokens
 
 
-# Example token overlap function using normalized text
 def token_overlap(query_tokens: List[str], text_tokens: List[str]) -> int:
     """
     Calculate the number of matching tokens between query and text after normalization.
     """
     normalized_query = normalize_text(' '.join(query_tokens))
     normalized_text = normalize_text(' '.join(text_tokens))
-
-    # Find the overlap in normalized tokens
     overlap = set(normalized_query).intersection(set(normalized_text))
-
     return len(overlap)
 
 
@@ -184,16 +149,9 @@ def apply_proximity_boost(text: str, query_tokens: List[str], threshold: int) ->
     normalized_text = normalize_text(text)
     for token in query_tokens:
         if token in normalized_text:
-            # Check if the distance between tokens is within the threshold
             return True
     return False
 
-
-def token_in_text(tokens: set, text_tokens: List[str]) -> bool:
-    return any(token in text_tokens for token in tokens)
-
-def normalize_score(score: float) -> float:
-    return math.log1p(score)
 
 def get_headings_for_clusters(clusters):
     aggregated_results = []
@@ -357,162 +315,467 @@ def concatenate_context_and_data(heading, context):
 
     return combined_data
 
+
+# Preprocessing function
+def preprocess_text(text: str) -> str:
+    """
+    Preprocesses the input text.
+    """
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
+    return text
+
 class QdrantHandler:
-    def __init__(self, qdrant_url="http://localhost:6333"):
+    # Initialize models
+
+    def __init__(
+        self,
+        qdrant_url: str = "http://localhost:6333",
+
+        corpus_path: str = r"C:\Users\luano\Downloads\AcAssitant\Files\Models corpus\bm25_corpus.pkl",
+
+    ):
         self.qdrant_client = QdrantClient(url=qdrant_url)
-
-    def process_and_append(self, metadata,paragraph_count,collection_name, article_title,section_title, keywords, paragraph_title, paragraph_text, paragraph_blockquote):
-        """Process embeddings and append data to the collection."""
-
-        # Get embeddings for both title and text
-        text_embedding = get_embedding(paragraph_title)
-
-        # Append data to the collection and get operation info
-        operation_info = self.append_data(
-            collection_name=collection_name,  # Your collection name
-            article_title=article_title,
-            section_title=section_title,  # Section title
-            paragraph_title=paragraph_title,  # Paragraph title
-            paragraph_text=paragraph_text,  # Paragraph text
-            paragraph_blockquote=paragraph_blockquote,  # Blockquote (if available)
-            text_embedding=text_embedding,  # Embedding for the text
-            paragraph_count=paragraph_count,
-            metadata=metadata,
-            keywords=keywords,
-        )
-
-        # Check if the operation was successful
-        if operation_info.status == "completed":
-            print(
-                f"Data successfully appended to the collection '{collection_name}' for paragraph '{paragraph_text}'.")
-            return True
-        else:
-            print(f"Failed to append data to collection '{collection_name}'. Status: {operation_info.status}")
-        return operation_info
-
-    def create_collection(self, collection_name, vector_size=3072,vector=True):
-        """Create a collection in Qdrant based on a given paper ID if it does not exist."""
+        self.dense_embedding_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+        self.bm42_embedding_model = SparseTextEmbedding("Qdrant/bm42-all-minilm-l6-v2-attentions")
 
 
-        # Check if the collection already exists
+
+    def fit_bm25(self, corpus: List[List[str]]):
+        """
+        Fit the BM25 model on the provided corpus and save it.
+
+        Args:
+            corpus (List[List[str]]): A list of tokenized documents to fit the model.
+        """
+        print("Fitting BM25 model on the corpus...")
+        self.bm25_corpus = corpus
+        self.bm25 = BM25Okapi(self.bm25_corpus)
+        # Save the corpus for future use
+        with open(self.corpus_path, 'wb') as f:
+            pickle.dump(self.bm25_corpus, f)
+        # Build vocabulary
+        self.vocab = {term: idx for idx, term in enumerate(self.bm25.idf.keys())}
+        print(f"BM25 model fitted and corpus saved to {self.corpus_path}.")
+
+    def create_collection(self, collection_name: str) -> bool:
+        from qdrant_client import QdrantClient, models
+
         try:
             self.qdrant_client.get_collection(collection_name)
             print(f"Collection '{collection_name}' already exists.")
+            return False
+        except Exception:
+            print(f"Collection '{collection_name}' not found. Creating a new collection.")
 
-            return False  # Collection already exists
-        except Exception as e:
-            print(f"Collection '{collection_name}' not found. Creating new collection.")
-            if vector:
-                sparse_vectors = {
-                    "paragraph_text": models.SparseVectorParams(
-                        modifier="idf"  # Use IDF for sparse vector search
+        try:
+            self.qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config={
+                    "text_dense": models.VectorParams(
+                        size=3072,  # Size of the dense embedding
+                        distance=models.Distance.COSINE
                     ),
-                    "paragraph_title": models.SparseVectorParams(
-                        modifier="idf"  # Use IDF for sparse vector search
+                    "colbert": models.VectorParams(
+                        size=128,  # Size of ColBERT embeddings (adjust as needed)
+                        distance=models.Distance.COSINE,
+                        multivector_config=models.MultiVectorConfig(
+                            comparator=models.MultiVectorComparator.MAX_SIM
+                        )
                     ),
-                    "section_title": models.SparseVectorParams(
-                        modifier="idf"  # Use IDF for sparse vector search
-                    )
-                }
-
-                # HNSW configuration for high-accuracy vector search
-                hnsw_config = models.HnswConfigDiff(
-                    ef_construct=512,
-                    m=64
-                )
-
-                # Create the collection with vectors and sparse indexing
-                self.qdrant_client.create_collection(
-
-                    collection_name=collection_name,
-                    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-
-                    sparse_vectors_config=sparse_vectors,  # Correctly use sparse_vectors
-                    hnsw_config=hnsw_config,
-                    on_disk_payload=False  # Store payload data on disk to save RAM
-                )
-
-                # Create full-text indexes on paragraph_text, paragraph_title, and section_title
-                text_fields = ["paragraph_text", "paragraph_title", "section_title"]
-                for field in text_fields:
-                    self.qdrant_client.create_payload_index(
-                        collection_name=collection_name,
-                        field_name=field,
-                        field_schema=models.TextIndexParams(
-                            type="text",
-                            tokenizer=models.TokenizerType.WORD,
-                            min_token_len=2,
-                            max_token_len=15,
-                            lowercase=True
+                },
+                sparse_vectors_config={
+                    "bm42": models.SparseVectorParams(
+                        modifier=models.Modifier.IDF,
+                        index=models.SparseIndexParams(
+                            # Any additional index params if needed
+                            on_disk=False
                         )
                     )
+                },
+                on_disk_payload=False
+            )
+            print(f"Collection '{collection_name}' created successfully.")
+            return True
+        except Exception as create_error:
+            print(f"Error creating collection '{collection_name}': {create_error}")
+            return False
 
-                print(f"Collection '{collection_name}' created successfully with vector and full-text search.")
-                return True  # Collection was newly created
-            if not vector:
-                # Create the collection with vectors and sparse indexing
-                self.qdrant_client.create_collection(
-
-                    collection_name=collection_name,
-                    vectors_config=models.VectorParams(size=3072, distance=models.Distance.COSINE),
-                    on_disk_payload=False  # Store payload data on disk to save RAM
-                )
-
-    def append_data(self, collection_name,text_embedding,metadata='', keywords='',paragraph_count='',article_title='',section_title='', paragraph_title='', paragraph_text='', paragraph_blockquote='',
-                    custom_id='',vector=True):
+    def append_data(
+            self,
+            collection_name: str,
+            metadata: str = '',
+            keywords: str = '',
+            keyword_categories: str ='',
+            paragraph_count: str = '',
+            article_title: str = '',
+            section_title: str = '',
+            paragraph_title: str = '',
+            paragraph_text: str = '',
+            paragraph_blockquote: str = '',
+            custom_id: str = ''
+    ) -> Optional[Dict]:
         """
-        Insert embeddings for paragraph title and paragraph text into the collection with proper handling for both vectors.
+        Insert dense, sparse (BM42), and ColBERT embeddings along with paragraph metadata into the collection.
         """
-        if vector:
-            hash_object = hashlib.sha256(paragraph_title.encode('utf-8'))
-            # Convert the hash to an integer
-            paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)  # Limiting to 8 digits
+        from qdrant_client import models
 
+        # Validate collection existence
+        try:
+            self.qdrant_client.get_collection(collection_name)
+        except Exception:
+            print(f"Collection '{collection_name}' does not exist. Please create it first.")
+            return None
 
+        # Create a unique ID based on the paragraph title
+        hash_object = hashlib.sha256(paragraph_title.encode('utf-8'))
+        paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)
 
+        # Structure the payload, storing custom ID and other metadata
+        payload = {
+            "article_title": article_title,
+            "section_title": section_title,
+            "paragraph_title": paragraph_title,
+            "paragraph_text": paragraph_text,
+            "paragraph_blockquote": paragraph_blockquote,
+            "custom_id": custom_id,
+            "paragraph_count": paragraph_count,
+            "metadata": metadata,
+            "keywords":keywords,
+            "keyword_categories":keyword_categories
+        }
 
-            # Structure the payload, storing custom ID and other metadata
-            payload = {
-                "article_title":article_title,
-                "section_title": section_title,
-                "paragraph_title": paragraph_title,
-                "paragraph_text": paragraph_text,
-                "paragraph_blockquote": paragraph_blockquote,  # Include blockquote information
-                "custom_id": custom_id,  # Store the custom ID in the payload
-                "paragraph_count":paragraph_count,
-                "metadata":metadata,
-                "keywords":keywords
-            }
+        # Preprocess paragraph text
+        preprocessed_paragraph_text = preprocess_text(paragraph_text)
 
-            # Insert data into Qdrant with both title and text embeddings
+        # Generate Dense Embedding
+        dense_embedding =get_embedding(preprocessed_paragraph_text)
+        # dense_embedding = list(dense_embedding_model.embed([preprocessed_paragraph_text]))[0].tolist()
+
+        # Generate BM42 Sparse Embedding
+        bm42_embedding = list(bm42_embedding_model.embed([preprocessed_paragraph_text]))[0]
+        bm42_sparse_vector = models.SparseVector(
+            indices=bm42_embedding.indices.tolist(),
+            values=bm42_embedding.values.tolist()
+        )
+
+        # Generate ColBERT Embeddings
+        colbert_embeddings = list(colbert_embedding_model.embed([preprocessed_paragraph_text]))[0]
+        colbert_embeddings_list = [embedding.tolist() for embedding in colbert_embeddings]
+
+        # Prepare the vector dictionary
+        vector = {
+            "text_dense": dense_embedding,
+            "bm42": bm42_sparse_vector,  # Use SparseVector directly
+            "colbert": colbert_embeddings_list
+        }
+
+        # Insert data into Qdrant with all vectors
+        try:
             operation_info = self.qdrant_client.upsert(
                 collection_name=collection_name,
                 points=[
-                    PointStruct(
-                        id=paragraph_id,  # Use UUID as point ID
-                        vector=text_embedding,  # Insert the text embedding for the paragraph text
-                        payload=payload  # Store metadata, including custom ID
+                    models.PointStruct(
+                        id=paragraph_id,
+                        vector=vector,  # Use 'vector' instead of 'vectors'
+                        payload=payload
                     )
                 ]
             )
-        if not vector:
-            hash_object = hashlib.sha256(collection_name.encode('utf-8'))
-            # Convert the hash to an integer
-            paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)  # Limiting to 8 digits
-            # Insert data into Qdrant with both title and text embeddings
-            operation_info = self.qdrant_client.upsert(
-                collection_name=collection_name,
-                points=[
-                    PointStruct(
-                        id=paragraph_id,  # Use UUID as point ID
-                        vector=text_embedding,  # Insert the text embedding for the paragraph text
+            print(
+                f"Inserted data for paragraph '{paragraph_title}' under section '{section_title}' with custom ID '{custom_id}'.")
+            return operation_info
+        except Exception as e:
+            print(f"Failed to insert data: {e}")
+            return None
 
-                    )
-                ]
+    def hybrid_search(
+            self,
+            collection_name: str,
+            query: str,
+            top_k: int = 10,
+            with_payload: bool = True,
+            keywords: Optional[Dict[str, List[str]]] = None,
+            update: bool = False
+    ) -> Dict[str, List]:
+        """
+        Perform a hybrid search in Qdrant using BM42 sparse embeddings and dense embeddings.
+
+        Args:
+            collection_name (str): Name of the Qdrant collection.
+            query (str): The search query.
+            top_k (int): Number of top results to return.
+            with_payload (bool): Whether to return payload with results.
+            keywords (Optional[Dict[str, List[str]]]): Keywords for filtering.
+            update (bool): Whether to update the cache.
+
+        Returns:
+            Dict[str, List]: A dictionary containing the search results.
+        """
+        # Cache file path
+        cache_file_path = rf"C:\Users\luano\Downloads\AcAssitant\Files\Cache\search_cache\search_results_{collection_name}.json"
+
+        # Check if the cache file exists
+        if os.path.exists(cache_file_path) and not update:
+            with open(cache_file_path, 'r') as cache_file:
+                cache = json.load(cache_file)
+                if query in cache:
+                    logging.info(f"Returning cached result for query: {query}")
+                    return cache[query]
+
+        # Parse the query into a filter and search terms
+        try:
+            filter, search_terms = self.parse_query(query)
+        except Exception as e:
+            logging.error(f"Error parsing query: {e}")
+            return {}
+
+        # Generate embeddings for the search terms
+        dense_embedding = get_embedding(search_terms)
+        bm42_embedding = list(self.bm42_embedding_model.embed([search_terms]))[0]
+        bm42_sparse_vector = models.SparseVector(
+            indices=bm42_embedding.indices.tolist(),
+            values=bm42_embedding.values.tolist()
+        )
+
+        try:
+            # Perform dense vector search
+            results_dense = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=models.NamedVector(
+                    name="text_dense",
+                    vector=dense_embedding
+                ),
+                query_filter=filter,
+                limit=top_k * 2,
+                with_payload=with_payload
             )
-        print(
-            f"Inserted data for paragraph '{paragraph_title}' under section '{section_title}' with custom ID '{custom_id}'.")
-        return operation_info
+
+            # Perform sparse vector search
+            results_sparse = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=models.NamedSparseVector(
+                    name="bm42",
+                    vector=bm42_sparse_vector
+                ),
+                query_filter=filter,
+                limit=top_k * 2,
+                with_payload=with_payload
+            )
+
+            # Combine results using RRF
+            combined_results = self.reciprocal_rank_fusion([results_dense, results_sparse], top_k)
+
+            # Process the combined results
+            processed_results = defaultdict(list)
+            for result in combined_results:
+                payload = result.payload
+                score = result.score
+
+                # Adjust score based on keywords if necessary
+                include_result = True
+                if keywords:
+                    include_result = self._apply_keyword_filter(
+                        keywords, payload
+                    )
+                if not include_result:
+                    continue
+
+                processed_results['section_title'].append(payload.get('section_title', "N/A"))
+                processed_results['paragraph_title'].append(payload.get('paragraph_title', "N/A"))
+                processed_results['paragraph_text'].append(payload.get('paragraph_text', "N/A"))
+                processed_results['paragraph_blockquote'].append(payload.get('paragraph_blockquote', "N/A"))
+                processed_results['metadata'].append(payload.get('metadata', "N/A"))
+                processed_results['keywords'].append(payload.get('keywords', []))
+                processed_results['score'].append(score)
+                processed_results['paragraph_id'].append(result.id)
+
+            if not processed_results:
+                logging.info("No results after processing.")
+                return {}
+
+            # Cache the processed results
+            cache = {}
+            if os.path.exists(cache_file_path):
+                with open(cache_file_path, 'r') as cache_file:
+                    cache = json.load(cache_file)
+
+            cache[query] = processed_results  # Store the result in the cache
+            with open(cache_file_path, 'w') as cache_file:
+                json.dump(cache, cache_file)
+
+            return processed_results
+
+        except Exception as e:
+            logging.error(f"Error during hybrid search in collection {collection_name}: {e}")
+            return {}
+
+    def parse_query(self, query: str):
+        """
+        Parses the query string and returns a Qdrant filter and search terms.
+
+        Args:
+            query (str): The query string.
+
+        Returns:
+            Tuple[models.Filter, str]: A tuple containing the Qdrant filter and the search terms.
+        """
+        import re
+        from qdrant_client.http import models
+
+        # Patterns
+        field_pattern = re.compile(r'(\w+):(".*?"|\S+)')
+        phrase_pattern = re.compile(r'"(.*?)"')
+        boolean_operators = {'AND', 'OR', 'NOT'}
+
+        # Initialize filter conditions
+        must_conditions = []
+        should_conditions = []
+        must_not_conditions = []
+
+        # Extract field-specific searches
+        remaining_query = query
+        field_matches = field_pattern.findall(query)
+        for field_name, value in field_matches:
+            # Remove from remaining query
+            remaining_query = remaining_query.replace(f'{field_name}:{value}', '')
+
+            # Remove quotes if present
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+
+            # Use MatchText for text matching
+            condition = models.FieldCondition(
+                key=field_name,
+                match=models.MatchText(text=value)
+            )
+
+            must_conditions.append(condition)
+
+        # Now handle the remaining query for terms and boolean logic
+        tokens = remaining_query.strip().split()
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            if token.upper() in boolean_operators:
+                operator = token.upper()
+                i += 1
+                if i >= len(tokens):
+                    break
+                next_token = tokens[i]
+
+                # Determine which conditions list to use
+                if operator == 'NOT':
+                    conditions_list = must_not_conditions
+                elif operator == 'OR':
+                    conditions_list = should_conditions
+                else:
+                    conditions_list = must_conditions
+
+                # Handle phrases or terms
+                if next_token.startswith('"'):
+                    phrase_match = phrase_pattern.match(' '.join(tokens[i:]))
+                    if phrase_match:
+                        phrase = phrase_match.group(1)
+                        i += len(phrase.split())  # Advance index
+                        condition = models.FieldCondition(
+                            key="paragraph_text",
+                            match=models.MatchText(text=phrase)
+                        )
+                    else:
+                        phrase = next_token.strip('"')
+                        condition = models.FieldCondition(
+                            key="paragraph_text",
+                            match=models.MatchText(text=phrase)
+                        )
+                else:
+                    # Regular term
+                    condition = models.FieldCondition(
+                        key="paragraph_text",
+                        match=models.MatchText(text=next_token)
+                    )
+
+                conditions_list.append(condition)
+            else:
+                # Handle as a term in must conditions
+                if token.startswith('"'):
+                    # Exact phrase
+                    phrase_match = phrase_pattern.match(' '.join(tokens[i:]))
+                    if phrase_match:
+                        phrase = phrase_match.group(1)
+                        i += len(phrase.split())  # Advance index
+                        condition = models.FieldCondition(
+                            key="paragraph_text",
+                            match=models.MatchText(text=phrase)
+                        )
+                    else:
+                        phrase = token.strip('"')
+                        condition = models.FieldCondition(
+                            key="paragraph_text",
+                            match=models.MatchText(text=phrase)
+                        )
+                else:
+                    # Regular term
+                    condition = models.FieldCondition(
+                        key="paragraph_text",
+                        match=models.MatchText(text=token)
+                    )
+                must_conditions.append(condition)
+            i += 1
+
+        # Build the filter
+        filter_conditions = []
+        if must_conditions:
+            filter_conditions.append(models.Filter(must=must_conditions))
+        if should_conditions:
+            filter_conditions.append(models.Filter(should=should_conditions))
+        if must_not_conditions:
+            filter_conditions.append(models.Filter(must_not=must_not_conditions))
+
+        if len(filter_conditions) == 1:
+            combined_filter = filter_conditions[0]
+        else:
+            # Combine filters
+            combined_filter = models.Filter(
+                must=filter_conditions  # Combine using must
+            )
+
+        # For the embeddings, we can use the terms extracted from the query without operators
+        search_terms = ' '.join(token for token in tokens if token.upper() not in boolean_operators)
+
+        return combined_filter, search_terms
+
+    def reciprocal_rank_fusion(self, results_list, top_k):
+        """
+        Combine multiple result lists using Reciprocal Rank Fusion (RRF).
+        results_list: List of lists of results.
+        Returns combined results sorted by RRF score.
+        """
+        # Assign a fixed k value for RRF
+        k = 60
+        # Dictionary to store cumulative scores
+        scores = {}
+        # Map of result IDs to result objects
+        result_map = {}
+        for results in results_list:
+            for rank, result in enumerate(results):
+                # Compute RRF score
+                rrf_score = 1.0 / (k + rank)
+                if result.id in scores:
+                    scores[result.id] += rrf_score
+                else:
+                    scores[result.id] = rrf_score
+                    result_map[result.id] = result  # Store the result object
+
+        # Assign combined scores to result objects
+        for id, score in scores.items():
+            result_map[id].score = score
+
+        # Sort results by combined score
+        combined_results = sorted(result_map.values(), key=lambda x: x.score, reverse=True)
+        # Return top_k results
+        return combined_results[:top_k]
+
 
     def cluster_paragraphs(self, collection_names="", n_clusters=None, max_clusters=10,method=''):
         """
@@ -708,422 +971,8 @@ class QdrantHandler:
 
         return classified_paragraphs
 
-    def check_valid_embeddings(self):
 
-        try:
-            # Get all collections
-            all_collections = self.qdrant_client.get_collections().collections
 
-            # Check if there are any collections
-            if not all_collections:
-                return "No collections found in the database."
-
-            # Retrieve the first collection name
-            for collection in all_collections:
-                for a in collection.dict():
-
-                    print(a)
-
-                collection_info = self.qdrant_client.get_collection(collection_name=collection.name)
-                # self.qdrant_client.delete_collection(collection_name=collection.name)
-                print(collection_info)
-                # return collection_info
-        except Exception as e:
-            return f"Error retrieving collections: {str(e)}"
-
-    def advanced_search(
-            self,
-            collection_name: str,
-            query: str = None,
-            top_k: Optional[int] = None,
-            filter_conditions: Optional[Dict[str, str]] = None,
-            score_threshold: float = 0.70,
-            with_payload: bool = True,
-            with_vectors: bool = True,
-            hnsw_ef: int = 512,
-            exact: bool = False,
-            keywords: Optional[Dict[str, List[str]]] = None,  # Changed to Dict
-            section_weight: float = 0.5,  # Added as parameters
-            paragraph_title_weight: float = 0.4,
-            text_weight: float = 0.1
-    ) -> Dict[str, List]:
-        """
-        Perform an advanced search in the Qdrant collection using hybrid search methods
-    with sparse embeddings and dense vectors, applying rescoring mechanisms.
-
-    Keyword Filtering:
-    ------------------
-    The search allows sophisticated filtering based on keywords. These keywords can be provided
-    as a list and used for rescoring results based on their presence in the section title, paragraph title,
-    and paragraph text. The following options are available for keyword filtering:
-
-    1. **Keyword List**: Provide a list of keywords that will be used to rescore results if found in the
-       section title, paragraph title, or text.
-       Example:
-       ```python
-       keywords = ["machine learning", "artificial intelligence", "deep learning"]
-       ```
-
-    2. **Logical Operators for Keywords**:
-       - You can implement logical operators (AND/OR) using multiple keyword lists or dictionaries.
-       - **AND**: Rescore if *all* keywords in a group are found in the text.
-       - **OR**: Rescore if *any* keyword from a group is found.
-
-       Example:
-       ```python
-       keywords = {
-           "AND": ["machine learning", "neural networks"],  # All keywords must be found
-           "OR": ["deep learning", "AI"]  # Any keyword can be found for a boost
-       }
-       ```
-
-    3. **Keyword Weighting**:
-       - You can assign different weights to specific keywords to emphasize their importance in the rescoring.
-       - Higher weights will result in a greater score boost when the keyword is found in the text.
-       - These weights can also be field-specific (e.g., higher weights if found in the section title).
-
-       Example:
-       ```python
-       keywords = {
-           "neural networks": 0.3,
-           "machine learning": 0.2,
-           "deep learning": 0.5
-       }
-       ```
-
-    4. **Field-Specific Keyword Scoring**:
-       - Keywords can be matched in different fields with custom weights applied based on where the keyword
-         is found:
-           - **section_weight**: The weight applied when a keyword is found in the section title.
-           - **paragraph_title_weight**: The weight applied when a keyword is found in the paragraph title.
-           - **text_weight**: The weight applied when a keyword is found in the paragraph text.
-
-       Example:
-       ```python
-       section_weight = 0.5  # Boost more for matches in section titles
-       paragraph_title_weight = 0.4  # Medium boost for matches in paragraph titles
-       text_weight = 0.2  # Lower boost for matches in the main text
-       ```
-
-    5. **Proximity Search** (if implemented):
-       - Proximity-based rescoring can be added to give higher relevance to results where keywords appear
-         closer together in the text. This can be useful in cases where keyword proximity increases relevance.
-
-       Example (not implemented in this version):
-       ```python
-       proximity_threshold = 10  # Rescore if keywords appear within 10 words of each other
-       ```
-
-    Parameters:
-    -----------
-    collection_name : str
-        The name of the Qdrant collection to search in.
-
-    query_vector : Optional[List[float]], optional
-        The dense vector used for semantic search. Default is None.
-
-    top_k : Optional[int], optional
-        The maximum number of results to return. Default is None.
-
-    filter_conditions : Optional[Dict[str, str]], optional
-        Additional filter conditions for the search, such as exact match or range filters.
-
-    score_threshold : float, optional
-        The minimum similarity score for results. Default is 0.60.
-
-    with_payload : bool, optional
-        Whether to return the payload along with search results. Default is True.
-
-    with_vectors : bool, optional
-        Whether to return vectors with search results. Default is False.
-
-    hnsw_ef : int, optional
-        Parameter for controlling the efficiency of the HNSW algorithm. Default is 512.
-
-    exact : bool, optional
-        Whether to perform exact search rather than approximate search. Default is False.
-
-    keywords : Optional[List[str]], optional
-        A list or dictionary of keywords to use for rescoring the search results.
-        Keywords can be provided with optional weights or grouped with logical operators (AND/OR).
-        Default is None.
-
-    section_weight : float, optional
-        Weight applied to score boosts when keywords are found in the section title. Default is 0.5.
-
-    paragraph_title_weight : float, optional
-        Weight applied to score boosts when keywords are found in the paragraph title. Default is 0.4.
-
-    text_weight : float, optional
-        Weight applied to score boosts when keywords are found in the paragraph text. Default is 0.2.
-
-    Returns:
-    --------
-    Dict[str, List]
-        A dictionary containing the processed search results, including section titles, paragraph titles,
-        paragraph text, blockquotes, and rescored values.
-        """
-
-        query_vector = query_with_history(' '.join(preprocess_text(query)))
-
-        # Split the query into keywords if not provided
-        if keywords is None:
-            query_keywords = query.split()
-            keywords = {'OR': query_keywords}  # Default to OR logic for broader results
-
-        # Initialize the processed_results variable as a defaultdict
-        processed_results = defaultdict(list)
-
-        # Define optional filtering if provided
-        query_filter = None
-        if filter_conditions:
-            must_conditions = []
-            for key, value in filter_conditions.items():
-                if isinstance(value, dict) and "range" in value:
-                    must_conditions.append(models.RangeCondition(
-                        key=key,
-                        range=models.Range(
-                            gte=value["range"].get("gte"),
-                            lte=value["range"].get("lte")
-                        )
-                    ))
-                else:
-                    must_conditions.append(models.FieldCondition(
-                        key=key,
-                        match=models.MatchValue(value=value)
-                    ))
-            query_filter = models.Filter(must=must_conditions)
-
-        # Define search parameters for HNSW ANN search
-        search_params = models.SearchParams(
-            hnsw_ef=hnsw_ef,
-            exact=exact
-        )
-
-        try:
-            # Perform the query
-            results = self.qdrant_client.query_points(
-                collection_name=collection_name,
-                query=query_vector,  # Dense vector search for semantic matching
-                with_payload=with_payload,
-                with_vectors=with_vectors,
-                query_filter=query_filter,  # Apply any filters
-                search_params=search_params,
-                # score_threshold=score_threshold,  # Uncomment if needed
-            ).points
-
-        except Exception as e:
-            logging.error(f"Error during query to collection {collection_name}: {e}")
-            return processed_results  # Return empty results on failure
-
-        if not results:
-            logging.info(f"No results found for collection: {collection_name}")
-            return processed_results
-
-        # Process results and apply rescoring
-        for result in results:
-
-            payload = result.payload
-            score = result.score  # Qdrant similarity score
-
-            # Call _rescore_result and check if it returns None (i.e., a NOT keyword was found)
-            adjusted_score = self._rescore_result(
-                payload=payload,
-                keywords=keywords,
-                section_weight=section_weight,  # Use dynamic weights
-                paragraph_title_weight=paragraph_title_weight,
-                text_weight=text_weight,
-                score_threshold=score_threshold,
-                initial_score=score,
-                query=query
-            )
-
-            print('score:', score)
-            print('adjusted_score:', adjusted_score)
-            print(payload.get('paragraph_title', "N/A"))
-            # print('____'*10)
-            if adjusted_score is None:
-                # Skip the result if _rescore_result indicates a NOT keyword match
-                continue
-
-            # Append results only if the paragraph passed the "NOT" filter and has been rescored
-            processed_results['section_title'].append(payload.get('section_title', "N/A"))
-            processed_results['paragraph_title'].append(payload.get('paragraph_title', "N/A"))
-            processed_results['paragraph_text'].append(payload.get('paragraph_text', "N/A"))
-            processed_results['paragraph_blockquote'].append(payload.get('paragraph_blockquote', "N/A"))
-            processed_results['metadata'].append(payload.get('metadata', "N/A"))
-
-            processed_results['rescore'].append(adjusted_score)
-            processed_results['paragraph_id'].append(result.id)
-
-        # Rescore and sort the results
-        self._sort_results(processed_results)
-        return processed_results
-
-
-    def _rescore_result(
-            self,
-            payload: Dict[str, str],
-            initial_score: float,
-            score_threshold: float,
-            query: str,
-            keywords: Optional[Dict[str, List[str]]] = None,
-            section_weight: float = 1.0,
-            paragraph_title_weight: float = 1.0,
-            text_weight: float = 1.0,
-            proximity_boost_weight: float = 0.03,  # 0.33 for proximity boost
-            fuzzy_boost_weight: float = 0.06,  # 0.33 for fuzzy match
-            proximity_threshold: int = 3,
-            min_similarity: float = 0.7,
-    ) -> Optional[float]:
-        """
-        Adjust scoring logic to incorporate keyword, proximity, and fuzzy match boosts.
-        All text is normalized before applying boosts, and different boosts are applied
-        based on whether matches occur in the section title, paragraph title, or paragraph text.
-        """
-
-        # Preprocess and normalize fields
-        section_tokens = normalize_text(payload.get('section_title', ""))
-        paragraph_title_tokens = normalize_text(payload.get('paragraph_title', ""))
-        paragraph_text_tokens = normalize_text(payload.get('paragraph_text', ""))
-        query_tokens = normalize_text(query)
-
-        # Compute token overlap
-        section_overlap = token_overlap(query_tokens, section_tokens)
-        paragraph_title_overlap = token_overlap(query_tokens, paragraph_title_tokens)
-        paragraph_text_overlap = token_overlap(query_tokens, paragraph_text_tokens)
-        # Apply keyword logic and get combined weight
-        # Apply keyword logic and get combined weight
-        include_result, keyword_weight = self._apply_keyword_logic(
-            keywords, query_tokens, section_tokens, paragraph_title_tokens, paragraph_text_tokens,
-            section_weight, paragraph_title_weight, text_weight  # Passing the weights here
-        )
-
-        # Initialize adjusted score with the initial score
-        adjusted_score = initial_score
-        adjusted_score += keyword_weight  # This now includes the field-specific weight + keyword weight
-
-        # Calculate match counts
-        section_match_count = len(set(query_tokens).intersection(section_tokens))
-        paragraph_title_match_count = len(set(query_tokens).intersection(paragraph_title_tokens))
-        paragraph_text_match_count = len(set(query_tokens).intersection(paragraph_text_tokens))
-
-        # If any keyword is found in section or paragraph title, apply a 0.5 boost
-        if section_match_count > 0 or paragraph_title_match_count > 0:
-            adjusted_score += 0.5  # High relevance boost for titles
-
-        # Apply boosts for paragraph text dynamically based on match count
-        if paragraph_text_match_count > 0:
-            paragraph_text_boost = text_weight * (0.01 * paragraph_text_match_count)
-            adjusted_score += paragraph_text_boost
-
-        # Apply proximity boost if proximity is detected
-        if apply_proximity_boost(payload.get('paragraph_text', ""), query_tokens, proximity_threshold):
-            adjusted_score += proximity_boost_weight  # Proximity boost
-
-        # Apply fuzzy match boost (assuming overlap gives some measure of fuzziness)
-        total_overlap = section_overlap + paragraph_title_overlap + paragraph_text_overlap
-        if total_overlap > 0:
-            fuzzy_boost = fuzzy_boost_weight * (total_overlap / len(query_tokens))
-            adjusted_score += fuzzy_boost
-
-        # Ensure score is within bounds
-        adjusted_score = min(1.0, max(0.0, adjusted_score))
-
-        # Log the adjusted score for debugging
-        logging.debug(f"Adjusted score for document {payload.get('paragraph_id', 'N/A')}: {adjusted_score}")
-
-        # Apply the score threshold and return
-        return adjusted_score if adjusted_score >= score_threshold else None
-
-    def _apply_keyword_logic(
-            self,
-            keywords: Dict[str, Union[List[str], Dict[str, float]]],  # Supports both list of keywords and weighted dict
-            phrases: List[str],
-            section_tokens: List[str],
-            paragraph_title_tokens: List[str],
-            paragraph_text_tokens: List[str],
-            section_weight: float,
-            paragraph_title_weight: float,
-            text_weight: float
-    ) -> Tuple[bool, float]:
-        """
-        Apply keyword logic based on the provided keywords dictionary.
-        Supports "NOT", "AND", and "OR" logical operators, and calculates combined weights.
-
-        Returns a tuple:
-        - Boolean indicating whether the result should be included
-        - Float value representing the combined weight (if applicable).
-        """
-        combined_weight = 0.0
-
-        # Process "NOT" keywords first
-        if "NOT" in keywords:
-            not_tokens = set()
-            for keyword in keywords["NOT"]:
-                not_tokens.update(normalize_text2(keyword))
-            if (
-                    token_in_text(not_tokens, section_tokens) or
-                    token_in_text(not_tokens, paragraph_title_tokens) or
-                    token_in_text(not_tokens, paragraph_text_tokens)
-            ):
-                return False, 0.0  # Exclude this result if a "NOT" keyword is found
-
-        # Process "OR" logic (inclusive matching)
-        if "OR" in keywords:
-            or_tokens = set()
-            for keyword in keywords["OR"]:
-                or_tokens.update(normalize_text2(keyword))
-                if token_in_text(or_tokens, section_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * 1 # Apply field-specific weight
-                elif token_in_text(or_tokens, paragraph_title_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * 1
-                elif token_in_text(or_tokens, paragraph_text_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * 1
-            if combined_weight > 0:
-                return True, combined_weight  # Include if any "OR" keyword is found and weight is calculated
-
-        # Process "AND" logic (strict matching)
-        if "AND" in keywords:
-            and_tokens = set()
-            match_count = 0
-            for keyword in keywords["AND"]:
-                and_tokens.update(normalize_text2(keyword))
-                if token_in_text(and_tokens, section_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * section_weight
-                    match_count += 1
-                elif token_in_text(and_tokens, paragraph_title_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * paragraph_title_weight
-                    match_count += 1
-                elif token_in_text(and_tokens, paragraph_text_tokens):
-                    combined_weight += keywords.get(keyword, 1.0) * text_weight
-                    match_count += 1
-            if match_count == len(keywords["AND"]):  # Only include if all "AND" keywords match
-                return True, combined_weight
-
-        return True, combined_weight  # Default to include the result and return accumulated weight
-
-    def _sort_results(self, processed_results: defaultdict) -> None:
-        """
-        Sort the processed results based on the adjusted score in descending order.
-        """
-        sorted_results = sorted(zip(
-            processed_results['section_title'],
-            processed_results['paragraph_title'],
-            processed_results['paragraph_text'],
-            processed_results['paragraph_blockquote'],
-            processed_results['rescore'],
-            processed_results['pragraph_id']
-        ), key=lambda x: x[-1], reverse=True)
-
-        if sorted_results:
-            (processed_results['section_title'],
-             processed_results['paragraph_title'],
-             processed_results['paragraph_text'],
-             processed_results['paragraph_blockquote'],
-             processed_results['rescore'],
-             processed_results['pragraph_id']
-             ) = zip(*sorted_results)
 
     def qdrant_collections(self,col_name):
         collection = [collection.name for collection in self.qdrant_client.get_collections().collections if collection.name.split("_")[-1]==col_name]
@@ -1329,5 +1178,84 @@ class QdrantHandler:
             self.qdrant_client.delete_collection(collection_name=collection_name)
 
         print("All collections have been deleted.")
+
+    def get_all_collections_payloads_and_save_csv(self, output_file: str = 'qdrant_all_collections_cleaned.csv'):
+        """
+        Fetches all collections from Qdrant, retrieves payloads, preprocesses the text,
+        and saves the cleaned data into a CSV file.
+
+        Args:
+            output_file (str): The path of the CSV file to save the cleaned payloads.
+                               Default is 'qdrant_all_collections_cleaned.csv'.
+        """
+
+        # Initialize an empty list to store payloads from all collections
+        all_payloads = []
+
+
+        # Get all collection names from the Qdrant instance
+        collections_response = self.qdrant_client.get_collections()
+        collections = collections_response.collections
+
+        for collection in collections:
+            collection_name = collection.name
+            print(f"Fetching data from collection: {collection_name}")
+
+            try:
+                # Retrieve all points with vectors from the collection using scroll (no need for IDs)
+                scroll_results, next_page_token = self.qdrant_client.scroll(
+                    collection_name=collection_name,
+                    with_payload=True,
+                    with_vectors=False,  # You can set to True if vectors are required
+                    limit=1000  # Adjust the limit as needed
+                )
+            except Exception as e:
+                print(f"Error in collection {collection_name}: {e}")
+                continue
+
+            # Process the scroll results
+            while scroll_results:
+                for scroll_result in scroll_results:
+                    payload = scroll_result.payload
+
+                    # Check if required fields exist in the payload before processing
+                    paragraph_text = payload.get('paragraph_text', "")
+                    paragraph_title = payload.get('paragraph_title', "")
+                    section_title = payload.get('section_title', "")
+                    keywords = payload.get('keywords',"")
+
+                    # Clean and preprocess relevant fields in the payload, joining tokens into strings
+                    new_payload = {
+                        'paragraph_title_cleaned': preprocess_text(paragraph_title),
+                        'paragraph_text_cleaned': preprocess_text(paragraph_text),
+                        'section_title_cleaned': preprocess_text(section_title),
+                        # 'keywords_cleaned': preprocess_text(" ".join(convert_to_obsidian_tags(keywords)))
+                    }
+
+                    # Append the cleaned payload to the global list
+                    all_payloads.append(new_payload)
+                    print(type(new_payload))
+
+                    # print(new_payload)
+                # If there is a next page token, fetch more points
+                if next_page_token:
+                    scroll_results, next_page_token = self.qdrant_client.scroll(
+                        collection_name=collection_name,
+                        with_payload=True,
+                        with_vectors=False,
+                        limit=1000,
+                        page_token=next_page_token
+                    )
+                else:
+                    break
+
+        # Convert the list of all payloads into a DataFrame
+        df = pd.DataFrame(all_payloads)
+
+        # Save the DataFrame to a CSV file
+        df.to_csv(output_file, index=False)
+
+        print(f"Data from all collections has been successfully saved to {output_file}")
+
 
 

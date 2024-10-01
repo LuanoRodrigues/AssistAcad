@@ -20,7 +20,7 @@ from Vector_Database.embedding_handler import query_with_history,check_existing_
 from Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
 from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
 from NLP_module.normalise_texts import normalize_text2, normalize_text, get_last_four_tokens, \
-    replace_substring_and_check,update_response_with_paragraph_data, process_themes
+    replace_substring_and_check, update_response_with_paragraph_data, process_themes, preprocess_text
 from NLP_module.PDFs_nlp import find_phrase_in_pdf
 from Reference_processing.Grobid_references import parse_grobid_xml_to_dict,extract_citations_grobid
 
@@ -850,9 +850,11 @@ class Zotero:
                               update=True,
                                          processing_batch=False,
                                          database_name='',
-                                         overwrite_payload=False):
+                                         overwrite_payload=False,
+                                         corpus=False):
 
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
+        article_corpus=[]
         loop=True
         if item_start:
             loop=False
@@ -891,7 +893,7 @@ class Zotero:
 
             if note_id and loop:
 
-                self.insert_title_paragraphs(zotero_collection=collection_name,
+                data=self.insert_title_paragraphs(zotero_collection=collection_name,
                                              item_id=id,
                                              note_id=note_id,
                                              insert_database=insert_database,
@@ -902,16 +904,36 @@ class Zotero:
                                              processing_batch=processing_batch,
                                              rewrite=rewrite,
                                              database_name=database_name,
-                                             overwrite_payload=overwrite_payload
+                                             overwrite_payload=overwrite_payload,
+                                             corpus=corpus
                                              )
-
+                if corpus:
+                    article_corpus.append(preprocess_text(data))
         if batch:
             batch_input_file_id = upload_batch_file(file_name)
 
             batch_id = create_batch(batch_input_file_id)
             check_save_batch_status(batch_id)
+        if corpus:
+            filename = r'C:\Users\luano\Downloads\AcAssitant\Files\Models corpus\bm25_corpus.pkl'
 
-    def insert_title_paragraphs(self,zotero_collection,database_name,item_id=None,insert_database=False,overwrite_payload=False,create_md_file=False, update_paragraph_notes=False,batch=False,store_only=False,processing_batch=False,note_id=None,rewrite=False):
+            # Write the processed corpus to a text file, each document on a new line
+            with open(filename, 'wb') as file:
+                pickle.dump(article_corpus, file)
+
+    def insert_title_paragraphs(self,
+                                zotero_collection,
+                                database_name,item_id=None,
+                                insert_database=False,
+                                overwrite_payload=False,
+                                create_md_file=False,
+                                update_paragraph_notes=False,
+                                batch=False,store_only=False,
+                                processing_batch=False,
+                                note_id=None,
+                                rewrite=False,
+                                corpus=False):
+        article_corpus=""
         metadata = generate_cabecalho(zot=self.zot, item_id=item_id, dict_response=True, links=False)
         tags_md=[]
         keywords= None
@@ -968,6 +990,7 @@ class Zotero:
                 for n,h2 in enumerate(soup.find_all('h2')):
                     section_title = h2.get_text()
                     markdown_content += f"## {section_title}\n\n"
+                    article_corpus+=section_title+" "
                     if section_title.lower() not in stop_sections:
                         section_data = {'title':title,'h2': section_title, 'paragraphs': []}
                         paragraphs = []
@@ -1019,14 +1042,18 @@ class Zotero:
                                 para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
                                 new_titles = eval(
-                                    call_openai_api(function='find_title',id=parentItem,batch=batch, data=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
+                                    call_openai_api(function='find_title',
+                                                    id=parentItem,
+                                                    batch=batch,model='gpt-4o-2024-08-06',
+                                                    data=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}'))
                                 for new_title in new_titles:
                                     print(new_title)
                             if store_only or batch:
                                 para_lenght = f"Analyse the following paragraph" if len(paragraphs) ==1 else f"Analyse these {len(paragraphs)} paragraphs:"
 
                                 batch_request= call_openai_api(function='find_title', id=parentItem, batch=True,
-                                                    text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}')
+                                                    text=f'title={title}\nsection/subsections={section_title}\n{para_lenght}:{paragraphs}',
+                                                               model='gpt-4o-2024-08-06')
 
                                 write_batch_requests_to_file(batch_request=batch_request,file_name=file_name)
                                 batch_requests.append(batch_request)
@@ -1048,6 +1075,8 @@ class Zotero:
                                         'blockquote': paragraph['blockquote']
                                     })
                                     if h3_elem:
+                                        article_corpus+=matching_title["h3_title"]+" "
+                                        article_corpus+=paragraph["paragraph"]+" "
 
                                         h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
                                         # Move to the next h3 element for the next iteration
@@ -1057,7 +1086,7 @@ class Zotero:
                                             context = f'\ncontext:section title:{section_title} paragraph title:{matching_title['h3_title']}\nnote: do not include {metadata['authors']} in entities'
 
                                             keywords = call_openai_api(function='getting_keywords', data=paragraph['paragraph']+ context,
-                                                                       id='')
+                                                                       id='',model='gpt-4o-2024-08-06')
 
 
                                             hash_object = hashlib.sha256(matching_title['h3_title'].encode('utf-8'))
@@ -1073,7 +1102,8 @@ class Zotero:
                                                "paragraph_blockquote":paragraph['blockquote'],
                                                "paragraph_text":paragraph['paragraph'],
                                                "metadata":metadata,
-                                               "keywords":keywords
+                                               "keywords":" ".join(self.convert_to_obsidian_tags(keywords)),
+                                               "keyword_categories":keywords
                                             }
                                             handler.clear_and_set_payload(collection_name=collection_name, new_payload=new_payload,
                                                                    point_id=paragraph_id)
@@ -1084,9 +1114,9 @@ class Zotero:
 
                                             keywords = call_openai_api(function='getting_keywords',
                                                                        data=paragraph['paragraph'] + context,
-                                                                       id='')
+                                                                       id='',model='gpt-4o-2024-08-06')
                                             time.sleep(4)
-                                            handler.process_and_append(
+                                            handler.append_data(
                                                                        collection_name=collection_name,
                                                                        paragraph_count=str(i+1),
                                                                        article_title=title.get_text(),
@@ -1095,7 +1125,8 @@ class Zotero:
                                                                        paragraph_blockquote=paragraph['blockquote'],
                                                                        paragraph_text=paragraph['paragraph'],
                                                                        metadata=metadata,
-                                                                       keywords=keywords,
+                                                                       keywords= " ".join(self.convert_to_obsidian_tags(keywords)),
+                                                                       keyword_categories= keywords
 
                                                                        )
                                         if create_md_file:
@@ -1116,19 +1147,24 @@ class Zotero:
                 if create_md_file:
 
                     filepath= r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Paragraphs"+"\\"+metadata['citation_key']+".md"
-                    with open(filepath, "w",encoding='utf-8') as md_file:
-                        if tags_md:
-                            markdown_content = markdown_content + "\n\n" +" ".join(tags_md)
-                        md_file.write(markdown_content)
-                        self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
+                    if not os.path.exists(filepath):
+                        with open(filepath, "w",encoding='utf-8') as md_file:
+                            if tags_md:
+                                markdown_content = markdown_content + "\n\n" +" ".join(tags_md)
+                            md_file.write(markdown_content)
+                            self.attach_file_to_item(parent_item_id=parentItem,file_path=filepath,tag_name='md_paragraphs')
 
                 if update_paragraph_notes:
                     # After the loop, update the note content
                     updated_note_content = str(soup)
-                    self.update_note(note, updated_note_content,)
+                    self.update_note(note, updated_note_content)
+                if corpus:
+                    return article_corpus
                 # After the loop, update the note content
                 # updated_note_content = str(soup)
                 # self.update_note(note, updated_note_content,tag=tags)
+
+
 
     # Convert keywords into Obsidian tag format
     def convert_to_obsidian_tags(self,keywords_dict):
@@ -2874,7 +2910,8 @@ class Zotero:
             collection_name = f'{collection_name}_{type_collection}'
 
             try:
-                search_results = dquadrant_handler.advanced_search(collection_name=collection_name, keywords=keyword,query=query)
+                search_results = dquadrant_handler.hybird_search(collection_name=collection_name, query=query,
+                                                                 keywords=keyword)
 
             except UnexpectedResponse as e:
                 print(e)

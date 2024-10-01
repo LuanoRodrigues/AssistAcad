@@ -117,7 +117,7 @@ def prepare_batch_requests(text_to_send, id, content,schema):
 # Function to send bigrams in batch to the OpenAI Batch API for embeddings
 
 def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini',eval=True):
-    time.sleep(30)
+    # time.sleep(30)
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     # Open and read the prompts from a JSON file
     with open(r'C:\Users\luano\Downloads\AcAssitant\Files\Prompts\api_prompts.json', 'r') as f:
