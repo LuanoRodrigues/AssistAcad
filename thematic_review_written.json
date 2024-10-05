@@ -1,0 +1,982 @@
+[
+{
+  "title": "Advantages and Difficulties of Regulating Evidentiary Requirements",
+  "level": "h1",
+  "content": [
+    "The regulation of evidentiary requirements in cyber attribution presents both significant advantages and notable difficulties. On one hand, establishing clear evidentiary standards may enhance the credibility of attributions and prevent false accusations (Blauth & Gstrein, 2021, p. 6). On the other hand, the technical challenges inherent in cyber operations complicate the collection and presentation of sufficient evidence (Blauth & Gstrein, 2021, p. 7)."
+  ],
+  "subheadings": [
+    {
+      "title": "Technological Advantages in Cyber Operations",
+      "level": "h2",
+      "content": [
+        "Technologically advanced nations possess a significant advantage in both conducting covert cyber operations and attributing cyberattacks. As Rid and Buchanan (2015) note, \"Attribution again reverses this logic: the larger a government’s technical prowess, and the larger the pool of talent and skills at its disposal, the higher will be that state’s ability to hide its own covert operations, uncover others, and respond accordingly\" (p. 31). This suggests that more industrialized countries are better equipped to manage the complexities of cyber attribution, thereby enhancing their strategic positions in cyberspace."
+      ],
+      "subheadings": []
+    },
+    {
+      "title": "Challenges in Attribution",
+      "level": "h2",
+      "content": [
+        "Despite technological advancements, attribution in cyber operations remains a complex challenge. Rid and Buchanan (2015) emphasize that \"each of the levels of the attribution process represents a discrete analytical challenge, relies on specific input data and specific expertise, and illuminates a separate aspect of successful attribution\" (p. 9). The process is multifaceted, requiring not only technical skills but also organizational culture and political considerations. Moreover, attribution is \"an art\" that depends on \"skills, tools, as well as organisational culture\" (Rid & Buchanan, 2015, p. 31).",
+        "The difficulties in attribution also challenge the assumption that cyber intruders have a structural advantage. Rid and Buchanan (2015) argue that \"a closer look at the limits of attribution is crucial,\" noting that \"the quality of attribution is a function of available resources\" (p. 32). Limited resources and time constraints can hinder the ability to produce high-quality attributions, especially under political pressure."
+      ],
+      "subheadings": [
+        {
+          "title": "Evidentiary Standards in Attribution",
+          "level": "h3",
+          "content": [
+            "Evidentiary standards play a critical role in the process of cyber attribution. Grotto (2020) observes that \"there are no consensus evidentiary standards under international law generally for assigning blame, let alone in the cyber context specifically\" (p. 9). This lack of consistent standards complicates efforts to attribute cyberattacks, particularly in the context of international law and civil litigation, where high evidentiary standards are required.",
+            "Furthermore, the varying conceptions of cyber attribution reflect inherent biases and different expectations regarding evidence. Grotto (2020) notes that \"the various uses and conceptions of cyber attribution... reflect subtle but important biases about the means and ends of attribution as well as different evidentiary standards, target audiences, and modes of communication for attribution claims\" (p. 2)."
+          ],
+          "subheadings": [
+            {
+              "title": "International and Domestic Standards",
+              "level": "h4",
+              "content": [
+                "At both international and domestic levels, the standards for evidence in cyber attribution are varied and often unclear. Hill (2019) highlights that \"international law does not outline the evidentiary considerations necessary to assess attribution\" (p. 23), making it challenging for victim states to respond effectively to cyber operations. The absence of uniform evidentiary standards means that states must rely on a combination of forensics, human intelligence, signals intelligence, and circumstantial evidence to build a case for attribution (Hill, 2019, p. 24).",
+                "This complexity is further exacerbated by the need to establish a state's \"overall control\" over non-state actors to attribute actions in international armed conflicts. Hill (2019) explains that \"though an organized armed group could still be considered a nonstate actor, a state supporting the organized armed group could attain complete control of the group’s objectives, which would make the organized armed group an extension of that state’s military objectives\" (p. 11)."
+              ],
+              "subheadings": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Organizational and Political Considerations",
+      "level": "h2",
+      "content": [
+        "Organizational and political factors also influence the regulation of evidentiary requirements in cyber attribution. Kuerbis et al. (2022) point out that \"creating trustworthy assessments... will require financial resources,\" as independent laboratories and certified networks are essential for maintaining global trust (p. 233). However, securing dedicated financial resources poses its own challenges, especially when governments might be hesitant to fund organizations that could potentially expose their own cyber operations."
+      ],
+      "subheadings": []
+    }
+  ]
+},
+  {
+  "title": "Establishment of Evidentiary Rules via Customary International Law",
+  "level": "h1",
+  "content": [
+    "The establishment of evidentiary rules in cyber attribution through customary international law is a critical yet complex endeavor. The lack of consistent international standards for evidentiary requirements complicates the attribution process, making it challenging for states to respond effectively to cyber operations."
+  ],
+  "subheadings": [
+    {
+      "title": "Systematic Process of Attribution",
+      "level": "h2",
+      "content": [
+        "Attribution in cyber operations follows a systematic process akin to traditional law enforcement investigations. Rid and Buchanan (2015) illustrate this by comparing the steps involved in identifying a cyber perpetrator to those in solving a conventional crime: securing evidence, analyzing forensic data, and building a case for adjudication. They state, “Attribution unwinds incrementally... Though often fraught with drama, it is a methodical, ordered, and institutionalised approach” (Rid & Buchanan, 2015, p. 5). This analogy underscores the need for a structured framework in cyber attribution to ensure accuracy and reliability."
+      ],
+      "subheadings": []
+    },
+    {
+      "title": "Evidentiary Standards in Cyber Attribution",
+      "level": "h2",
+      "content": [
+        "Despite the systematic approach, the evidentiary standards in cyber attribution lack consistency at the international level. Grotto (2020) emphasizes that “There are no consensus evidentiary standards under international law generally for assigning blame, let alone in the cyber context specifically” (p. 9). This inconsistency poses significant challenges in persuading foreign governments and building international coalitions to respond to cyber threats.",
+        "Moreover, the evidentiary standards required for different actions in public attribution can vary widely. Grotto (2020) notes that actions such as criminal indictments, economic sanctions, and diplomatic signals each have their own evidentiary expectations, ranging from 'beyond a reasonable doubt' to 'probable cause' and even lower standards (p. 9). This variability complicates the attribution process and may impact the effectiveness of deterrence strategies.",
+        "Furthermore, evidentiary standards in attribution may not significantly influence effective deterrence. As Grotto (2020) explains, the key to deterrence lies in delivering intelligible and credible signals to adversaries, which may not necessarily depend on the evidentiary thresholds met (p. 7)."
+      ],
+      "subheadings": [
+        {
+          "title": "International Standards and Challenges",
+          "level": "h3",
+          "content": [
+            "At the international level, the absence of clear evidentiary standards for attributing cyber operations further complicates matters. Hill (2019) points out that “International law does not outline the evidentiary considerations necessary to assess attribution” (p. 23). The lack of uniform rules on evidence production makes investigations of cyberattacks among states particularly challenging.",
+            "Blauth and Gstrein (2021) echo this concern, noting that “International law is unclear regarding the standard of evidence that states must follow when accusing others of internationally wrongful acts” (p. 8). This ambiguity leads to variability in the evidence provided for attributions, influenced by individual state policies and practices (Blauth & Gstrein, 2021, p. 5).",
+            "Establishing an international law standard for evidence is therefore essential to enhance the credibility of attributions and facilitate effective responses. Eichensehr (2020) argues that providing sufficient evidence to enable crosschecking would serve multiple purposes, including fostering macro-level deterrence and supporting lawful countermeasures (p. 581)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Domestic and Civil Litigation Standards",
+          "level": "h3",
+          "content": [
+            "Domestic legal systems also exhibit varying standards of proof, which may not suffice when accusing foreign governments of cyberattacks. Eichensehr (2020) observes that “Domestic law standards of probable cause for an indictment and reasonable basis for sanctions are insufficient when what is at stake is an accusation of wrongdoing by a foreign government” (p. 576). This discrepancy highlights the need for higher evidentiary standards in the international context.",
+            "Furthermore, U.S. law employs different standards of proof depending on the legal context. Greiman (2021) explains that while criminal conviction requires proof 'beyond a reasonable doubt', other standards like 'prima facie evidence' and 'preponderance of probability' are used in different situations (p. 105). In international litigation, Yang (2022) identifies at least four different levels of proof, ranging from 'prima facie possibility' to 'proof beyond reasonable doubt' (p. 6). These variations underscore the complexity of establishing appropriate evidentiary standards for cyber disputes."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Customary International Law and Norms",
+          "level": "h3",
+          "content": [
+            "Given the lack of explicit international treaties governing evidentiary standards in cyber attribution, customary international law could play a pivotal role in establishing such norms. Blauth and Gstrein (2021) suggest that “Standards of proof could be regulated via a dedicated cybersecurity treaty... One possible alternative is to form a rule via customary international law” (p. 9). However, they note that “Currently, there is insufficient state practice and a lack of opinio juris when it comes to standards of evidence in political attributions” (Blauth & Gstrein, 2021, p. 9). This lack of consistent practice hinders the establishment of customary norms.",
+            "Eichensehr (2020) emphasizes that agreement on factual reality through public attributions can facilitate the development of customary international law and norms. She states, “Public attributions enable states to undertake the process of applying principles to facts that leads to the creation of primary rules to govern state behavior—rules in the form either of norms or, more robustly, as customary international law” (p. 558). Therefore, consistent state practices in attribution could help evolve international evidentiary standards."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "State Responsibility and International Law",
+      "level": "h2",
+      "content": [
+        "State responsibility is a fundamental concept in international law, particularly concerning cyber acts. Hill (2019) asserts that “States are responsible for 'internationally wrongful acts' perpetuated against victim states” (p. 10). This responsibility requires that the act breaches an international obligation and is attributable to the state.",
+        "Attribution principles are crucial for establishing international responsibility. Finlay and Payne (2019) highlight that “A state will not be held responsible for an internationally wrongful act unless that act is attributable to the state under international law” (p. 204). However, international law currently presents two competing doctrines of state responsibility—the effective control doctrine and the overall control doctrine—which differ on the degree of state involvement required to attribute actions of non-state actors to states (Kadlecová, 2018, p. 37)."
+      ],
+      "subheadings": [
+        {
+          "title": "Legal Frameworks and Doctrines",
+          "level": "h3",
+          "content": [
+            "International legal frameworks, such as the Tallinn Manual, provide guidance on how cyber operations can be considered a use of force under international law. Hill (2019) explains that “Rule 11 in the Tallinn Manual states that 'A cyber operation constitutes a use of force when its scale and effects are comparable to non-cyber operations rising to the level of a use of force'” (p. 7). This classification impacts the legal justifications for state responses to cyber acts.",
+            "Moreover, international law necessitates state culpability for responses to cyber acts. Hill (2019) notes that “Though the complexity of cyberspace can afford states with the ability to use covert means... placing a state with culpability must occur for international law to apply” (p. 12). The nonintervention principle is another avenue through which states can be held accountable, as it prohibits states from compelling other states' affairs, including through support of non-state actors in cyber operations (Hill, 2019, p. 10)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Countermeasures and State Actions",
+          "level": "h3",
+          "content": [
+            "Victimized states have the right to take countermeasures against unlawful cyber acts, even if such measures would otherwise violate international law. Greiman (2021) states that “Countermeasures are responses that otherwise would violate international law, designed to prevent a responsible state from continuing its unlawful cyber intervention” (p. 104). These countermeasures must comply with international law requirements, such as prior notice and the goal of inducing compliance.",
+            "However, international law does not encourage thorough attribution efforts in cyber operations before taking countermeasures. Banks (2016) points out that “There is no incentive at international law for a State planning self-help retorsion to be certain of State responsibility and refrain from responding to a cyber intrusion before all the facts are in” (p. 1506). This lack of requirement for precise attribution may lead to challenges in international relations and legal disputes."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "International Law and Cyber Operations",
+      "level": "h2",
+      "content": [
+        "The interplay between international law and cyber operations is complex and evolving. The effects of cyber operations determine the applicability of the law of war. Hill (2019) notes that “Effects of cyber operations are an important variable in determining if the principles of the law of war apply” (p. 4). Cyberattacks that produce effects comparable to kinetic attacks may trigger the application of international humanitarian law.",
+        "The United States collaborates with the international community to apply existing laws to cyber operations. Hill (2019) explains that “The United States works with the international community to apply existing international laws and the principles of the law of war to cyber operations” (p. 4). Despite these efforts, there is still no international consensus on cyber attribution rules. Greiman (2021) observes that “Cyber attribution has been widely discussed in the literature, yet there is still no international consensus on what rules of attribution may be needed to meet the needs and concerns of the international community” (p. 106)."
+      ],
+      "subheadings": [
+        {
+          "title": "Tallinn Manual and State Control",
+          "level": "h3",
+          "content": [
+            "The Tallinn Manual 2.0 provides a comprehensive analysis of how established international law applies to cyber operations, particularly regarding state control and attribution. Banks (2016) explains that “Rules 15–18 of Tallinn 2.0 summarize the customary international law of attribution of cyber operations in nuanced terms” (p. 1496). For instance, Rule 14 stipulates that “A State bears international responsibility for a cyber-related act that is attributable to the State and that constitutes a breach of an international legal obligation” (Banks, 2016, p. 1495).",
+            "Furthermore, Rule 16 outlines that states are responsible for cyber operations conducted by their organs or through proxies. Banks (2016) states that “States do not escape legal responsibility for internationally wrongful acts by perpetrating them through proxies” (p. 1497). These rules emphasize that states cannot avoid responsibility by outsourcing cyber operations to non-state actors."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "State Practice and Evidence",
+          "level": "h3",
+          "content": [
+            "State practice plays a significant role in shaping evidentiary standards for cyber attribution. Eichensehr (2020) notes that “Scholars draw further support for the clear and convincing evidence standard from state practice, particularly U.S. practice” (p. 562). U.S. officials have historically cited 'convincing' or 'compelling' evidence to support responses to cyberattacks, implying a higher evidentiary standard.",
+            "Additionally, scholars infer a 'clear and convincing' standard for self-defense cases in International Court of Justice jurisprudence. Eichensehr (2020) explains that while the ICJ has not explicitly set a standard, its case law supports an implied requirement for clear and convincing evidence in cases involving the use of force (p. 561). International courts also accept circumstantial evidence to address inequality of proof, as Ronen (2020) observes: “International courts and tribunals have been willing to accept circumstantial evidence and to rely on inferences and presumptions” (p. 24)."
+          ],
+          "subheadings": []
+        }
+      ]
+    }
+  ]
+},
+  {
+  "title": "Challenges in Establishing Evidentiary Standards",
+  "level": "h1",
+  "content": [
+    "Establishing evidentiary standards in cyber attribution poses significant challenges, primarily because it may require states to reveal sensitive sources and methods, potentially impacting national security (Blauth & Gstrein, 2021, p. 7). Despite these concerns, the establishment of such standards is crucial for enhancing the credibility and trustworthiness of political cyberattack attributions (Blauth & Gstrein, 2021, p. 3).",
+    "Regulating evidentiary standards may have more benefits than downsides. As Blauth and Gstrein (2021) argue, \"Establishing legal requirements will certainly make the process of attribution more complex. At the same time, substantiated public attributions would be more credible and it is likely that they would also provoke stronger political effects\" (p. 8). Therefore, there is a pressing need for institutional mechanisms and evidentiary standards to support reliable public attribution of cyberattacks (Blauth & Gstrein, 2021, p. 4)."
+  ],
+  "subheadings": [
+    {
+      "title": "Impact on State Security and Credibility",
+      "level": "h2",
+      "content": [
+        "The credibility of attributions and the relations between states significantly affect evidentiary requirements. Eichensehr (2020) notes that \"States that do not themselves engage in attributions or wish to comment on particular attributions could contribute to the formation of customary international law through voting and participation in deliberations in the United Nations\" (p. 585). Establishing evidentiary rules can positively impact stability in cyberspace by supporting systemic effects that help avoid conflict (Eichensehr, 2020, p. 571).",
+        "Furthermore, compelling states to provide evidence prevents false accusations and enhances trust. Blauth and Gstrein (2021) explain that \"One of the main advantages of compelling states to provide evidence is that it prevents wrong and false accusations... Without proper evidence, contestation (or corroboration) is not possible\" (p. 6)."
+      ],
+      "subheadings": []
+    },
+    {
+      "title": "Legal Obligations and International Consensus",
+      "level": "h2",
+      "content": [
+        "Currently, there is no legal obligation for states to provide evidence for attributions. Blauth and Gstrein (2021) state that \"There is currently no general sense that a legal obligation to present evidence exists\" (p. 10). This lack of obligation contributes to the ambiguity in international law, facilitating reckless cyber attributions (Yang, 2022, p. 5).",
+        "Moreover, states have no obligation to provide attribution evidence when responding to cyber intrusions. Banks (2019) observes that \"States are likewise not obligated to provide evidence of attribution when responding to another state’s cyber intrusions\" (p. 195). This absence of legal requirements underscores the need for international consensus on evidentiary standards."
+      ],
+      "subheadings": []
+    },
+    {
+      "title": "ICJ and Evidentiary Practices",
+      "level": "h2",
+      "content": [
+        "The International Court of Justice (ICJ) has addressed evidentiary standards in cases involving exceptional gravity, establishing that such claims demand conclusive evidence (Eichensehr, 2020, p. 561). The ICJ enjoys wide discretion in determining evidentiary standards, as \"neither the Statute nor the Rules of Court contain formal rules regarding the Court’s handling of evidence\" (Brunner et al., 2019, p. 82).",
+        "The ICJ applies varying evidentiary standards based on the severity of the claims. Brunner et al. (2019) note that \"When dealing with state responsibility, the Court has applied three different standards. These vary according to the seriousness of the claim\" (p. 106). For allegations of unlawful force, the ICJ has set a threshold of clear and convincing evidence (Brunner et al., 2019, p. 97)."
+      ],
+      "subheadings": [
+        {
+          "title": "Standards of Proof and Burden",
+          "level": "h3",
+          "content": [
+            "In international litigation, the 'preponderance of evidence' is a common standard, though it is not applied by the ICJ. Ronen (2020) explains that \"Various commentators hold that the standard of proof most commonly used in international litigation is that of preponderance of evidence. However, ICJ case law relating to state responsibility does not apply this standard\" (p. 20).",
+            "International courts typically maintain that the burden of proof lies with the party alleging a fact. Ronen (2020) states that \"The common practice of international courts and tribunals is to assume that the burden of proof lies with the party alleging a fact\" (p. 7). The ICJ has held that circumstantial evidence can support claims if direct evidence is unavailable, as demonstrated in the Corfu Channel case (Brunner et al., 2019, p. 87)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Circumstantial Evidence and Flexibility",
+          "level": "h3",
+          "content": [
+            "International courts accept circumstantial evidence to address inequality of proof. Ronen (2020) observes that \"International courts and tribunals have been willing to accept circumstantial evidence and to rely on inferences and presumptions\" (p. 24).",
+            "However, the evidentiary standards used by the ICJ remain unclear and inconsistent. Brunner et al. (2019) note that \"It is not clear... how the evidentiary standards mentioned by the ICJ in those cases exactly differ from each other\" (p. 87). Nonetheless, the ICJ is expected to be flexible with evidentiary standards in attribution cases, ensuring that the appropriate standard is applied while protecting states from wrongful conviction (Brunner et al., 2019, p. 107)."
+          ],
+          "subheadings": []
+        }
+      ]
+    }
+  ]
+},
+  {
+  "title": "Three Lenses to Interrogate Public Attribution",
+  "level": "h1",
+  "content": [
+    "Public attribution in cyberspace involves the disclosure of analytic judgments about the source of cyber operations to third parties, often with strategic implications. It encompasses technical, political, and legal dimensions, each influencing how and why states and other entities choose to publicly attribute cyber incidents."
+  ],
+  "subheadings": [
+    {
+      "title": "Public Attribution and Its Strategic Implications",
+      "level": "h2",
+      "content": [
+        "Public attribution is a strategic choice made by entities when they determine that the benefits of disclosing their findings outweigh the costs associated with keeping them private or selectively sharing them. Grotto (2020) explains that \"public attribution reflects a judgment by an entity that the benefits of public disclosure outweigh the balance of benefits and costs associated with selective or private attribution\" (p. 8).",
+        "This strategic decision is influenced by various factors, including domestic pressure for action against cyber aggressors, the desire to impose costs on adversaries, and the need to justify responsive actions under international law. Public attribution can generate domestic support for government actions and serve as a geopolitical tool in international relations."
+      ],
+      "subheadings": [
+        {
+          "title": "Forms and Standards of Public Attribution",
+          "level": "h3",
+          "content": [
+            "Attribution can be categorized into three forms: private, selective, and public. Grotto (2020) outlines these forms as follows: \"private attribution, which involves deciding to not disclose an analytic attribution to third parties; selective attribution, in which an analytic attribution is disclosed to select third parties; public attribution, where an analytic attribution is made more or less public\" (p. 6).",
+            "Public attribution requires different evidentiary standards depending on the actions taken. For instance, criminal indictments necessitate a higher standard of proof ('beyond a reasonable doubt') compared to economic sanctions or public statements, which may rely on lower evidentiary thresholds (Grotto, 2020, p. 9).",
+            "The choice to engage in public attribution is thus a strategic one, balancing the need for action with the evidentiary standards required for different responses."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Impact on Domestic and International Relations",
+          "level": "h3",
+          "content": [
+            "Public attribution can generate domestic pressure for governments to take action against cyber aggressors. Grotto (2020) notes that public accusations can lead to calls for retaliation or increased security measures, influencing policy decisions (p. 9).",
+            "In the international arena, public attribution serves as a strategic geopolitical intervention. It allows states to 'name and shame' adversaries, rally international support, and justify countermeasures under international law (Grotto, 2020, p. 4).",
+            "Examples of public attribution include joint statements by government officials, criminal indictments, economic sanctions, and public reports by private companies attributing cyberattacks to specific actors (Grotto, 2020, p. 9)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Statistical Insights into Public Attribution",
+          "level": "h3",
+          "content": [
+            "Empirical data suggests that public attribution is a common practice. Kuerbis et al. (2022) analyzed a dataset and found that \"the vast majority of incidents, 70 (85%), resulted in some form of public attribution, with only 12 incidents (15%) not being attributed to a perpetrator\" (p. 223). This indicates a strong tendency among states and organizations to publicly attribute cyber incidents."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Technical and Political Dimensions of Attribution",
+      "level": "h2",
+      "content": [
+        "Attribution in cyberspace involves both technical analysis and political considerations. The technical layer provides the foundational evidence required for attribution, while the political dimension shapes how and whether this information is publicly disclosed."
+      ],
+      "subheadings": [
+        {
+          "title": "Technical Foundations of Attribution",
+          "level": "h3",
+          "content": [
+            "The technical layer is fundamental for attribution, serving as the starting point of an investigation. Rid and Buchanan (2015) emphasize that \"the technical evidence in many cases forms the basis of the attribution process\" and that analysts must efficiently analyze computer code, network activity, and other technical indicators (p. 15).",
+            "Advancements in technical methods, such as machine learning and data analysis, have improved the ability to identify nation-state adversaries by examining command and control infrastructure and other indicators (Kuerbis et al., 2022, p. 227)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Political Influences and Challenges",
+          "level": "h3",
+          "content": [
+            "The political dimension of attribution is inherently relational and can be influenced by obfuscation techniques employed by adversaries. Kuerbis et al. (2022) note that \"as sanctions or other disincentives are used to punish offensive cyber operations, we might expect cyber operations to adjust by taking steps to disguise their identity\" (p. 223).",
+            "Political factors significantly impact decisions regarding public attribution. There is a call for regulatory standards to guide these decisions, as Blauth and Gstrein (2021) argue that international public law could play a role in establishing unified procedures and standards across states (p. 5).",
+            "An international norm on responsible public attribution is deemed necessary to address challenges posed by ill-substantiated accusations and to promote accountability (Yang, 2022, p. 7)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Risks of Ill-Substantiated Public Attribution",
+          "level": "h3",
+          "content": [
+            "Public attributions that are ill-substantiated can damage the reputations of accused states and promote irresponsible behavior. Yang (2022) warns that \"public attribution is particularly susceptible to the problem of ill-substantiation... under strong political impetus to publicly blame its adversary\" (p. 2).",
+            "The seriousness of public attribution must match its level of substantiation. Accusations involving severe allegations, such as acts amounting to an armed attack, require unequivocal support to be credible (Yang, 2022, p. 3).",
+            "Misusing concepts like due diligence to support public attribution claims without sufficient evidence can lead to ill-substantiation and undermine the legitimacy of the attribution (Yang, 2022, p. 5)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Legal and Policy Considerations in Attribution",
+      "level": "h2",
+      "content": [
+        "Legal frameworks play a crucial role in attribution, particularly when states seek to establish responsibility under international law or justify responsive actions. However, current international law is inadequate in providing clear guidance on attribution standards."
+      ],
+      "subheadings": [
+        {
+          "title": "Legal Frameworks for Attribution",
+          "level": "h3",
+          "content": [
+            "Legal attribution involves connecting offenses to offenders according to domestic or international law. Yang (2022) states that \"legal attribution can legitimize future responding measures, such as self-defense or other countermeasures the accusing state may take\" (p. 2).",
+            "Public attribution serves to justify responsive actions in international law contexts. As Eichensehr (2020) explains, \"public attribution helps to ensure that other states... understand the tit-for-tat of states’ actions and which states believe their actions are legally justified countermeasures\" (p. 556)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Policy Recommendations for Public Attribution",
+          "level": "h3",
+          "content": [
+            "To minimize disputes and enhance the credibility of public attributions, states should consider consulting with accused parties prior to making accusations public. Yang (2022) suggests that \"states should make a formal request of consultation before making cyber attribution public\" to resolve issues confidentially and reduce tensions (p. 8).",
+            "Decision-making processes significantly influence how states publicly attribute cyber attacks. Factors such as domestic pressure, geopolitical considerations, and the desire to establish norms all play a role in shaping attribution decisions (Yang, 2022, p. 2)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Public Communication and Evidence in Attribution",
+      "level": "h2",
+      "content": [
+        "Effective public communication is essential in attribution, as it can enhance the credibility of claims, facilitate collective defense mechanisms, and foster agreement about state actions. However, communication must accurately reflect the probabilistic nature of attribution."
+      ],
+      "subheadings": [
+        {
+          "title": "Role of Public Communication",
+          "level": "h3",
+          "content": [
+            "Public communication must reflect that attribution is often probabilistic rather than absolute. Rid and Buchanan (2015) advocate for the use of estimative language that acknowledges the mix of fact and judgment inherent in attribution assessments (p. 30).",
+            "Public statements and press releases are commonly employed mechanisms for attributing cyberattacks. Eichensehr (2020) notes that these are often the first steps in a series of governmental responses to cyber incidents (p. 536)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Importance of Evidence in Attribution",
+          "level": "h3",
+          "content": [
+            "Providing detailed public evidence increases the quality of attribution through collective analysis. Rid and Buchanan (2015) highlight that \"publishing more details will improve attribution itself... the quality of attribution is likely to increase\" when cases are made public (p. 28).",
+            "Publicity enables collective defenses against cyber threats by allowing network administrators and security professionals to guard against specific threats and share knowledge about novel attack techniques (Rid & Buchanan, 2015, p. 29).",
+            "Public evidence fosters agreement about state actions and improves attribution accuracy. Eichensehr (2020) asserts that public disclosure allows for crosschecking or corroboration of attributions, enhancing their credibility (p. 557)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "International and State-Level Dynamics",
+      "level": "h2",
+      "content": [
+        "Attribution involves complex interactions between states, with challenges arising from concerns over intelligence security, the need for transparency, and the desire to promote stability in cyberspace. Both advanced cyber states and international norms play significant roles in shaping these dynamics."
+      ],
+      "subheadings": [
+        {
+          "title": "State-Level Challenges and Strategies",
+          "level": "h3",
+          "content": [
+            "Advanced cyber states face tension between the benefits of transparency in attribution and the need to protect intelligence sources and methods. Greiman (2021) notes that \"state concerns about revealing intelligence sources and methods counsel against transparency\" (p. 106).",
+            "Concerns about protecting intelligence sources often justify limited public attribution. Eichensehr (2020) acknowledges that while preserving sources is legitimate, detailed attributions can sometimes be made without compromising sensitive information (p. 569).",
+            "Data analysis and advanced techniques can help identify nation-state adversaries, but raise questions about data sharing, methodological transparency, and interaction with legal and political processes (Kuerbis et al., 2022, p. 227)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "International Norms and Cooperation",
+          "level": "h3",
+          "content": [
+            "Clarity in state actions is enhanced through attribution, aiding public awareness of cyber incidents. Eichensehr (2020) points out that attribution can provide the only indication of certain cyber activities to the broader public and other states (p. 557).",
+            "Public attributions can achieve broader goals beyond private determinations, such as promoting stability and understanding in cyberspace (Eichensehr, 2020, p. 556).",
+            "Decentralization promotes transparency in attributing state actions, as multiple actors can contribute to a more comprehensive understanding over time (Eichensehr, 2020, p. 593).",
+            "International cooperation and the development of norms are crucial for addressing challenges in attribution and fostering a stable cyberspace environment."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Private Sector and Attribution",
+      "level": "h2",
+      "content": [
+        "The private sector plays an increasingly significant role in attribution, providing valuable public accountability and contributing to transparency. However, private firms face limitations in their capacity to attribute state responsibility definitively."
+      ],
+      "subheadings": [
+        {
+          "title": "Role of Private Firms in Attribution",
+          "level": "h3",
+          "content": [
+            "Private firms' attribution efforts are sometimes speculative but offer valuable public accountability. Banks (2016) notes that while private companies may lack the authority to collect human intelligence necessary for state attribution, their public reports provide transparency and relieve governments from disclosing sensitive sources and methods (p. 1507).",
+            "Private sector firms are increasingly involved in making attribution judgments. The U.S. Department of Defense recognizes that security firms' reporting on attribution \"can play a significant role in dissuading cyber actors from conducting attacks in the first place\" (Banks, 2016, p. 1506)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Transparency and Accountability",
+          "level": "h3",
+          "content": [
+            "Transparency in state practices is crucial for predictable cybersecurity relations. Banks (2016) emphasizes that greater transparency increases expectations of state behavior and contributes to stability in cyber operations (p. 1509).",
+            "Private firms contribute to this transparency by publicly attributing cyber incidents and sharing their findings with the broader community, thus enhancing collective understanding and defense mechanisms."
+          ],
+          "subheadings": []
+        }
+      ]
+    }
+  ]
+},
+  {
+  "title": "Burden of Proof",
+  "level": "h1",
+  "content": [
+    "The burden of proof in cyber attribution involves complex legal and procedural challenges. Establishing state involvement, especially when non-state actors are involved, is crucial but difficult due to factors like anonymity in cyberspace and varying standards of proof across different legal systems."
+  ],
+  "subheadings": [
+    {
+      "title": "State Involvement and Cyber Attribution",
+      "level": "h2",
+      "content": [
+        "Proof of state involvement is necessary for attributing the actions of non-state actors to a state. Hill (2019) explains that \"the actions of a state that can be attributable to the state depend on whether the entities of the state that are dependent on the state to function are committing the acts\" (p. 11). Conversely, actions of private citizens are generally not attributable to states under international law.",
+        "The burden of proof typically rests on the claimant state in cyber attribution cases. Yang (2022) notes that \"it is generally recognized that in 'a bilateral dispute over State responsibility, the onus of establishing responsibility lies in principle on the claimant State'\" (p. 6). Shifting this burden can cause more issues than it solves, as it may unfairly establish prima facie responsibility of the accused state."
+      ],
+      "subheadings": [
+        {
+          "title": "Proof Requirements in Cyber Attribution",
+          "level": "h3",
+          "content": [
+            "Establishing a relationship between non-state actors and a state is essential but challenging due to factors like the low cost of cyber acts, internet accessibility, and inherent anonymity in cyberspace (Hill, 2019, p. 11).",
+            "There are varying standards of proof in international litigation for cyber disputes. Yang (2022) identifies four levels: prima facie possibility, preponderance of evidence, clear and convincing evidence, and proof beyond reasonable doubt (p. 6)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Impact of Countermeasures on Burden of Proof",
+          "level": "h3",
+          "content": [
+            "Countermeasures against a state may affect the burden of proof in cyber operations. Greiman (2021) states that \"the victim State may have to prove only that the State of origin breached its duty to prevent significant transboundary harm\" (p. 106).",
+            "The burden of proof in cyber-attack attribution is complex and involves procedural challenges. Greiman (2021) observes that even if substantive law is clear, procedural rules can make it difficult to prove a case (p. 105)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Standards of Proof in Legal Systems",
+      "level": "h2",
+      "content": [
+        "Legal systems differ in their standards of proof, which affects how cyber attribution cases are handled. In U.S. law, for instance, criminal conviction does not require absolute certainty but demands proof beyond a reasonable doubt (Greiman, 2021, p. 105).",
+        "Adversarial and inquisitorial legal systems have different approaches to establishing proof. The adversarial system relies on a competitive process between prosecution and defense, while the inquisitorial system involves extensive pre-trial investigations aimed at uncovering the truth (Greiman, 2021, p. 105)."
+      ],
+      "subheadings": [
+        {
+          "title": "Comparative Analysis of Legal Systems",
+          "level": "h3",
+          "content": [
+            "In common law jurisdictions like the United States, all three standards of proof—prima facie evidence, preponderance of probability, and beyond reasonable doubt—are applied depending on the situation (Greiman, 2021, p. 105).",
+            "Civil law jurisdictions tend to limit the standard of proof to a single general rule, where the judge must be convinced that a disputed fact is true (Greiman, 2021, p. 105)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Evidentiary Burdens in State Legal Obligations",
+          "level": "h3",
+          "content": [
+            "States may fear that legal requirements to provide evidence would increase their evidentiary burdens. Eichensehr (2020) suggests that states should use their first-mover advantage to establish what the legal standard should be, or else risk having a higher standard set for them by others (p. 570).",
+            "The practice of nongovernmental attributors in publishing detailed evidence may shape expectations about the type and amount of evidence that governments should supply when making accusations (Eichensehr, 2020, p. 570)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "International Court Practices and Burden of Proof",
+      "level": "h2",
+      "content": [
+        "The International Court of Justice (ICJ) typically holds that the burden of proof lies with the party alleging a fact, but the required standard of proof remains unclear. Eichensehr (2020) notes that the ICJ has not explicitly determined the standard of proof that a state must meet when claiming self-defense (p. 560).",
+        "There is no explicit legal burden for proof of attribution in cyber responses. Banks (2016) points out that international law does not impose burdens of proof or additional legal criteria for establishing attribution (p. 1505)."
+      ],
+      "subheadings": [
+        {
+          "title": "ICJ and Burden of Proof",
+          "level": "h3",
+          "content": [
+            "The ICJ has historically been resistant to shifting the burden of proof, even when evidence is exclusively within one state's control. Brunner et al. (2019) mention that the Court has not been inclined to shift the burden, as seen in cases like the Corfu Channel case (p. 99).",
+            "International courts maintain that the burden of proof lies with the party alleging a fact, and shifting this burden is rare and typically only considered in exceptional circumstances (Ronen, 2020, p. 7)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Shifting and Reversing Burden of Proof",
+          "level": "h3",
+          "content": [
+            "Shifting the burden of proof has been proposed to ensure accurate judicial determinations, especially when one party has better access to evidence (Ronen, 2020, p. 5). However, such shifts are uncommon and can place unfair responsibility on the respondent state.",
+            "Reversal of the burden of proof has been historically rejected due to concerns over fairness and the potential for undue advantage. Ronen (2020) discusses that international courts have generally not accepted shifts based on the exclusive possession of evidence by one party (p. 5).",
+            "Lowering the standard of proof, rather than shifting the burden, has been suggested as a more plausible approach to address evidentiary challenges in cyber attribution (Brunner et al., 2019, p. 107)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Standards of Proof and Evidence",
+          "level": "h3",
+          "content": [
+            "The relationship between burden of proof, standard of proof, and evidence is interconnected. Ronen (2020) emphasizes that difficulties in meeting the burden of proof may be alleviated by presumptions and a liberal approach to evidence admissibility (p. 4).",
+            "The standard of proof safeguards against false attribution. While it exists to protect the respondent, there is recognition that standards may need adaptation as the means of proving acts evolve, especially in cyberspace (Ronen, 2020, p. 21).",
+            "The clear and convincing evidence standard balances the need to protect states from false attribution while allowing the burden of proof to be met (Brunner et al., 2019, p. 102).",
+            "The ICJ has not consistently applied a single standard of proof in cases concerning state responsibility, and the standard often varies based on the context and severity of the alleged breach (Brunner et al., 2019, p. 83)."
+          ],
+          "subheadings": []
+        }
+      ]
+    }
+  ]
+},
+  {
+  "title": "The Standard of Proof",
+  "level": "h1",
+  "content": [
+    "The standard of proof in cyber attribution is a critical factor influencing the credibility of attributions, the ability to hold actors accountable, and the potential to deter malicious cyber activities. Due to the unique challenges of cyberspace, such as anonymity and the involvement of non-state actors, establishing appropriate evidentiary standards and burden of proof is complex and varies across legal systems."
+  ],
+  "subheadings": [
+    {
+      "title": "Evidentiary Standards in Cyber Attribution",
+      "level": "h2",
+      "content": [
+        "Different actions in response to cyber incidents require different evidentiary standards. The lack of consistent international standards complicates attribution efforts and affects the credibility and political impact of public attributions."
+      ],
+      "subheadings": [
+        {
+          "title": "Varied Evidentiary Standards for Different Actions",
+          "level": "h3",
+          "content": [
+            "Public attribution necessitates different evidentiary standards depending on the actions taken. Grotto (2020) discusses how criminal convictions require a high standard of 'beyond a reasonable doubt', while indictments and economic sanctions may rely on lower standards, such as 'probable cause' or even less (p. 9).",
+            "Civil litigation for cyber damage claims also demands high evidentiary standards to prove liability and damages."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Challenges in Establishing International Evidentiary Standards",
+          "level": "h3",
+          "content": [
+            "There is a lack of consistency in international evidentiary standards for cyber attribution. Grotto (2020) notes that there are no consensus standards under international law for assigning blame in cyber contexts (p. 9).",
+            "Accurate cyber attribution is hindered by the absence of standardized forensic processes with evidentiary-based levels of confidence (Kuerbis et al., 2022, p. 221).",
+            "International law lacks clear guidelines on the levels of evidence necessary to attribute cyber operations to specific actors or states (Hill, 2019, p. 23)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "The Need for Establishing Evidentiary Standards",
+          "level": "h3",
+          "content": [
+            "Establishing evidentiary standards is crucial for enhancing the credibility and trustworthiness of political cyberattack attributions (Blauth & Gstrein, 2021, p. 3).",
+            "Regulating evidentiary standards may lead to more credible attributions and stronger political effects (Blauth & Gstrein, 2021, p. 8).",
+            "Setting an evidentiary standard for cyber attribution enhances the credibility of attributions and can prevent ill-founded or erroneous claims (Yang, 2022, p. 6)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Implications of Revealing Sources and Methods",
+          "level": "h3",
+          "content": [
+            "Establishing evidentiary standards may require states to reveal sources and methods used in attribution, impacting state security and confidentiality (Blauth & Gstrein, 2021, p. 7).",
+            "States may be resistant to legal requirements for providing evidence due to concerns over disclosing capabilities and compromising intelligence (Blauth & Gstrein, 2021, p. 7).",
+            "Despite these concerns, openness can increase credibility, improve the quality of attributions, and enhance collective security (Blauth & Gstrein, 2021, p. 7)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Burden of Proof in Cyber Attribution",
+      "level": "h2",
+      "content": [
+        "The burden of proof refers to the obligation to prove allegations made, and in cyber attribution cases, it typically rests with the claimant state. However, the complexity of cyber operations and involvement of non-state actors complicate this principle."
+      ],
+      "subheadings": [
+        {
+          "title": "The Burden of Proof in Different Legal Systems",
+          "level": "h3",
+          "content": [
+            "Legal systems vary in their approach to the burden of proof. In common law jurisdictions like the U.S., different standards of proof are applied based on the situation, such as 'prima facie evidence', 'preponderance of probability', and 'beyond a reasonable doubt' (Greiman, 2021, p. 105).",
+            "Adversarial systems focus on a competitive process to determine facts, while inquisitorial systems involve extensive investigation to uncover the truth before trial (Greiman, 2021, p. 105)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Impact of Countermeasures on Burden of Proof",
+          "level": "h3",
+          "content": [
+            "Countermeasures against a state may shift the burden of proof in cyber operations. The victim state may need to prove only that the state of origin breached its duty to prevent harm (Greiman, 2021, p. 106).",
+            "The burden of proof in cyber-attack attribution is complex and involves procedural challenges, making it difficult to establish a case even when substantive law is clear (Greiman, 2021, p. 105)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Challenges in Cyber-Attack Attribution",
+          "level": "h3",
+          "content": [
+            "Attributing cyber-attacks is challenging due to factors like the anonymity of cyberspace, the use of proxies, and the difficulty in establishing a direct link between actions and state responsibility.",
+            "Proof of state involvement is necessary for attributing the actions of non-state actors, but establishing this connection is formidable (Hill, 2019, p. 11)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Standards of Proof in International Law",
+      "level": "h2",
+      "content": [
+        "International law lacks clear standards of proof for cyber attribution, leading to inconsistencies in how cases are handled. The International Court of Justice (ICJ) and other international courts have been hesitant to define explicit standards."
+      ],
+      "subheadings": [
+        {
+          "title": "The 'Clear and Convincing' Evidence Standard",
+          "level": "h3",
+          "content": [
+            "The 'clear and convincing' evidence standard is considered appropriate for cyber public attribution (Yang, 2022, p. 6). This standard requires the party to prove that claims are substantially more likely to be true.",
+            "State practice, particularly from the U.S., supports the use of the 'clear and convincing' standard in cases involving self-defense and responses to cyberattacks (Eichensehr, 2020, p. 562)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "The Role of the International Court of Justice",
+          "level": "h3",
+          "content": [
+            "The ICJ typically holds that the burden of proof lies with the party alleging a fact, but has not explicitly determined the required standard of proof in self-defense cases (Eichensehr, 2020, p. 560).",
+            "The ICJ has historically been resistant to shifting the burden of proof, even in situations where evidence is under the exclusive control of one party (Brunner et al., 2019, p. 99).",
+            "Legal scholars have identified three standards of proof in ICJ state responsibility cases: high level of certainty, higher standard for allegations of exceptional gravity, and beyond reasonable doubt when relying on circumstantial evidence (Brunner et al., 2019, p. 89)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Use of Circumstantial Evidence and Factual Presumptions",
+          "level": "h3",
+          "content": [
+            "International courts accept circumstantial evidence and use factual presumptions to address inequalities in proof (Ronen, 2020, p. 24).",
+            "Circumstantial evidence must leave no room for reasonable doubt when direct proof is not available (Brunner et al., 2019, p. 86).",
+            "Factual presumptions allow legal parties to infer claims without direct proof, shifting the burden to the other party to disprove the inference (Ronen, 2020, p. 24)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Relationship Between Burden of Proof, Standard of Proof, and Evidence",
+          "level": "h3",
+          "content": [
+            "The burden of proof, standard of proof, and evidence are interconnected concepts. Difficulties in meeting the burden of proof may be alleviated by presumptions and a liberal approach to evidence admissibility (Ronen, 2020, p. 4).",
+            "The standard of proof varies based on the context and severity of the alleged breach, and aims to balance the protection of states from false attribution with the need for accountability (Ronen, 2020, p. 21)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Adapting Standards for Cyber Contexts",
+      "level": "h2",
+      "content": [
+        "Given the unique challenges of cyberspace, there is a need to adapt standards of proof and establish new frameworks to effectively address cyber attribution."
+      ],
+      "subheadings": [
+        {
+          "title": "The Need for Variable Attribution Standards",
+          "level": "h3",
+          "content": [
+            "A variable attribution standard can improve responses to cyber armed attacks by applying different standards based on the remedy sought (Finlay & Payne, 2019, p. 206).",
+            "Strict standards should apply when states wish to use force in response, but lower standards may be appropriate for non-forcible legal or diplomatic actions."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Proposals for New Evidentiary Standards",
+          "level": "h3",
+          "content": [
+            "The lack of existing evidence law in cyber contexts presents an opportunity to establish new standards (Eichensehr, 2020, p. 584).",
+            "A due diligence framework has been proposed to establish minimum standards for cyber-attack attribution (Greiman, 2021, p. 107)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Balancing State Protection and Proof Obligations",
+          "level": "h3",
+          "content": [
+            "The standard of proof exists to protect respondents against false attribution, but may need adaptation as the means of proving acts evolve (Ronen, 2020, p. 21).",
+            "Lowering evidentiary standards rather than reversing the burden of proof may enhance justice while maintaining fairness (Brunner et al., 2019, p. 107).",
+            "The 'clear and convincing' standard balances the need for state protection with the obligation to prove claims successfully (Brunner et al., 2019, p. 102)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+  "title": "International Standards and Challenges",
+  "level": "h2",
+  "content": [
+    "International cyber attribution is fraught with complexities stemming from inconsistent evidentiary standards across different jurisdictions. Grotto (2020) highlights that \"there are no consensus evidentiary standards under international law generally for assigning blame, let alone in the cyber context specifically\" (p. 9). This lack of uniformity complicates efforts to build multilateral coalitions against state-sponsored cyber activities, as persuading foreign governments of analytic attributions presents unique challenges not encountered in domestic criminal proceedings."
+  ],
+  "subheadings": [
+    {
+      "title": "Burden of Proof in International Contexts",
+      "level": "h3",
+      "content": [
+        "The burden of proof in international cyber attribution cases typically rests on the claimant state. Yang (2022) asserts that \"in a bilateral dispute over State responsibility, the onus of establishing responsibility lies in principle on the claimant State\" (p. 6). This principle is further reinforced by the International Court of Justice (ICJ), which maintains that the burden of proof lies with the party alleging a fact, although the required standard of proof remains ambiguous (Eichensehr, 2020, p. 560). The traditional onus probandi incumbit actori principle emphasizes that the asserting party must provide sufficient evidence to substantiate their claims, a requirement that is often challenging in the cyber domain due to the technical difficulties associated with attribution."
+      ],
+      "subheadings": []
+    },
+    {
+      "title": "Legal and Procedural Aspects",
+      "level": "h3",
+      "content": [
+        "The legal and procedural frameworks governing cyber attribution are still evolving, with significant gaps that hinder accurate and standardized responses to cyber incidents. Banks (2016) notes that \"the legal standards for attribution in cyber operations are less stringent than in traditional law\" (p. 1510), highlighting the disparity between national security investigations and conventional civil or criminal proceedings. This discrepancy is compounded by the absence of internationally recognized forensic processes, making it difficult to achieve a consistent level of evidentiary confidence across different states (Kuerbis et al., 2022, p. 221)."
+      ],
+      "subheadings": [
+        {
+          "title": "Standards of Proof in Cyber Litigation",
+          "level": "h4",
+          "content": [
+            "In the realm of cyber litigation, civil cases demand high evidentiary standards to substantiate claims of cyber damage. Grotto (2020) points out that skeptics may exploit perceived evidentiary inadequacies to undermine the credibility of accusations, even when the intent is to provide defenders with practical mitigations (p. 9). Additionally, the lack of standardized forensic processes further complicates the attribution process, as attributing entities often rely on limited evidence and the reputations of the organizations involved rather than a consistent, evidence-based approach (Kuerbis et al., 2022, p. 221)."
+          ],
+          "subheadings": []
+        }
+      ]
+    }
+  ]
+},
+    {
+  "title": "Impact of Evidentiary Standards on Cybersecurity",
+  "level": "h2",
+  "content": [
+    "Evidentiary standards play a pivotal role in shaping the landscape of cybersecurity, particularly in the context of public attribution of cyberattacks. Grotto (2020) emphasizes that \"public attribution necessitates different evidentiary standards for varied actions,\" illustrating the complexity of imposing appropriate costs on perpetrators through diverse modalities (p. 9). The differentiation in standards is crucial, as Americious’s strategy to secure criminal convictions for suspects involves adhering to a high evidentiary threshold akin to the American standard of \"beyond a reasonable doubt\" (Grotto, 2020, p. 9). However, achieving such convictions is often challenging without the cooperation of the accused state, Rosaria, highlighting the inherent difficulties in international cyber litigation.",
+    "Furthermore, categorizing attribution serves as a foundational step in establishing a common framework for scholarly and policy debates. Grotto (2020) contends that \"categorizing attribution provides a common reference for debate and evidentiary standards,\" thereby facilitating more structured discussions on the means and ends of cyber attribution (p. 3). This categorization not only aids in defining appropriate evidence standards for different types of attribution claims but also assists in evaluating proposals aimed at enhancing the effectiveness of attribution practices.",
+    "Despite the theoretical benefits, the practical impact of evidentiary standards on deterrence remains debatable. Grotto (2020) notes that \"evidentiary standards in attribution may not influence effective deterrence,\" suggesting that the credibility and intelligibility of deterrence signals to adversaries are more critical than the specific standards employed (p. 7). Effective deterrence relies on the perceived certainty and capability of responding to cyber threats, which may not directly correlate with the stringentness of evidentiary requirements.",
+    "Moreover, regulating evidentiary standards can significantly enhance the credibility and political impact of cyberattack attributions. Blauth and Gstrein (2021) argue that \"regulating evidentiary standards may enhance attribution credibility and political impact,\" positing that legally substantiated attributions are more likely to provoke stronger political responses and be perceived as trustworthy (p. 8). However, establishing such standards necessitates a delicate balance between transparency and the protection of state security interests. As Blauth and Gstrein (2021) acknowledge, \"establishing evidentiary standards requires revealing sources, impacting state security,\" which can be a deterrent for states reluctant to disclose sensitive information (p. 7)."
+  ],
+  "subheadings": [
+    {
+      "title": "Enhancing Credibility and Political Impact",
+      "level": "h3",
+      "content": [
+        "Regulating evidentiary standards is essential for enhancing the credibility and political impact of cyberattack attributions. Blauth and Gstrein (2021) highlight that \"substantiated public attributions would be more credible and it is likely that they would also provoke stronger political effects,\" underscoring the importance of establishing legal requirements despite the increased complexity they introduce (p. 8). Furthermore, the establishment of evidentiary standards compels states to provide more reliable and transparent evidence, which can lead to a better understanding of cyberattacks and foster greater trust among international actors (Blauth & Gstrein, 2021, p. 3). However, this process requires states to disclose their sources and methods, potentially compromising confidentiality and security (Blauth & Gstrein, 2021, p. 7)."
+      ],
+      "subheadings": []
+    }
+  ]
+}
+
+  ]
+},
+  {
+  "title": "Means of Proof of Evidence",
+  "level": "h1",
+  "content": [
+    "Establishing evidence in cybersecurity involves intricate attribution processes that rely on a combination of technical forensics, circumstantial evidence, and the credibility of the accusing state. Effective attribution not only identifies the responsible organizations or states but also ensures that the evidence presented is convincing enough to withstand scrutiny and facilitate appropriate responses."
+  ],
+  "subheadings": [
+    {
+      "title": "Attribution and Evidence",
+      "level": "h2",
+      "content": [
+        "Attributions can hint at connections without providing concrete evidence. For example, Rid and Buchanan (2015) illustrate how high-level officials can imply responsibility without explicit proof, as seen when America's defense secretary referenced the 'Shamoon' virus attack on Aramco without directly linking it to Iran (p. 27). This approach often leads to interpretations that associate specific states with cyberattacks based on suggestive statements rather than definitive evidence.",
+        "Attribution primarily aims to identify organizations, though personal links can provide critical evidence. Rid and Buchanan (2015) highlight the significance of linking individual personas to organizations, as demonstrated by CrowdStrike’s Putter Panda report, which connected a hacker handle to a specific individual and subsequently to a military unit in Shanghai (p. 13). Such personal connections can bolster the credibility of organizational attributions.",
+        "The credibility of the claimant affects the persuasiveness of evidence in attribution. Grotto (2020) emphasizes that the reputation and integrity of the accusing state play a crucial role in how evidence is perceived. A state with a strong reputation for honesty can impose lower evidentiary burdens compared to those with questionable credibility (p. 9).",
+        "Timing and additional considerations enhance the clarity and sufficiency of attribution evidence. Hill (2019) notes that factors like the speed of attribution and the degree of certainty can significantly impact the effectiveness of the evidence presented, ensuring that responses to cyberattacks are both timely and well-supported (p. 22).",
+        "Attribution relies on diverse sources of information including forensics and circumstantial evidence. Hill (2019) underscores the importance of integrating various intelligence sources—such as human intelligence, signals intelligence, and forensic data—to build a comprehensive and convincing case for attribution (p. 24)."
+      ],
+      "subheadings": [
+        {
+          "title": "Role of Human and State Factors",
+          "level": "h3",
+          "content": [
+            "Proof of state involvement is necessary for attributing non-state actor actions. Hill (2019) explains that demonstrating a relationship between non-state actors and sponsoring states is essential for establishing state responsibility in cyber operations. This involves proving that the state has control or significant influence over the actors conducting malicious activities (p. 11).",
+            "Human factors provide circumstantial evidence critical for cyber attribution. Hill (2019) highlights that analyzing human elements, such as past affiliations and associations of cyber actors, can provide vital circumstantial evidence that supports attribution claims (p. 22).",
+            "International armed conflicts require evidence of overall control by sponsoring states. Hill (2019) discusses that in the context of international armed conflicts, it is necessary to show that a state exercises overall control over an organized armed group to attribute their actions directly to the state (p. 11)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Technical and Circumstantial Evidence",
+          "level": "h3",
+          "content": [
+            "Cyber acts require diverse technical means for attribution due to their complex nature. Hill (2019) outlines that attributing cyberattacks involves multiple technical steps, including identifying the equipment used, determining ownership, and locating responsible individuals or groups, each requiring specialized technical approaches (p. 18).",
+            "Lack of evidence skews understanding and increases risks of wrong accusations. Blauth and Gstrein (2021) argue that insufficient evidence can lead to misattributions, which undermine the establishment of responsible cyber norms and increase the risk of wrongful accusations (p. 6).",
+            "Compelling states to provide evidence prevents false accusations. Blauth and Gstrein (2021) emphasize that mandating states to present substantiated evidence for attributions helps prevent inaccurate accusations, thereby fostering greater trust and accountability in international relations (p. 6)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Standards and Burden of Proof",
+      "level": "h2",
+      "content": [
+        "The UN Group of Governmental Experts (GGE) emphasizes the need for substantiating evidence in cyberattack allegations, suggesting that accusations should be supported by sufficient proof to avoid unwarranted political tensions. Although not legally obligatory, there is a growing consensus among scholars and policymakers on the importance of evidence-based attributions (Blauth & Gstrein, 2021, p. 8).",
+        "States provide evidence to substantiate attributions based on policy choices. Blauth and Gstrein (2021) explain that states often decide the form and extent of evidence provided in attributions as a matter of policy, aiming to convince international bodies and other states while managing strategic interests (p. 5).",
+        "The variability in evidence provided for attributions is influenced by international law. Blauth and Gstrein (2021) observe that international law does not mandate specific evidence standards for cyber attributions, resulting in varied practices among states. Some states opt for detailed technical reports, while others prefer less explicit declarations (p. 5).",
+        "Technical challenges complicate the collection of evidence for attributions. Blauth and Gstrein (2021) highlight that technical obstacles, such as achieving anonymity and managing the vast scope of cyberspace, make gathering sufficient evidence for attribution particularly challenging (p. 7).",
+        "States should provide sufficient evidence in cyberattack attributions, despite technical challenges. Blauth and Gstrein (2021) argue that even with technical difficulties, states should strive to present enough evidence to enable crosschecking and corroboration, thereby enhancing the credibility of their attributions (p. 10)."
+      ],
+      "subheadings": [
+        {
+          "title": "State Practices and International Law",
+          "level": "h3",
+          "content": [
+            "Insufficient state practice hinders the establishment of customary norms for evidence in attributions. Blauth and Gstrein (2021) note that the lack of consistent and general state practice regarding evidentiary standards impedes the development of customary international norms, necessitating more uniform practices (p. 9).",
+            "The adequate standard of evidence for cyber public attribution aligns with the 'clear and convincing' level. Yang (2022) suggests that both ICJ case law and state practices support adopting a 'clear and convincing' standard for public cyber attributions, balancing the need for credible evidence with practical challenges (p. 6).",
+            "Timeliness in making attributions must not compromise the requirement for sufficient evidence. Yang (2022) addresses the tension between the need for timely attributions and the requirement for sufficient evidence, emphasizing that prompt responses should not bypass adequate evidentiary standards (p. 6)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Legal and Procedural Complexities",
+          "level": "h3",
+          "content": [
+            "Ill-substantiated public attribution lacks legal logic and sufficient evidence. Yang (2022) defines ill-substantiated attributions as reckless denouncements that accuse states of cyberattacks without solid legal imputation or adequate evidence, undermining the credibility and effectiveness of such claims (p. 2).",
+            "There are varying standards of proof in international litigation for cyber disputes. Yang (2022) outlines multiple levels of proof used in international litigation, including prima facie possibility, preponderance of evidence, clear and convincing, and proof beyond a reasonable doubt, indicating the diversity of evidentiary standards applied (p. 6).",
+            "The burden of proof typically rests on the claimant state in cyber attribution cases. Yang (2022) reaffirms that, in bilateral disputes over state responsibility, the onus of establishing responsibility lies primarily with the claimant state, although suggestions to shift the burden have been proposed and are controversial (p. 6).",
+            "Countermeasures against a state may shift the burden of proof in cyber operations. Greiman (2021) explains that in certain countermeasure scenarios, the victim state may have a reduced burden of proof, needing only to demonstrate that the perpetrating state breached its duty to prevent significant transboundary harm (p. 106)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+      "title": "Evidence in Cyber Operations",
+      "level": "h2",
+      "content": [
+        "Adversarial and inquisitorial systems differ in their approach to establishing proof. Greiman (2021) discusses how adversarial systems, prevalent in common law jurisdictions, rely on competitive processes between prosecution and defense, whereas inquisitorial systems, common in civil law jurisdictions, involve extensive pre-trial investigations to ascertain the truth (p. 105).",
+        "U.S. law requires varying standards of proof for criminal conviction. Greiman (2021) outlines that the U.S. legal system employs multiple standards of proof, including prima facie evidence, preponderance of probability, and beyond a reasonable doubt, depending on the nature of the case (p. 105).",
+        "The burden of proof in cyber-attack attribution is complex and procedural. Greiman (2021) highlights that the procedural complexities of cyber attribution involve determining responsibility amidst intricate technical and legal challenges, with the ICJ maintaining that the alleging party bears the burden of proof (p. 105).",
+        "The challenge in cyber attribution lies in convincing other states of its accuracy. Greiman (2021) emphasizes that the primary difficulty in cyber attribution is not merely identifying the source but persuading other states of its correctness, especially when evidence is derived from secretive intelligence operations (p. 106).",
+        "Requiring evidence improves decision-making in attribution. Eichensehr (2020) argues that mandating states to provide evidence for attributions enhances the quality and reliability of the attribution process, fostering better decision-making and accountability (p. 578)."
+      ],
+      "subheadings": [
+        {
+          "title": "Public and State Evidence",
+          "level": "h3",
+          "content": [
+            "Attributions must be supported by evidence to enable countermeasures. Eichensehr (2020) explains that for attributions to justify countermeasures, such as sanctions, sufficient evidence must be provided to allow other states to verify and crosscheck the claims, ensuring the legitimacy of the responses (p. 581).",
+            "Public evidence fosters agreement about state actions and improves attribution accuracy. Eichensehr (2020) asserts that publicly disclosing evidence related to cyberattacks facilitates consensus among states regarding the responsible party, thereby enhancing the accuracy and reliability of attributions (p. 557).",
+            "State practice, especially U.S. practices, supports a 'clear and convincing' evidence standard. Eichensehr (2020) notes that U.S. state practice often employs the 'clear and convincing' standard in justifying responses to cyberattacks, although it is unclear if this standard is recognized as customary international law (p. 562)."
+          ],
+          "subheadings": []
+        },
+        {
+          "title": "Challenges in Establishing Standards",
+          "level": "h3",
+          "content": [
+            "The lack of evidence law presents an opportunity for new standards. Eichensehr (2020) suggests that the absence of established international evidence law for cyber attributions opens the door for developing new norms and standards that can enhance the credibility and effectiveness of attributions (p. 584).",
+            "Establishing an international law standard for evidence is essential. Eichensehr (2020) emphasizes the necessity of adopting internationally recognized evidentiary standards to ensure that cyber attributions are credible and can withstand scrutiny, thereby supporting macro-level deterrence (p. 581).",
+            "Violation allegations also necessitate supporting evidence. Eichensehr (2020) states that even attributions aimed at improving network defenses must be backed by sufficient evidence to align with customary international law and to prevent conflicts, thereby reinforcing the need for substantiated claims (p. 582)."
+          ],
+          "subheadings": []
+        }
+      ]
+    },
+    {
+  "title": "Indirect Evidence and State Responsibility",
+  "level": "h1",
+  "content": [
+    "Indirect evidence plays a crucial role in attributing state responsibility for cyber-attacks, especially when direct evidence is scarce or unavailable. Relying solely on policy-based evidence can undermine the legitimacy of attributions, leading to unsubstantiated claims that may foster mistrust and conflict. Conversely, well-supported public attributions can enhance stability and understanding in cyberspace by providing credible and verifiable links between malicious activities and responsible states."
+  ],
+  "subheadings": [
+    {
+      "title": "Case Studies and Analysis",
+      "level": "h2",
+      "content": [
+        "Case studies, such as the Russian-Georgian conflict of 2008, illustrate the application of indirect evidence in attributing state responsibility for cyber-attacks. These analyses highlight various categories of indirect evidence, including the level of coordination, preparedness, state relations with hacker communities, and the state's conception of cybersecurity. However, the limited scope of individual case studies underscores the need for broader research to develop a comprehensive categorization of indirect evidence."
+      ],
+      "subheadings": [
+        {
+          "title": "Russian-Georgian Conflict",
+          "level": "h3",
+          "content": [
+            "The cyber-warfare component of the Russian-Georgian conflict in 2008 serves as a pivotal example of how indirect evidence can be utilized to attribute state responsibility. The distribution of sophisticated malware like 'Shamoon' and the strategic coordination between cyber and kinetic operations suggest a high level of planning and state involvement. Additionally, the collaboration between the Russian government and national hacker communities further strengthens the attribution claims, despite official denials and the absence of direct evidence linking the Kremlin to the attacks."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Legal Frameworks and Evidentiary Standards",
+      "level": "h2",
+      "content": [
+        "International law requires a nuanced evaluation of evidence when attributing cyber-attacks to states. The standards of proof must consider the reliability, quantity, directness, and nature of the evidence, alongside the context and severity of the breach. While the burden of proof typically lies with the claimant state, the lack of mandatory disclosure obligations complicates the establishment of customary international norms for evidence in cyber attributions."
+      ],
+      "subheadings": [
+        {
+          "title": "International Court of Justice (ICJ) Standards",
+          "level": "h3",
+          "content": [
+            "The ICJ has outlined various standards of proof in state responsibility cases, categorizing them based on the seriousness of the allegations. Regular cases require clear and convincing evidence, while charges of exceptional gravity demand a higher standard of proof beyond reasonable doubt. These standards are context-dependent and reflect the substantive nature of the obligations breached. However, the ICJ has not consistently defined these standards across all cases, leading to ambiguity in their application."
+          ]
+        },
+        {
+          "title": "Human Rights and Evidentiary Presumptions",
+          "level": "h3",
+          "content": [
+            "In human rights tribunals, presumptions and factual inferences play a significant role in attributing state responsibility, especially when evidence is controlled by the state. These tribunals employ strong presumptions in cases where the state's authorities have exclusive knowledge of the events, shifting the burden of proof to the respondent to provide satisfactory explanations. Additionally, higher evidentiary standards are applied to more serious violations, suggesting that lower gravity cyber operations might warrant a 'preponderance of evidence' standard."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Challenges in Evidence Gathering",
+      "level": "h2",
+      "content": [
+        "Gathering sufficient and reliable evidence for cyber-attribution presents significant challenges. The technical complexity of cyber-attacks, the anonymity of perpetrators, and the exclusive control of evidence by some states complicate the attribution process. Moreover, biases and outdated perceptions about the necessity of expert involvement hinder effective evidence gathering, necessitating a reevaluation of evidentiary burdens and the utilization of court-appointed experts."
+      ],
+      "subheadings": [
+        {
+          "title": "ICJ and State Responsibility",
+          "level": "h3",
+          "content": [
+            "The ICJ's approach to state responsibility in cyber-attacks emphasizes the importance of clear and convincing evidence, particularly in cases of exceptional gravity. However, the lack of explicit definitions for terms like 'conclusive' or 'sufficient' evidence creates uncertainty for parties involved in proceedings. This ambiguity can lead to inconsistent applications of evidentiary standards, highlighting the need for clearer guidelines."
+          ]
+        },
+        {
+          "title": "Legal Scholars' Perspectives",
+          "level": "h3",
+          "content": [
+            "Legal scholars have identified three primary standards of proof used by the ICJ in state responsibility cases: clear and convincing evidence for regular cases, beyond reasonable doubt for charges of exceptional gravity, and preponderance of evidence for cases relying solely on circumstantial evidence. These perspectives underscore the variability and context-dependence of evidentiary standards, advocating for a balanced approach that considers both the severity of the breach and the nature of the evidence available."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Indirect Evidence and State Responsibility",
+      "level": "h2",
+      "content": [
+        "Indirect evidence is instrumental in attributing state responsibility in cyberspace, where direct evidence is often elusive. However, relying on policy-based evidence without substantive support risks legitimizing unsubstantiated claims, which can undermine international norms and foster mistrust. Conversely, evidence-backed public attributions can enhance stability by providing credible links between malicious activities and responsible states."
+      ],
+      "subheadings": [
+        {
+          "title": "Relegating Evidence to Policy",
+          "level": "h3",
+          "content": [
+            "Policy-based attributions that lack concrete evidence are problematic as they may lead to false accusations and foster divisions among states. Eichensehr (2020) warns that such 'trust us' attributions are susceptible to being false and are difficult to corroborate, potentially skewing the development of primary norms of state behavior in cyberspace (p. 567)."
+          ]
+        },
+        {
+          "title": "Promoting Stability through Evidence-Based Attributions",
+          "level": "h3",
+          "content": [
+            "Public attributions supported by credible evidence can promote stability and prevent conflicts in cyberspace by clarifying state actions. Eichensehr (2020) notes that evidence-backed attributions help in understanding state behaviors, thereby avoiding misunderstandings and potential conflicts arising from ambiguous or unsupported claims (p. 556)."
+          ]
+        },
+        {
+          "title": "Correlation of Response with Severity and Evidence",
+          "level": "h3",
+          "content": [
+            "The response to cyber incidents should align with the severity of the breach and the quality of evidence available for attribution. Banks (2019) explains that more severe cyber intrusions necessitate higher confidence in the evidence to justify robust self-help responses, whereas less severe attacks might require a lower evidentiary threshold (p. 195)."
+          ]
+        },
+        {
+          "title": "Obligation to Provide Attribution Evidence",
+          "level": "h3",
+          "content": [
+            "States are not legally obligated to provide evidence of attribution when responding to cyber intrusions. Banks (2019) highlights that while the UN Group of Governmental Experts (GGE) recognizes the value of evidence-based attributions, there is insufficient state practice and opinio juris to establish a legal obligation for disclosure (p. 195)."
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+  ]
+}
+
+
+
+
+
+  ]
+

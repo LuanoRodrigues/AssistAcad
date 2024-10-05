@@ -1,0 +1,335 @@
+{
+  "categories": [
+    {
+      "category_name": "International Law and Legal Framework",
+      "subcategories": [
+        {
+          "subcategory_name": "International Courts and Tribunals",
+          "keywords": [
+            "icj",
+            "international court of justice",
+            "international criminal tribunal for the former yugoslavia",
+            "international criminal court",
+            "european union",
+            "united nations",
+            "european court of human rights",
+            "international group of experts",
+            "eritrea-ethiopia claims commission",
+            "iran-us claims tribunal"
+          ]
+        },
+        {
+          "subcategory_name": "International Law Principles",
+          "keywords": [
+            "international law",
+            "customary international law",
+            "opinio juris",
+            "jus ad bellum",
+            "international humanitarian law",
+            "law of armed conflict",
+            "principle of sovereignty",
+            "state sovereignty",
+            "ilc articles",
+            "articles on state responsibility",
+            "draft articles on responsibility of states",
+            "principle of non-intervention",
+            "un charter",
+            "peremptory norms",
+            "jus cogens",
+            "violation of article 2(4)",
+            "international obligations",
+            "international law norms",
+            "law of state responsibility",
+            "un security council"
+          ]
+        },
+        {
+          "subcategory_name": "State Responsibility",
+          "keywords": [
+            "state responsibility",
+            "state responsibility framework",
+            "internationally wrongful act",
+            "due diligence principle",
+            "due diligence obligation",
+            "due diligence standard",
+            "effective control",
+            "overall control test",
+            "direction or control standard",
+            "rules of attribution",
+            "breach of international obligation",
+            "state attribution",
+            "state involvement",
+            "violation of sovereignty",
+            "state responsibility for cyber actions",
+            "circumstance precluding wrongfulness"
+          ]
+        }
+      ]
+    },
+    {
+      "category_name": "Cyber Operations and Attribution",
+      "subcategories": [
+        {
+          "subcategory_name": "Cyber Operations and Attacks",
+          "keywords": [
+            "cyber operations",
+            "cyber operation",
+            "cyber attacks",
+            "cyber intrusions",
+            "cyber incidents",
+            "malicious cyber operations",
+            "hostile cyber operations",
+            "malicious cyber activities",
+            "malicious cyber acts",
+            "cyber warfare",
+            "cyber armed attack",
+            "use of force",
+            "unlawful intervention",
+            "cyber exploitation",
+            "adverse cyber operations",
+            "cyber-attack",
+            "cyber acts",
+            "cyber conflict"
+          ]
+        },
+        {
+          "subcategory_name": "Attribution Techniques and Challenges",
+          "keywords": [
+            "cyber attribution",
+            "attribution challenges",
+            "attribution problem",
+            "attribution issues",
+            "attribution processes",
+            "attribution process",
+            "attribution framework",
+            "attribution standards",
+            "attribution judgments",
+            "attribution determinants",
+            "attribution capabilities",
+            "technical attribution",
+            "technical forensics",
+            "digital forensics",
+            "technical evidence",
+            "forensic analysis",
+            "forensic investigation",
+            "indicators of compromise",
+            "evidence of attribution",
+            "evidentiary challenges"
+          ]
+        },
+        {
+          "subcategory_name": "Cybersecurity Organizations and Manuals",
+          "keywords": [
+            "tallinn manual",
+            "tallinn manual 2.0",
+            "nato cooperative cyber defence centre of excellence",
+            "nato",
+            "mandiant",
+            "crowdstrike",
+            "fireeye",
+            "atlantic council",
+            "microsoft",
+            "kaspersky",
+            "kaspersky lab",
+            "international group of experts",
+            "department of justice",
+            "fbi",
+            "nsa",
+            "cia",
+            "un gge",
+            "united nations group of governmental experts",
+            "council on foreign relations",
+            "cyberpeace institute",
+            "rand corporation",
+            "national security agency"
+          ]
+        }
+      ]
+    },
+    {
+      "category_name": "Evidence and Standards",
+      "subcategories": [
+        {
+          "subcategory_name": "Standard of Proof and Evidentiary Standards",
+          "keywords": [
+            "standard of proof",
+            "standards of proof",
+            "evidentiary standards",
+            "evidentiary requirements",
+            "burden of proof",
+            "proof of attribution",
+            "clear and convincing evidence",
+            "preponderance of evidence",
+            "proof beyond reasonable doubt",
+            "evidentiary threshold",
+            "circumstantial evidence",
+            "balance of probabilities",
+            "convincing evidence",
+            "high standard of proof",
+            "evidentiary issues",
+            "evidentiary rules"
+          ]
+        },
+        {
+          "subcategory_name": "Technical Forensics and Evidence",
+          "keywords": [
+            "technical forensics",
+            "digital forensics",
+            "forensic analysis",
+            "forensic investigation",
+            "forensic techniques",
+            "forensic tools",
+            "digital evidence",
+            "technical evidence",
+            "evidence of attribution",
+            "forensic data",
+            "forensic process",
+            "indicators of compromise",
+            "data collection",
+            "evidence collection",
+            "forensics investments",
+            "technical indicators"
+          ]
+        },
+        {
+          "subcategory_name": "Legal Standards in Cyber Context",
+          "keywords": [
+            "legal standards",
+            "legal framework",
+            "legal consequences",
+            "legal challenges",
+            "legal issues",
+            "legal attribution",
+            "lawful responses",
+            "lawful response options",
+            "lawful use of force",
+            "law of armed conflict",
+            "legal responsibility",
+            "international legal obligations",
+            "international legal framework",
+            "international legal standards",
+            "international law application",
+            "international law compliance",
+            "compliance monitoring"
+          ]
+        }
+      ]
+    },
+    {
+      "category_name": "State Actors and State Practice",
+      "subcategories": [
+        {
+          "subcategory_name": "Notable Countries in Cyber Operations",
+          "keywords": [
+            "united states",
+            "russia",
+            "china",
+            "north korea",
+            "united kingdom",
+            "iran",
+            "france",
+            "estonia",
+            "netherlands",
+            "georgia",
+            "ukraine",
+            "canada",
+            "australia",
+            "germany",
+            "israel",
+            "japan",
+            "south korea"
+          ]
+        },
+        {
+          "subcategory_name": "State-Sponsored Activities",
+          "keywords": [
+            "state-sponsored cyberattacks",
+            "state-sponsored hacking",
+            "state-backed cyber operations",
+            "state-sponsored cyber operations",
+            "state-implicated cyber incidents",
+            "state involvement",
+            "state control",
+            "state behavior",
+            "state-sponsored cybercrime",
+            "state sponsorship",
+            "state responses",
+            "state cooperation",
+            "state practice"
+          ]
+        },
+        {
+          "subcategory_name": "State Responses",
+          "keywords": [
+            "economic sanctions",
+            "criminal charges",
+            "retorsion responses",
+            "countermeasures",
+            "use of force",
+            "self-defense",
+            "naming and shaming",
+            "political attribution",
+            "government responses",
+            "government attributions",
+            "lawful responses",
+            "responsive action",
+            "public attribution",
+            "sanctions"
+          ]
+        }
+      ]
+    },
+    {
+      "category_name": "Notable Incidents and Cases",
+      "subcategories": [
+        {
+          "subcategory_name": "Cyber Incidents",
+          "keywords": [
+            "dnc hack",
+            "sony hack",
+            "notpetya",
+            "wannacry",
+            "stuxnet",
+            "solarwinds",
+            "colonial pipeline",
+            "office of personnel management",
+            "bangladesh bank",
+            "yahoo!",
+            "democratic national committee",
+            "dnc"
+          ]
+        },
+        {
+          "subcategory_name": "Legal Cases",
+          "keywords": [
+            "corfu channel case",
+            "bosnia genocide case",
+            "nicaragua case",
+            "oil platforms case",
+            "georgia",
+            "eritrea-ethiopia claims commission",
+            "bosnian genocide judgment",
+            "corfu channel",
+            "bosnia and herzegovina",
+            "bosnian genocide case"
+          ]
+        },
+        {
+          "subcategory_name": "Government Responses",
+          "keywords": [
+            "us department of justice indictments",
+            "mandiant report",
+            "sanctions",
+            "cybersecurity legislation",
+            "un security council resolutions",
+            "state attribution statements",
+            "public attributions",
+            "criminal indictments",
+            "government attributions",
+            "naming and shaming"
+          ]
+        }
+      ]
+    }
+  ]
+}
