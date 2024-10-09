@@ -2,74 +2,169 @@ import hashlib
 import os
 import json
 import logging
-import pickle
-from collections import defaultdict
 
 from fastembed.embedding import TextEmbedding
 from fastembed.sparse import SparseTextEmbedding
 from fastembed.late_interaction import LateInteractionTextEmbedding
 
 
+import nltk
 
-import joblib
+from qdrant_client import models
+from typing import List, Optional, Dict, Tuple
+
 import numpy as np
-import pandas as pd
-from nltk import WordNetLemmatizer, word_tokenize
-from qdrant_client import QdrantClient, models
-from qdrant_client.grpc import TextIndexParams, TokenizerType
-from qdrant_client.http.models import (
-    SearchParams,
-    Filter,
-    Range,
-    MatchValue,
-    FieldCondition,
-    MatchText,
-    SparseVector,
+from pyparsing import (
+    Word, alphanums, QuotedString, Forward, oneOf, infixNotation,
+    opAssoc, ParserElement, ParseException, delimitedList, Suppress
 )
-from typing import List, Optional, Dict, Tuple, Union
+from qdrant_client.http import models
 
-
-from collections import defaultdict, Counter
-import numpy as np
-from qdrant_client.conversions.common_types import SparseVector, SparseVectorParams, HnswConfigDiff
-from sentence_transformers import SentenceTransformer
-
-from Vector_Database.embedding_handler import get_embedding,query_with_history
+ParserElement.enablePackrat()
+from models.NLP_module.nlp_techniques import lists_have_common_words
+from databases.Vector_Database.embedding_handler import get_embedding
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
 from qdrant_client.http import models  # Import models from qdrant_client.http
 from qdrant_client.http.exceptions import UnexpectedResponse
 from sklearn.cluster._hdbscan import hdbscan
 from sklearn.decomposition import LatentDirichletAllocation as LDA
-from sklearn.cluster import AgglomerativeClustering, KMeans
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import cosine_distances
-from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
-from Pychat_module.gpt_api import call_openai_api
+from models.Pychat_module.gpt_api import call_openai_api
 import uuid
 from File_management.exporting_files import export_results
 from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import cosine_similarity
 from yellowbrick.cluster import KElbowVisualizer
 
-
+from spacy.lang.en.stop_words import STOP_WORDS
 
 import re
 
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import spacy
-from rank_bm25 import BM25Okapi
 
 # Sentence Transformer for dense embeddings
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 dense_embedding_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 bm42_embedding_model = SparseTextEmbedding("Qdrant/bm42-all-minilm-l6-v2-attentions")
 colbert_embedding_model = LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+
+nltk.download('punkt', quiet=True)
+import torch
+print(torch.cuda.is_available())  # Should return True if CUDA is properly set up
+print(torch.cuda.get_device_name(0))  # Should print the name of your GPU
+
+# import torch
+#
+# # Check if GPU is available
+# if torch.cuda.is_available():
+#     print(f"GPU is available: {torch.cuda.get_device_name(0)}")
+# else:
+#     print("GPU is not available. Using CPU.")
+
+def parse_query(query_str):
+    from pyparsing import (
+        Word, alphanums, QuotedString, Forward, oneOf, infixNotation,
+        opAssoc, Suppress, ParserElement, ParseException
+    )
+    import re
+
+    # Enable packrat parsing for performance
+    ParserElement.enablePackrat()
+
+    # Precompile regex patterns to detect field-based conditions and logical operators
+    field_pattern = re.compile(r'\w+:\s*(".*?"|\S+)')
+    operator_pattern = re.compile(r'\b(AND|OR|NOT)\b')  # Removed re.IGNORECASE
+
+    # Check if the query contains fields or operators
+    if field_pattern.search(query_str) or operator_pattern.search(query_str):
+        # Proceed with parsing the structured query
+        # Define the grammar for parsing field-based and logical operator queries
+        field_name = Word(alphanums + "_")
+        comparison_op = oneOf(":")
+        value = QuotedString('"') | Word(alphanums + "_-")
+        field_condition = field_name + comparison_op + value
+
+        # Define a condition (field-specific or general term)
+        condition = (
+            field_condition.setParseAction(lambda t: ('field', t[0], t[2]))
+            | value.setParseAction(lambda t: ('term', t[0]))
+        )
+
+        # Define logical operators (case-sensitive)
+        AND = oneOf("AND &&")
+        OR = oneOf("OR ||")
+        NOT = oneOf("NOT !")
+
+        # Define the expression, including parenthesis handling
+        expr = Forward()
+        atom = condition | (Suppress('(') + expr + Suppress(')'))
+        expr <<= infixNotation(
+            atom,
+            [
+                (NOT, 1, opAssoc.RIGHT),
+                (AND, 2, opAssoc.LEFT),
+                (OR, 2, opAssoc.LEFT),
+            ],
+        )
+
+        try:
+            # Parse the structured query
+            parsed_expr = expr.parseString(query_str, parseAll=True)[0]
+            # Convert parsed_expr into a Qdrant Filter
+            qdrant_filter = build_filter(parsed_expr)
+            return qdrant_filter
+        except ParseException as pe:
+            print(f"Error parsing query: {pe}")
+            return None
+    else:
+        # If no fields or operators are detected, treat as a full-text query
+        return None
+
+
+def build_filter(filter_terms):
+    from qdrant_client.http import models
+
+    def build_conditions(field_terms):
+        conditions = []
+        for field, terms in field_terms.items():
+            for term in terms:
+                conditions.append(
+                    models.FieldCondition(
+                        key=field,
+                        match=models.MatchText(text=term)
+
+                    )
+                )
+        return conditions
+
+    must_conditions = []
+    should_conditions = []
+    must_not_conditions = []
+
+    for operator, field_terms in filter_terms.items():
+        if operator.lower() == 'and':
+            must_conditions.extend(build_conditions(field_terms))
+        elif operator.lower() == 'or':
+            should_conditions.extend(build_conditions(field_terms))
+        elif operator.lower() == 'not':
+            must_not_conditions.extend(build_conditions(field_terms))
+        else:
+            raise ValueError(f"Invalid operator in filter_terms: {operator}")
+
+    qdrant_filter = models.Filter(
+        must=must_conditions if must_conditions else None,
+        should=should_conditions if should_conditions else None,
+        must_not=must_not_conditions if must_not_conditions else None
+    )
+
+    return qdrant_filter
+
 # Preprocessing functions (assuming they are defined elsewhere or include them)
 def preprocess_text(text: str) -> str:
     """
@@ -83,6 +178,85 @@ def preprocess_text(text: str) -> str:
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+nlp = spacy.load("en_core_web_md")
+
+
+def generate_bigrams(tokens: List[str]) -> List[tuple]:
+    """
+    Generate bigrams from a list of tokens.
+
+    Args:
+        tokens (List[str]): A list of preprocessed tokens.
+
+    Returns:
+        List[tuple]: A list of bigrams (tuples of consecutive token pairs).
+    """
+    return list(nltk.bigrams(tokens))
+
+
+def match_query_with_keywords(query: str, keywords: List[str]) -> float:
+    """
+            Compare the query with the keyword list by preprocessing and generating bigrams.
+
+            Args:
+                query (str): The search query.
+                keywords (List[str]): A list of keyword phrases to compare against.
+
+            Returns:
+                float: A weight (boost) score based on keyword matches.
+            """
+    # Preprocess the query
+    preprocessed_query = preprocess_text2(query)
+    query_bigrams = generate_bigrams(preprocessed_query)
+
+    # Initialize boost score
+    boost_score = 0.0
+
+    # Iterate through the list of keywords
+    for keyword in keywords:
+        # Preprocess each keyword and generate bigrams
+        preprocessed_keyword = preprocess_text2(keyword)
+        keyword_bigrams = generate_bigrams(preprocessed_keyword)
+
+        # Bigram match
+        if set(query_bigrams).intersection(set(keyword_bigrams)):
+            boost_score = 1.0  # Set boost to 1.0 if bigram matches
+            return boost_score  # Bigram match takes precedence
+
+        # Exact token match
+        if set(preprocessed_query).intersection(set(preprocessed_keyword)):
+            boost_score = max(boost_score, 0.5)  # Set boost to 0.5 if any word matches
+
+    return boost_score
+
+def convert_to_obsidian_tags(keywords_dict):
+    tags = []
+
+    # Loop through the categories (topics, entities, academic_features)
+    for category, words in keywords_dict['keywords'].items():
+        for word in words:
+            # Convert each keyword into a tag with a hash (#) and replace spaces with underscores
+            tags.append(word)
+
+    return tags
+def process_keywords(keywords_dict, authors_list):
+    tags = []
+
+    # Loop through the categories (topics, entities, academic_features)
+    for category, words in keywords_dict['keywords'].items():
+        for word in words:
+            # If category is "entities", check for common words with authors_list
+            if category == "entities":
+                if not lists_have_common_words([word], authors_list):
+                    # Append only if a common word is found
+                    tags.append(word.lower())
+            else:
+                # For other categories (topics, academic_features), just append the tag
+                tags.append(word.lower())
+    return tags
+
+
 def token_in_text(tokens: set, text_tokens: List[str]) -> bool:
     return any(token in text_tokens for token in tokens)
 def normalize_text2(text: str) -> List[str]:
@@ -97,27 +271,44 @@ def normalize_text2(text: str) -> List[str]:
 
 
 def preprocess_text2(text: str, phrases: Optional[List[str]] = None) -> List[str]:
-    nlp = spacy.load("en_core_web_sm")
-
     """
     Preprocess text by lowercasing, replacing phrases, removing non-alphabetic characters,
-    lemmatizing, and extracting only nouns and adjectives using spaCy.
-    """
-    text = text.lower()
-    stopwords_tailored = ['attribution', 'state', 'cyber']
+    lemmatizing, and extracting specific parts of speech (nouns, proper nouns, adjectives, verbs).
 
+    Args:
+        text (str): The input text to be preprocessed.
+        phrases (Optional[List[str]]): A list of phrases to replace in the text.
+
+    Returns:
+        List[str]: A list of preprocessed tokens (lemmatized and filtered).
+    """
+    # Convert text to lowercase
+    text = text.lower()
+
+    # Combine default stopwords with domain-specific stopwords
+    stopwords_tailored = STOP_WORDS.union({'attribution', 'state', 'cyber', 'is', 'the', 'what'})
+
+    # Replace phrases with underscore-separated versions, handling spaces and punctuation
     if phrases:
         for phrase in phrases:
-            phrase_pattern = re.escape(phrase)
-            text = re.sub(r'\b' + phrase_pattern + r'\b', phrase.replace(' ', '_'), text)
+            phrase_pattern = rf'\b{re.escape(phrase)}\b'  # More flexible phrase matching
+            text = re.sub(phrase_pattern, phrase.replace(' ', '_'), text)
 
+    # Remove non-alphabetic characters (except underscores for phrases)
     text = re.sub(r'[^a-zA-Z_\s]', '', text)
+
+    # Process the text with spaCy NLP pipeline
     doc = nlp(text)
-    tokens = [token.lemma_ for token in doc if
-              token.pos_ in {"NOUN", "PROPN", "ADJ"} and not token.is_stop and token.lemma_ not in stopwords_tailored]
+
+    # Lemmatize tokens and extract nouns, proper nouns, adjectives, and verbs
+    tokens = [
+        token.lemma_ for token in doc
+        if token.pos_ in {"NOUN", "PROPN", "ADJ", "VERB"}  # Include verbs for action relevance
+           and not token.is_stop
+           and token.lemma_ not in stopwords_tailored  # Remove tailored stopwords
+    ]
 
     return tokens
-
 
 
 def normalize_text(text: str) -> List[str]:
@@ -316,14 +507,7 @@ def concatenate_context_and_data(heading, context):
     return combined_data
 
 
-# Preprocessing function
-def preprocess_text(text: str) -> str:
-    """
-    Preprocesses the input text.
-    """
-    text = text.lower()
-    text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-    return text
+
 
 class QdrantHandler:
     # Initialize models
@@ -341,25 +525,8 @@ class QdrantHandler:
 
 
 
-    def fit_bm25(self, corpus: List[List[str]]):
-        """
-        Fit the BM25 model on the provided corpus and save it.
-
-        Args:
-            corpus (List[List[str]]): A list of tokenized documents to fit the model.
-        """
-        print("Fitting BM25 model on the corpus...")
-        self.bm25_corpus = corpus
-        self.bm25 = BM25Okapi(self.bm25_corpus)
-        # Save the corpus for future use
-        with open(self.corpus_path, 'wb') as f:
-            pickle.dump(self.bm25_corpus, f)
-        # Build vocabulary
-        self.vocab = {term: idx for idx, term in enumerate(self.bm25.idf.keys())}
-        print(f"BM25 model fitted and corpus saved to {self.corpus_path}.")
-
     def create_collection(self, collection_name: str) -> bool:
-        from qdrant_client import QdrantClient, models
+        from qdrant_client import models
 
         try:
             self.qdrant_client.get_collection(collection_name)
@@ -492,53 +659,143 @@ class QdrantHandler:
     def hybrid_search(
             self,
             collection_name: str,
-            query: str,
-            top_k: int = 10,
+            query: str = '',
+            filter_terms: Optional[Dict[str, Dict[str, List[str]]]] = None,
+            score_threshold: float = 0.5,
+            top_k: Optional[int] = None,
+            dense_weight: float = 1.0,
+            sparse_weight: float = 3.0,
+            keyword_weight: float = 1.0,
             with_payload: bool = True,
-            keywords: Optional[Dict[str, List[str]]] = None,
-            update: bool = False
+            update_results_cache: bool = True
     ) -> Dict[str, List]:
         """
-        Perform a hybrid search in Qdrant using BM42 sparse embeddings and dense embeddings.
+        Perform a hybrid search in Qdrant using BM42 sparse embeddings and dense embeddings,
+        with additional weighting for exact keyword and bigram matches.
 
         Args:
             collection_name (str): Name of the Qdrant collection.
             query (str): The search query.
-            top_k (int): Number of top results to return.
+            score_threshold (float): Minimum similarity score threshold.
+            top_k (Optional[int]): Number of top results to return, or None to return all results.
+            dense_weight (float): Weight to apply to dense vector scores.
+            sparse_weight (float): Weight to apply to sparse vector scores.
+            keyword_weight (float): Multiplier for the boost score based on keyword matches.
             with_payload (bool): Whether to return payload with results.
-            keywords (Optional[Dict[str, List[str]]]): Keywords for filtering.
-            update (bool): Whether to update the cache.
+            filter_terms (Optional[Dict[str, Dict[str, List[str]]]]): Keywords for filtering.
+            update_results_cache (bool): Whether to update the search results cache.
 
         Returns:
             Dict[str, List]: A dictionary containing the search results.
         """
-        # Cache file path
-        cache_file_path = rf"C:\Users\luano\Downloads\AcAssitant\Files\Cache\search_cache\search_results_{collection_name}.json"
+        import os
+        import json
+        import hashlib
+        import logging
 
-        # Check if the cache file exists
-        if os.path.exists(cache_file_path) and not update:
-            with open(cache_file_path, 'r') as cache_file:
-                cache = json.load(cache_file)
-                if query in cache:
-                    logging.info(f"Returning cached result for query: {query}")
-                    return cache[query]
+        # Define cache file paths
+        embeddings_cache_file_path = r"/Files/Cache/embeddings_cache.json"
+        results_cache_file_path = rf"C:\Users\luano\Downloads\AcAssitant\Files\Cache\search_cache\search_results_{collection_name}.json"
 
-        # Parse the query into a filter and search terms
+        # Ensure the cache directories exist
+        os.makedirs(os.path.dirname(embeddings_cache_file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(results_cache_file_path), exist_ok=True)
+
+        # Load embeddings cache with error handling
         try:
-            filter, search_terms = self.parse_query(query)
-        except Exception as e:
-            logging.error(f"Error parsing query: {e}")
-            return {}
+            with open(embeddings_cache_file_path, 'r') as cache_file:
+                embeddings_cache = json.load(cache_file)
+        except (json.JSONDecodeError, IOError) as e:
+            logging.warning(f"Error loading embeddings cache: {e}. Initializing empty cache.")
+            embeddings_cache = {}
 
-        # Generate embeddings for the search terms
-        dense_embedding = get_embedding(search_terms)
-        bm42_embedding = list(self.bm42_embedding_model.embed([search_terms]))[0]
-        bm42_sparse_vector = models.SparseVector(
-            indices=bm42_embedding.indices.tolist(),
-            values=bm42_embedding.values.tolist()
-        )
-
+        # Load results cache with error handling
         try:
+            with open(results_cache_file_path, 'r') as cache_file:
+                results_cache = json.load(cache_file)
+        except (json.JSONDecodeError, IOError) as e:
+            logging.warning(f"Error loading results cache: {e}. Initializing empty cache.")
+            results_cache = {}
+
+        # Create a unique query hash for caching based on both query and filter_terms
+        combined_query = f"{query}|{json.dumps(filter_terms, sort_keys=True)}"
+        query_hash = hashlib.sha256(combined_query.encode('utf-8')).hexdigest()
+
+        # Check if search results exist in the cache and return if not updating the cache
+        if combined_query in results_cache and not update_results_cache:
+            logging.info(f"Returning cached results for combined query: {combined_query}")
+            return results_cache[combined_query]
+
+        # Initialize qdrant_filter
+        qdrant_filter = None
+
+        # Build filter from filter_terms
+        if filter_terms:
+            try:
+                filter_terms_filter = build_filter(filter_terms)
+                qdrant_filter = filter_terms_filter
+                logging.debug(f"Constructed Qdrant Filter from filter_terms: {qdrant_filter}")
+            except ValueError as ve:
+                logging.error(f"Error in filter_terms: {ve}")
+                return {}
+
+        # Build filter from query
+        if query:
+            parsed_query_filter = parse_query(query)
+            if parsed_query_filter is None:
+                # This means it's a full-text query, not a structured query, handle as vector query
+                logging.info(f"Handling query as full-text: {query}")
+                # No changes to qdrant_filter, full-text handled by vectors
+            else:
+                # Combine filters if both filter_terms and query filters exist
+                if qdrant_filter:
+                    qdrant_filter = models.Filter(
+                        must=[
+                            qdrant_filter,
+                            parsed_query_filter
+                        ]
+                    )
+                else:
+                    qdrant_filter = parsed_query_filter
+                logging.debug(f"Combined Qdrant Filter with Query: {qdrant_filter}")
+
+        # Proceed with embedding generation if query is present
+        if query:
+            # Check if embeddings exist in the cache
+            if query_hash in embeddings_cache:
+                logging.info(f"Loading embeddings from cache for query: {query}")
+                dense_embedding = embeddings_cache[query_hash]['dense']
+                bm42_sparse_vector_data = embeddings_cache[query_hash]['sparse']
+
+                # Convert the cached sparse vector data back into a SparseVector object
+                bm42_sparse_vector = models.SparseVector(
+                    indices=bm42_sparse_vector_data['indices'],
+                    values=bm42_sparse_vector_data['values']
+                )
+            else:
+                logging.info(f"Generating embeddings for query: {query}")
+                # Generate embeddings for the search terms
+                dense_embedding = get_embedding(query)  # Define this function as per your embedding model
+                bm42_embedding = list(self.bm42_embedding_model.embed([query]))[0]  # Adjust as needed
+                bm42_sparse_vector = models.SparseVector(
+                    indices=bm42_embedding.indices.tolist(),
+                    values=bm42_embedding.values.tolist()
+                )
+
+                # Cache the embeddings in a JSON serializable format (lists for indices and values)
+                embeddings_cache[query_hash] = {
+                    'dense': dense_embedding,
+                    'sparse': {
+                        'indices': bm42_sparse_vector.indices,  # Serialize indices as a list
+                        'values': bm42_sparse_vector.values  # Serialize values as a list
+                    }
+                }
+                with open(embeddings_cache_file_path, 'w') as cache_file:
+                    json.dump(embeddings_cache, cache_file)
+
+        # Perform searches based on the presence of query and filters
+        if query:
+            logging.info("Performing hybrid search with vectors and filters.")
             # Perform dense vector search
             results_dense = self.qdrant_client.search(
                 collection_name=collection_name,
@@ -546,10 +803,11 @@ class QdrantHandler:
                     name="text_dense",
                     vector=dense_embedding
                 ),
-                query_filter=filter,
-                limit=top_k * 2,
-                with_payload=with_payload
+                query_filter=qdrant_filter,
+                with_payload=with_payload,
+                limit=1000  # Set a high limit to retrieve all potential results
             )
+            logging.info(f"Results from dense search: {len(results_dense)}")
 
             # Perform sparse vector search
             results_sparse = self.qdrant_client.search(
@@ -558,209 +816,99 @@ class QdrantHandler:
                     name="bm42",
                     vector=bm42_sparse_vector
                 ),
-                query_filter=filter,
-                limit=top_k * 2,
-                with_payload=with_payload
+                query_filter=qdrant_filter,
+                with_payload=with_payload,
+                limit=1000  # Set a high limit to retrieve all potential results
             )
+            logging.info(f"Results from sparse search: {len(results_sparse)}")
 
             # Combine results using RRF
-            combined_results = self.reciprocal_rank_fusion([results_dense, results_sparse], top_k)
+            combined_results = self.reciprocal_rank_fusion(
+                [results_dense, results_sparse],
+                top_k=top_k,
+                dense_weight=dense_weight,
+                sparse_weight=sparse_weight
+            )
 
-            # Process the combined results
-            processed_results = defaultdict(list)
+            # Apply extra weight based on keyword matching
             for result in combined_results:
-                payload = result.payload
-                score = result.score
+                payload_keywords = result.payload.get('keywords', [])
+                if not payload_keywords:
+                    continue  # Skip if no keywords in payload
 
-                # Adjust score based on keywords if necessary
-                include_result = True
-                if keywords:
-                    include_result = self._apply_keyword_filter(
-                        keywords, payload
-                    )
-                if not include_result:
-                    continue
+                # Get the boost score based on matching
+                boost_score = match_query_with_keywords(query, payload_keywords)
 
-                processed_results['section_title'].append(payload.get('section_title', "N/A"))
-                processed_results['paragraph_title'].append(payload.get('paragraph_title', "N/A"))
-                processed_results['paragraph_text'].append(payload.get('paragraph_text', "N/A"))
-                processed_results['paragraph_blockquote'].append(payload.get('paragraph_blockquote', "N/A"))
-                processed_results['metadata'].append(payload.get('metadata', "N/A"))
-                processed_results['keywords'].append(payload.get('keywords', []))
-                processed_results['score'].append(score)
-                processed_results['paragraph_id'].append(result.id)
+                if boost_score > 0:
+                    original_score = result.score
+                    # Add boost_score to the result score, cap at 1.0
+                    result.score = int(result.score + boost_score * keyword_weight)
+                    logging.info(f"Result ID: {result.id} matched keywords. Original Score: {original_score}, "
+                                 f"Boosted Score: {result.score}")
 
-            if not processed_results:
-                logging.info("No results after processing.")
-                return {}
+            # Apply the score threshold to the combined results
+            filtered_results = [result for result in combined_results if result.score >= score_threshold]
+            logging.info(f"Results after applying score threshold ({score_threshold}): {len(filtered_results)}")
+        else:
+            logging.info("Performing keyword-only search.")
+            # Perform search based solely on filters without vector search
+            search_results = self.qdrant_client.scroll(
+                collection_name=collection_name,
+                scroll_filter=qdrant_filter,
+                with_payload=with_payload,
+                limit=1000
+            )
+            filtered_results = search_results
+            logging.info(f"Results from keyword-only search: {len(filtered_results)}")
 
-            # Cache the processed results
-            cache = {}
-            if os.path.exists(cache_file_path):
-                with open(cache_file_path, 'r') as cache_file:
-                    cache = json.load(cache_file)
-
-            cache[query] = processed_results  # Store the result in the cache
-            with open(cache_file_path, 'w') as cache_file:
-                json.dump(cache, cache_file)
-
-            return processed_results
-
-        except Exception as e:
-            logging.error(f"Error during hybrid search in collection {collection_name}: {e}")
+        if not filtered_results:
+            logging.info("No results after processing.")
             return {}
 
-    def parse_query(self, query: str):
+        # Serialize results for caching and return
+        serialized_results = {
+            "paragraph_id": [result.id for result in filtered_results],
+            "section_title": [result.payload.get('section_title', "N/A") for result in filtered_results],
+            "paragraph_title": [result.payload.get('paragraph_title', "N/A") for result in filtered_results],
+            "paragraph_text": [result.payload.get('paragraph_text', "N/A") for result in filtered_results],
+            "paragraph_blockquote": [result.payload.get('paragraph_blockquote', "N/A") for result in
+                                     filtered_results],
+            "metadata": [result.payload.get('metadata', "N/A") for result in filtered_results],
+            "keywords": [result.payload.get('keywords', []) for result in filtered_results],
+            "score": [result.score for result in filtered_results]
+        }
+
+        # Cache the processed results using combined_query as the key
+        results_cache[combined_query] = serialized_results
+        with open(results_cache_file_path, 'w') as cache_file:
+            json.dump(results_cache, cache_file)
+
+        return serialized_results
+
+    def reciprocal_rank_fusion(self, results_list: List[List[models.ScoredPoint]], top_k: Optional[int] = None,
+                               dense_weight: float = 1.0,
+                               sparse_weight: float = 1.0) -> List[models.ScoredPoint]:
         """
-        Parses the query string and returns a Qdrant filter and search terms.
+        Combine multiple result lists using Reciprocal Rank Fusion (RRF) with adjustable weights.
 
         Args:
-            query (str): The query string.
+            results_list (List[List[models.ScoredPoint]]): List of result lists (dense and sparse).
+            top_k (Optional[int]): If provided, limit the results to top_k.
+            dense_weight (float): Weight to apply to the dense vector scores.
+            sparse_weight (float): Weight to apply to the sparse vector scores.
 
         Returns:
-            Tuple[models.Filter, str]: A tuple containing the Qdrant filter and the search terms.
+            List[models.ScoredPoint]: Combined and sorted results by weighted RRF score.
         """
-        import re
-        from qdrant_client.http import models
-
-        # Patterns
-        field_pattern = re.compile(r'(\w+):(".*?"|\S+)')
-        phrase_pattern = re.compile(r'"(.*?)"')
-        boolean_operators = {'AND', 'OR', 'NOT'}
-
-        # Initialize filter conditions
-        must_conditions = []
-        should_conditions = []
-        must_not_conditions = []
-
-        # Extract field-specific searches
-        remaining_query = query
-        field_matches = field_pattern.findall(query)
-        for field_name, value in field_matches:
-            # Remove from remaining query
-            remaining_query = remaining_query.replace(f'{field_name}:{value}', '')
-
-            # Remove quotes if present
-            if value.startswith('"') and value.endswith('"'):
-                value = value[1:-1]
-
-            # Use MatchText for text matching
-            condition = models.FieldCondition(
-                key=field_name,
-                match=models.MatchText(text=value)
-            )
-
-            must_conditions.append(condition)
-
-        # Now handle the remaining query for terms and boolean logic
-        tokens = remaining_query.strip().split()
-        i = 0
-        while i < len(tokens):
-            token = tokens[i]
-            if token.upper() in boolean_operators:
-                operator = token.upper()
-                i += 1
-                if i >= len(tokens):
-                    break
-                next_token = tokens[i]
-
-                # Determine which conditions list to use
-                if operator == 'NOT':
-                    conditions_list = must_not_conditions
-                elif operator == 'OR':
-                    conditions_list = should_conditions
-                else:
-                    conditions_list = must_conditions
-
-                # Handle phrases or terms
-                if next_token.startswith('"'):
-                    phrase_match = phrase_pattern.match(' '.join(tokens[i:]))
-                    if phrase_match:
-                        phrase = phrase_match.group(1)
-                        i += len(phrase.split())  # Advance index
-                        condition = models.FieldCondition(
-                            key="paragraph_text",
-                            match=models.MatchText(text=phrase)
-                        )
-                    else:
-                        phrase = next_token.strip('"')
-                        condition = models.FieldCondition(
-                            key="paragraph_text",
-                            match=models.MatchText(text=phrase)
-                        )
-                else:
-                    # Regular term
-                    condition = models.FieldCondition(
-                        key="paragraph_text",
-                        match=models.MatchText(text=next_token)
-                    )
-
-                conditions_list.append(condition)
-            else:
-                # Handle as a term in must conditions
-                if token.startswith('"'):
-                    # Exact phrase
-                    phrase_match = phrase_pattern.match(' '.join(tokens[i:]))
-                    if phrase_match:
-                        phrase = phrase_match.group(1)
-                        i += len(phrase.split())  # Advance index
-                        condition = models.FieldCondition(
-                            key="paragraph_text",
-                            match=models.MatchText(text=phrase)
-                        )
-                    else:
-                        phrase = token.strip('"')
-                        condition = models.FieldCondition(
-                            key="paragraph_text",
-                            match=models.MatchText(text=phrase)
-                        )
-                else:
-                    # Regular term
-                    condition = models.FieldCondition(
-                        key="paragraph_text",
-                        match=models.MatchText(text=token)
-                    )
-                must_conditions.append(condition)
-            i += 1
-
-        # Build the filter
-        filter_conditions = []
-        if must_conditions:
-            filter_conditions.append(models.Filter(must=must_conditions))
-        if should_conditions:
-            filter_conditions.append(models.Filter(should=should_conditions))
-        if must_not_conditions:
-            filter_conditions.append(models.Filter(must_not=must_not_conditions))
-
-        if len(filter_conditions) == 1:
-            combined_filter = filter_conditions[0]
-        else:
-            # Combine filters
-            combined_filter = models.Filter(
-                must=filter_conditions  # Combine using must
-            )
-
-        # For the embeddings, we can use the terms extracted from the query without operators
-        search_terms = ' '.join(token for token in tokens if token.upper() not in boolean_operators)
-
-        return combined_filter, search_terms
-
-    def reciprocal_rank_fusion(self, results_list, top_k):
-        """
-        Combine multiple result lists using Reciprocal Rank Fusion (RRF).
-        results_list: List of lists of results.
-        Returns combined results sorted by RRF score.
-        """
-        # Assign a fixed k value for RRF
-        k = 60
-        # Dictionary to store cumulative scores
+        k = 1  # Set k=1 to keep scores between 0 and 1
         scores = {}
-        # Map of result IDs to result objects
         result_map = {}
-        for results in results_list:
+
+        for idx, results in enumerate(results_list):
+            weight = dense_weight if idx == 0 else sparse_weight
+
             for rank, result in enumerate(results):
-                # Compute RRF score
-                rrf_score = 1.0 / (k + rank)
+                rrf_score = weight * (1.0 / (k + rank))
                 if result.id in scores:
                     scores[result.id] += rrf_score
                 else:
@@ -769,12 +917,20 @@ class QdrantHandler:
 
         # Assign combined scores to result objects
         for id, score in scores.items():
-            result_map[id].score = score
+            result_map[id].score = round(score, 3)  # Round to three decimal places
 
         # Sort results by combined score
         combined_results = sorted(result_map.values(), key=lambda x: x.score, reverse=True)
-        # Return top_k results
-        return combined_results[:top_k]
+        logging.info(f"Combined results after RRF: {len(combined_results)}")
+        for result in combined_results:
+            logging.info(f"Result ID: {result.id}, Score: {result.score}")
+
+        # Apply top_k if provided
+        if top_k:
+            combined_results = combined_results[:top_k]
+
+        return combined_results
+
 
 
     def cluster_paragraphs(self, collection_names="", n_clusters=None, max_clusters=10,method=''):
@@ -977,147 +1133,14 @@ class QdrantHandler:
     def qdrant_collections(self,col_name):
         collection = [collection.name for collection in self.qdrant_client.get_collections().collections if collection.name.split("_")[-1]==col_name]
         return collection
-    def clear_and_set_payload(self, collection_name, new_payload, point_id):
-        try:
-            # Clear the current payload for the given point ID using the correct points_selector
-            self.qdrant_client.clear_payload(
-                collection_name=collection_name,
-                points_selector=models.PointIdsList(points=[int(point_id)])  # Ensure point_id is an integer
-            )
-            print(f"Payload cleared for point ID {point_id}.")
-            vector= get_embedding(new_payload['paragraph_title'])
-            # Set the new payload for the given point ID without modifying the vector
-            self.qdrant_client.set_payload(
-                collection_name=collection_name,
-                payload=new_payload,
-                points=[int(point_id)],  # Ensure point_id is an integer
-                vector=vector,
-            )
-            print(f"New payload set for point ID {point_id}: {new_payload}")
+    def set_payload(self):
+        with open(r"C:\Users\luano\Downloads\AcAssitant\Files\Cache\replacing_keywords.json","r") as f:
+            data= json.load(f)
+        for i in data:
 
-            # Fetch and print the updated payload and vector for verification
-            updated_point = self.qdrant_client.retrieve(
-                collection_name=collection_name,
-                ids=[int(point_id)]
-            )[0]
-
-            print(f"Final payload for point ID {point_id}: {updated_point.payload}")
-            print(f"Vector for point ID {point_id} updated: {updated_point.vector}")
-
-        except Exception as e:
-            print(f"Error during clear and set payload to collection {collection_name}\nid:{point_id}\nerr: {e}")
-            print(e)
-    def update_collection_config(self,collection_name):
-        # Initialize Qdrant client
-        client = QdrantClient(url="http://localhost:6333")
-
-        # Update the collection's vector configuration
-        client.update_collection(
-            collection_name=collection_name,
-            vectors={
-                "dense_vector": models.VectorParams(
-                    size=3072,  # Size for text-embedding-3-large
-                    distance=models.Distance.COSINE  # Cosine similarity for dense vectors
-                )
-            },
-            sparse_vectors={
-                "text": models.SparseVectorParams(
-                    modifier="idf"  # The correct way to specify IDF in sparse vectors
-                )
-            }
-        )
-
-        print(f"Updated collection '{collection_name}' successfully.")
-
-        print(f"Collection '{collection_name}' updated successfully.")
-    def find_collection_by_custom_id(self, custom_id):
-        """
-        Find the collection name associated with a given custom_id (paper ID).
-        """
-        try:
-            # List all available collections
-            collections = self.qdrant_client.get_collections().collections
-            # Iterate over collections to find the one corresponding to the custom_id
-            for collection in collections:
-                collection_name = collection.name
-
-                # Assuming `custom_id` is stored as payload in points of this collection
-                result, next_page_token = self.qdrant_client.scroll(
-                    collection_name=collection_name,
-                    scroll_filter=models.Filter(
-                        must=[
-                            models.FieldCondition(
-                                key="custom_id",
-                                match=models.MatchValue(value=custom_id)
-                            )
-                        ]
-                    ),
-                    limit=1  # Limit to one result
-                )
-
-                # Check if any points are found
-                if result:
-                    return collection_name
-
-            # If no collection with the custom_id found
-            return None
-
-        except UnexpectedResponse as e:
-            print(f"Error occurred: {e}")
-            return None
-
-    def replace_custom_id_with_embedding(self,input_batch_path, embedding_batch_path, output_file_path):
-        handler = QdrantHandler()
-        # handler.qdrant_client.delete_collection(
-        #     collection_name='elements present two')
-        # Dictionary to store the embeddings by custom_id
-        custom_id_to_embedding = {}
-
-        # Read the embedding batch file and create a mapping of custom_id to embeddings
-        with open(embedding_batch_path, 'r') as f_embed:
-            for line in f_embed:
-                entry = json.loads(line)
-                try:
-                    embedding_data = entry['response']['body']['data'][0]['embedding']
-                    custom_id = entry.get('custom_id', '')
-                    if custom_id:
-                        custom_id_to_embedding[custom_id] = embedding_data
-                except KeyError:
-                    # Skip entries without the necessary structure
-                    continue
-
-        # Prepare the output with embeddings replacing custom_ids
-        output_data = []
-
-        # Read the input batch file
-        with open(input_batch_path, 'r') as f_input:
-            for line in f_input:
-                entry = json.loads(line)
-
-                input_value = entry['body'].get('input', '')
-                custom_id = entry.get('custom_id', '')
-
-                # Replace the custom_id with the corresponding embedding if available
-                if custom_id in custom_id_to_embedding:
-
-                    handler.qdrant_client.delete_collection(
-                        collection_name=input_value)
-                    handler.create_collection(collection_name=input_value,vector=False)
-
-                    handler.append_data(collection_name=input_value,vector=False,text_embedding=custom_id_to_embedding[custom_id]
-
-                                               )
-                    output_data.append({
-                        input_value: custom_id_to_embedding[custom_id]
-                    })
-                else:
-                    # If no embedding found, append the input without changes
-                    output_data.append(entry)
-
-        # Write the output to the specified output file
-        with open(output_file_path, 'w') as f_output:
-            for entry in output_data:
-                f_output.write(json.dumps(entry, indent=4, separators=(',', ': ')) + '\n')
+            print(self.qdrant_client.set_payload(
+        **i
+            ))
 
     def get_cache_embedding(self,trigram_text):
         collection_name = trigram_text
@@ -1179,7 +1202,7 @@ class QdrantHandler:
 
         print("All collections have been deleted.")
 
-    def get_all_collections_payloads_and_save_csv(self, output_file: str = 'qdrant_all_collections_cleaned.csv'):
+    def get_all_collections_payloads_and_save_csv(self, output_file: str = r'C:\Users\luano\Downloads\AcAssitant\Files\Cache',save=False):
         """
         Fetches all collections from Qdrant, retrieves payloads, preprocesses the text,
         and saves the cleaned data into a CSV file.
@@ -1192,7 +1215,7 @@ class QdrantHandler:
         # Initialize an empty list to store payloads from all collections
         all_payloads = []
 
-
+        network_list= []
         # Get all collection names from the Qdrant instance
         collections_response = self.qdrant_client.get_collections()
         collections = collections_response.collections
@@ -1218,23 +1241,29 @@ class QdrantHandler:
                 for scroll_result in scroll_results:
                     payload = scroll_result.payload
 
-                    # Check if required fields exist in the payload before processing
-                    paragraph_text = payload.get('paragraph_text', "")
-                    paragraph_title = payload.get('paragraph_title', "")
-                    section_title = payload.get('section_title', "")
-                    keywords = payload.get('keywords',"")
-
+                    # # Check if required fields exist in the payload before processing
+                    # paragraph_text = payload.get('paragraph_text', "")
+                    # paragraph_title = payload.get('paragraph_title', "")
+                    # section_title = payload.get('section_title', "")
+                    authors=[i.lower() for i in payload.get('metadata',"")["authors"].split(", ")]
+                    cleaned= process_keywords(authors_list=authors,keywords_dict=payload.get('keyword_categories',""))
+                    all_payloads.extend(cleaned)
+                    new_payload = {payload['metadata']["citation_key"]+"_"+str(scroll_result.id): cleaned}
+                    replacing={"collection_name":collection_name,"points":[scroll_result.id], "payload":{"keywords":cleaned}}
+                    network_list.append(replacing)
+                    print(payload["keywords"])
+                    # print([i["keywords"] for i in payload.get('keyword_categories',"") ])
                     # Clean and preprocess relevant fields in the payload, joining tokens into strings
-                    new_payload = {
-                        'paragraph_title_cleaned': preprocess_text(paragraph_title),
-                        'paragraph_text_cleaned': preprocess_text(paragraph_text),
-                        'section_title_cleaned': preprocess_text(section_title),
-                        # 'keywords_cleaned': preprocess_text(" ".join(convert_to_obsidian_tags(keywords)))
-                    }
+                    # new_payload = {
+                    #     # 'paragraph_title_cleaned': preprocess_text(paragraph_title),
+                    #     # 'paragraph_text_cleaned': preprocess_text(paragraph_text),
+                    #     # 'section_title_cleaned': preprocess_text(section_title),
+                    #     # 'keywords_cleaned': preprocess_text(" ".join(convert_to_obsidian_tags(keywords)))
+                    # }
 
                     # Append the cleaned payload to the global list
-                    all_payloads.append(new_payload)
-                    print(type(new_payload))
+                    # all_payloads.append(new_payload)
+                    # print(type(new_payload))
 
                     # print(new_payload)
                 # If there is a next page token, fetch more points
@@ -1248,14 +1277,14 @@ class QdrantHandler:
                     )
                 else:
                     break
-
-        # Convert the list of all payloads into a DataFrame
-        df = pd.DataFrame(all_payloads)
-
-        # Save the DataFrame to a CSV file
-        df.to_csv(output_file, index=False)
-
-        print(f"Data from all collections has been successfully saved to {output_file}")
+        # with open(os.path.join(output_file, "replacing_keywords.json"), 'w', encoding="utf-8") as f_output:
+        #     f_output.write(json.dumps(network_list, indent=4))
+        if save:
+            with open(os.path.join(output_file,"keywords.txt"), 'w', encoding="utf-8") as f_output:
+                f_output.write(str(all_payloads) )
+            with open(os.path.join(output_file, "keywords_nextwork.txt"), 'w', encoding="utf-8") as f_output:
+                f_output.write(str(network_list))
+            print(f"Data from all collections has been successfully saved to {output_file}")
 
 
 

@@ -3,18 +3,14 @@ import os
 import re
 from bs4 import BeautifulSoup
 from docx.enum.section import WD_SECTION
-from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.oxml import qn
 from docx.oxml import OxmlElement
 from tqdm import tqdm
 from pdf2docx import Converter
-from Word_modules.word_data import  metadata
+from File_management.Word_modules.word_data import  metadata
 from datetime import datetime
 from docx import Document
-from docx.shared import Pt, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT, WD_LINE_SPACING
-from openai import OpenAI
-from collections import defaultdict
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 # Uncomment if on Windows and docx2pdf is installed
 from docx2pdf import convert
 from docx.shared import Pt, Inches
@@ -463,8 +459,6 @@ class Docx_creation():
     # pdf_to_docx(pdf_path)
     # from docx import Document
 
-    from docx import Document
-    import os
     def extract_paragraphs_and_footnotes(self, pdf_path, quote,author,stop_words):
         docx_path = pdf_path.replace('.pdf', '.docx')
         if os.path.exists(docx_path):

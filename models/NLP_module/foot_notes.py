@@ -2,34 +2,24 @@ import time
 from collections import defaultdict
 
 import enchant
-import timer
 from PyDictionary import PyDictionary
 
 dictionary = PyDictionary()
-from NLP_module.normalise_texts import normalize_text2
-from pprint import pprint
-from NLP_module.normalise_texts import basic_normalization
+from models.NLP_module.normalise_texts import normalize_text2
+from models.NLP_module.normalise_texts import basic_normalization
 import fitz  # PyMuPDF
-import re
-import nltk
-from nltk.tokenize import sent_tokenize
-from nltk.corpus import wordnet
 from nltk.corpus import words
 
 english_words = set(words.words())
-import re
 import spacy
 
 # Load a pre-trained NLP model
 nlp = spacy.load("en_core_web_sm")
 #TODO get pdfs with html or xml format extracting sup tags along with the text before
-from nltk.tokenize import word_tokenize
 
 import requests
-import re
-import re
 
-from NLP_module.patterns_data import*
+from models.NLP_module.patterns_data import*
 
 def is_english_word(word):
     d = enchant.Dict("en_US")

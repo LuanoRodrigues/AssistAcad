@@ -1,3 +1,4 @@
+import pickle
 import re
 
 from random import random
@@ -418,7 +419,7 @@ def process_subheadings(subheading, more_subsection_get, collection_name, type_c
                                     filter_conditions=None,
                                     with_payload=True,
                                     with_vectors=False,
-                                    score_threshold=0.60,
+                                    # score_threshold=0.60,
                                     ai=True
                                     )
 
@@ -430,6 +431,13 @@ def process_subheadings(subheading, more_subsection_get, collection_name, type_c
         return subheading
 
 def update_response_with_paragraph_data(response, aggregated_paragraph_data):
+    pickle_file_path = 'aggregated_results.pkl'
+
+    # # Load the data from the pickle file
+    with open(pickle_file_path, 'rb') as f:
+        aggregated_results = pickle.load(f)
+    if aggregated_results:
+        aggregated_paragraph_data=aggregated_results
     # Extract the lists of paragraph information from the dictionary
     paragraph_ids = [str(pid).strip() for pid in aggregated_paragraph_data.get('paragraph_id', [])]
     paragraph_titles = aggregated_paragraph_data.get('paragraph_title', [])
@@ -444,8 +452,8 @@ def update_response_with_paragraph_data(response, aggregated_paragraph_data):
         paragraph_data_dict[paragraph_ids[i]] = {
             'paragraph_title': paragraph_titles[i] if i < len(paragraph_titles) else 'N/A',
             'paragraph_text': paragraph_texts[i] if i < len(paragraph_texts) else 'N/A',
-            'paragraph_blockquote': paragraph_blockquotes[i] if i < len(paragraph_blockquotes) else 'N/A',
-            'section_title': section_titles[i] if i < len(section_titles) else 'N/A',
+            # 'paragraph_blockquote': paragraph_blockquotes[i] if i < len(paragraph_blockquotes) else 'N/A',
+            # 'section_title': section_titles[i] if i < len(section_titles) else 'N/A',
             'metadata': section_metadata[i] if i < len(section_metadata) else 'N/A'
         }
 
@@ -456,22 +464,30 @@ def update_response_with_paragraph_data(response, aggregated_paragraph_data):
             'level': section.get('level', 'N/A'),
             'paragraph_title': [],  # List of all paragraph titles
             'paragraph_text': [],  # List of all paragraph texts
-            'section_title': [],  # List of section titles
+            # 'section_title': [],  # List of section titles
             'paragraph_id': [],  # List of paragraph ids
-            'paragraph_blockquote': [],  # List of blockquotes
+            # 'paragraph_blockquote': [],  # List of blockquotes
             'metadata': []  # List of metadata
         }
-
+        count=0
         # Replace paragraph_ids with actual paragraph data if available
-        for paragraph_id in section.get('paragraph_ids', []):
+        for n, paragraph_id in enumerate(section.get('paragraph_ids', [])):
             if paragraph_id in paragraph_data_dict:
                 paragraph_info = paragraph_data_dict[paragraph_id]
                 updated_section['paragraph_title'].append(paragraph_info.get('paragraph_title', 'N/A'))
                 updated_section['paragraph_text'].append(paragraph_info.get('paragraph_text', 'N/A'))
-                updated_section['section_title'].append(paragraph_info.get('section_title', 'N/A'))
+                # updated_section['section_title'].append(paragraph_info.get('section_title', 'N/A'))
                 updated_section['paragraph_id'].append(paragraph_id)
-                updated_section['paragraph_blockquote'].append(paragraph_info.get('paragraph_blockquote', 'N/A'))
+                # updated_section['paragraph_blockquote'].append(paragraph_info.get('paragraph_blockquote', 'N/A'))
                 updated_section['metadata'].append(paragraph_info.get('metadata', 'N/A'))
+                print(count+1)
+                count += 1
+            else:
+                count -=1
+                # print(count+1)
+                print(paragraph_id)
+                print(paragraph_data_dict.keys())
+                # input("continue")
 
         # Process subheadings recursively and add them to subsections
         updated_section['subheadings'] = []
@@ -488,6 +504,63 @@ def update_response_with_paragraph_data(response, aggregated_paragraph_data):
 
 
 
-
+#
+#
+# def update_response_with_paragraph_data(response, aggregated_paragraph_data):
+#     # Extract the lists of paragraph information from the dictionary
+#     paragraph_ids = [str(pid).strip() for pid in aggregated_paragraph_data.get('paragraph_id', [])]
+#     paragraph_titles = aggregated_paragraph_data.get('paragraph_title', [])
+#     paragraph_texts = aggregated_paragraph_data.get('paragraph_text', [])
+#     paragraph_blockquotes = aggregated_paragraph_data.get('paragraph_blockquote', [])
+#     section_titles = aggregated_paragraph_data.get('section_title', [])
+#     section_metadata = aggregated_paragraph_data.get('metadata', [])
+#
+#     # Create a dictionary for quick lookup of paragraph data by id
+#     paragraph_data_dict = {}
+#     for i in range(len(paragraph_ids)):
+#         paragraph_data_dict[paragraph_ids[i]] = {
+#             'paragraph_title': paragraph_titles[i] if i < len(paragraph_titles) else 'N/A',
+#             'paragraph_text': paragraph_texts[i] if i < len(paragraph_texts) else 'N/A',
+#             'paragraph_blockquote': paragraph_blockquotes[i] if i < len(paragraph_blockquotes) else 'N/A',
+#             'section_title': section_titles[i] if i < len(section_titles) else 'N/A',
+#             'metadata': section_metadata[i] if i < len(section_metadata) else 'N/A'
+#         }
+#
+#     # Function to process a single section recursively
+#     def process_section(section):
+#         updated_section = {
+#             'title': section.get('title', 'N/A'),
+#             'level': section.get('level', 'N/A'),
+#             'paragraph_title': [],  # List of all paragraph titles
+#             'paragraph_text': [],  # List of all paragraph texts
+#             'section_title': [],  # List of section titles
+#             'paragraph_id': [],  # List of paragraph ids
+#             'paragraph_blockquote': [],  # List of blockquotes
+#             'metadata': []  # List of metadata
+#         }
+#
+#         # Replace paragraph_ids with actual paragraph data if available
+#         for paragraph_id in section.get('paragraph_ids', []):
+#             if paragraph_id in paragraph_data_dict:
+#                 paragraph_info = paragraph_data_dict[paragraph_id]
+#                 updated_section['paragraph_title'].append(paragraph_info.get('paragraph_title', 'N/A'))
+#                 updated_section['paragraph_text'].append(paragraph_info.get('paragraph_text', 'N/A'))
+#                 updated_section['section_title'].append(paragraph_info.get('section_title', 'N/A'))
+#                 updated_section['paragraph_id'].append(paragraph_id)
+#                 updated_section['paragraph_blockquote'].append(paragraph_info.get('paragraph_blockquote', 'N/A'))
+#                 updated_section['metadata'].append(paragraph_info.get('metadata', 'N/A'))
+#
+#         # Process subheadings recursively and add them to subsections
+#         updated_section['subheadings'] = []
+#
+#         for subsection in section.get('subheadings', []):
+#             # print('subsection:', subsection)
+#             updated_section['subheadings'].append(process_section(subsection))
+#
+#         return updated_section
+#
+#
+#     # Process the entire response recursively
+#     return [process_section(section) for section in [response]]
 
 

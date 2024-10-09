@@ -1,11 +1,8 @@
 from collections import defaultdict
 
 import enchant
-from pprint import pprint
-from NLP_module.normalise_texts import basic_normalization
+from models.NLP_module.normalise_texts import basic_normalization
 import fitz  # PyMuPDF
-import re
-import nltk
 from nltk.tokenize import sent_tokenize
 
 import re

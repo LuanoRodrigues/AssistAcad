@@ -9,41 +9,38 @@ import urllib
 from pathlib import Path
 import math
 from collections import defaultdict
+from pprint import pprint
 
-
-
-from Vector_Database.qdrant_handler import QdrantHandler
+from decorator import append
+from networkx.algorithms.cuts import cut_size
+from openai import batches
 from qdrant_client.http.exceptions import UnexpectedResponse
-from File_management.exporting_files import export_data, convert_zotero_to_md, export_to_word_written, clean_themes, \
-    export_written
-from Vector_Database.embedding_handler import query_with_history,check_existing_query
-from Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
-from NLP_module.foot_notes import extract_text_with_numbers_from_pdf,find_flexible_pattern_positions
-from NLP_module.normalise_texts import normalize_text2, normalize_text, get_last_four_tokens, \
+
+from File_management.exporting_files import clean_themes, export_to_word_written, create_docx, create_docx2, \
+    load_aggregated_results, extend_aggregated_results, create_md
+from databases.Vector_Database.qdrant_handler import write_and_export_sections, QdrantHandler
+from models.NLP_module.normalise_texts import get_last_four_tokens, \
     replace_substring_and_check, update_response_with_paragraph_data, process_themes, preprocess_text
-from NLP_module.PDFs_nlp import find_phrase_in_pdf
-from Reference_processing.Grobid_references import parse_grobid_xml_to_dict,extract_citations_grobid
+from models.NLP_module.PDFs_nlp import find_phrase_in_pdf
+from models.Reference_processing.Grobid_references import parse_grobid_xml_to_dict,extract_citations_grobid
 
-from alive_progress import alive_bar, alive_it,config_handler
+from alive_progress import alive_bar, config_handler
 
-from Word_modules.md_config import convert_zotero_to_md_with_id
-from Zotero_module.zotero_data import note_update,book,initial_book,note_summary_schema
+from File_management.Word_modules.md_config import convert_zotero_to_md_with_id
+from databases.Zotero_module.zotero_data import note_update,book,initial_book,note_summary_schema
 from progress.bar import Bar
-from Pychat_module.gpt_api import process_pdf, write_batch_requests_to_file, create_batch, upload_batch_file, \
-    call_openai_api, get_batch_ids, check_save_batch_status, retrieve_batch_results, read_or_download_batch_output, \
-    creating_batch_from_pdf, process_batch_output, retry_api_call
-from NLP_module.Clustering_Embeddings import clustering_df
+from models.Pychat_module.gpt_api import process_pdf, write_batch_requests_to_file, create_batch, upload_batch_file, \
+    call_openai_api, get_batch_ids, check_save_batch_status, read_or_download_batch_output, \
+    process_batch_output
 from bs4 import BeautifulSoup,NavigableString
-from Pychat_module.Pychat import ChatGPT
-import pyzotero
+from models.Pychat_module.Pychat import ChatGPT
 from pyzotero import zotero, zotero_errors
-from Academic_databases.databses import get_document_info1,get_document_info2
+from databases.Academic_databases.databses import get_document_info1,get_document_info2
 from tqdm import tqdm
-import requests
 import re
-from datetime import datetime, date
+from datetime import datetime
 
-from Word_modules.Creating_docx import  Docx_creation
+from File_management.Word_modules.Creating_docx import  Docx_creation
 
 Dc = Docx_creation()
 
@@ -652,7 +649,7 @@ class Zotero:
             if not collection_name:
                 collection_name = input("Please enter the collection name you want to get data from: ")
 
-            file_name = f'Zotero_module/Data/collections_data/{collection_name.replace(" ", "_").lower()}_collection.pkl'
+            file_name = rf'C:\Users\luano\Downloads\AcAssitant\databases\Zotero_module\Data\collections_data\{collection_name.replace(" ", "_").lower()}_collection.pkl'
             target_collection = {}
 
             print(f'Update mode is {"on" if update else "off"}.')
@@ -904,7 +901,6 @@ class Zotero:
                                              processing_batch=processing_batch,
                                              rewrite=rewrite,
                                              database_name=database_name,
-                                             overwrite_payload=overwrite_payload,
                                              corpus=corpus
                                              )
                 if corpus:
@@ -915,7 +911,7 @@ class Zotero:
             batch_id = create_batch(batch_input_file_id)
             check_save_batch_status(batch_id)
         if corpus:
-            filename = r'C:\Users\luano\Downloads\AcAssitant\Files\Models corpus\bm25_corpus.pkl'
+            filename = r'/Files/Models corpus/bm25_corpus.pkl'
 
             # Write the processed corpus to a text file, each document on a new line
             with open(filename, 'wb') as file:
@@ -925,7 +921,6 @@ class Zotero:
                                 zotero_collection,
                                 database_name,item_id=None,
                                 insert_database=False,
-                                overwrite_payload=False,
                                 create_md_file=False,
                                 update_paragraph_notes=False,
                                 batch=False,store_only=False,
@@ -1081,32 +1076,6 @@ class Zotero:
                                         h3_elem.string = f'Paragraph {i + 1} - {matching_title["h3_title"]}'
                                         # Move to the next h3 element for the next iteration
                                         h3_elem = h3_elem.find_next_sibling('h3')
-                                        if overwrite_payload:
-
-                                            context = f'\ncontext:section title:{section_title} paragraph title:{matching_title['h3_title']}\nnote: do not include {metadata['authors']} in entities'
-
-                                            keywords = call_openai_api(function='getting_keywords', data=paragraph['paragraph']+ context,
-                                                                       id='',model='gpt-4o-2024-08-06')
-
-
-                                            hash_object = hashlib.sha256(matching_title['h3_title'].encode('utf-8'))
-
-                                            # Convert the hash to an integer and limit it to 8 digits
-                                            paragraph_id = int(hash_object.hexdigest(), 16) % (10 ** 8)
-
-                                            new_payload=  {
-                                               "paragraph_count ": str(i + 1),
-                                               "article_title":title.get_text(),
-                                               "section_title":section_title,
-                                               "paragraph_title":matching_title['h3_title'],
-                                               "paragraph_blockquote":paragraph['blockquote'],
-                                               "paragraph_text":paragraph['paragraph'],
-                                               "metadata":metadata,
-                                               "keywords":" ".join(self.convert_to_obsidian_tags(keywords)),
-                                               "keyword_categories":keywords
-                                            }
-                                            handler.clear_and_set_payload(collection_name=collection_name, new_payload=new_payload,
-                                                                   point_id=paragraph_id)
 
 
                                         if insert_database:
@@ -2691,7 +2660,7 @@ class Zotero:
                     """
                     data = eval(api.send_message(message=message))
                     [file.write(json.dumps(dici) + '\n') for dici in data]  # Append line to file with a newline character
-    def paragraphs_reports(self,collection_name,type_collection,n_clusters=None,report='raw', update=False):
+    def paragraphs_reports(self,collection_name,type_collection,n_clusters=None,report='raw', update=False,subject=None):
         # note = values["note"]
         # #         id = values['item_id']
         # #         pdf = values['pdf']
@@ -2732,17 +2701,136 @@ class Zotero:
 
         if report=='raw':
             # search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
-
-
+            #Processes
+            ##previous work
+            #nlp_techniques.py update the keywords corpus and applying the graphs and analyses. this will generate a tree with category, subcategories and tags. this will feed. the first run is to create the pickle corpus for all hybrid search results, as it is important for assigning paragraph ids not only contained in the query result but across all queries. then, the second run will call the api, preferably o1,convert with replace_id function and save in the aggregate.json. this aggregate.json will be the read representing the raw results of the analyses which will be exported in md and docx. it will be the source of writen function sending to the api sections by sections.
+            # 1. go to keywords and generate keywords corpus which will become the section
+            # 2. itinerate through the section getting raw results filtering by tags
+            # 3. export to word and md in obsidian
+            # 4. take the raw and feed into the writing function exporting to md and docx
+            #
             data = [i['item_id'] for t, i in collection_data[("items")]["papers"].items()]
             collection_list = [f'paper_{collection_name}' for collection_name in data]
             clusters = dquadrant_handler.cluster_paragraphs(collection_names=collection_list, n_clusters=n_clusters)
 
             write_and_export_sections(clusters=clusters)
+        if report=="keywords":
+            section = [{'category_name': 'Standards of Proof and Evidentiary Issues', 'subcategories': [
+                {'subcategory_name': 'Standards of Proof', 'subcategories': [{'subcategory_name': 'Legal Standards',
+                                                                              'keywords': ['standard of proof',
+                                                                                           'standards of proof',
+                                                                                           'evidentiary standards',
+                                                                                           'evidentiary standard',
+                                                                                           'proof beyond reasonable doubt',
+                                                                                           'clear and convincing evidence',
+                                                                                           'preponderance of evidence',
+                                                                                           'balance of probabilities']},
+                                                                             {'subcategory_name': 'Burden of Proof',
+                                                                              'keywords': ['burden of proof',
+                                                                                           'burden of production',
+                                                                                           'burden of persuasion',
+                                                                                           'reversal of the burden of proof',
+                                                                                           'onus probandi incumbit actori',
+                                                                                           'presumption of responsibility',
+                                                                                           'probatio diabolica']}, {
+                                                                                 'subcategory_name': 'Presumptions and Inferences',
+                                                                                 'keywords': ['circumstantial evidence',
+                                                                                              'indirect evidence',
+                                                                                              'prima facie evidence',
+                                                                                              'factual presumptions',
+                                                                                              'adverse inference',
+                                                                                              'presumptions of fact',
+                                                                                              'legal presumption']}]},
+                {'subcategory_name': 'Evidentiary Challenges', 'subcategories': [
+                    {'subcategory_name': 'Technical Challenges',
+                     'keywords': ['technical challenges', 'anonymity challenges', 'identity obfuscation',
+                                  'data spoofing', 'ip spoofing', 'stolen credentials', 'encryption algorithms']},
+                    {'subcategory_name': 'Legal Challenges',
+                     'keywords': ['legal challenges', 'legal and procedural challenges', 'evidentiary challenges',
+                                  'evidentiary difficulties', 'evidentiary barriers', 'evidence collection challenges',
+                                  'challenges in evidence gathering']}, {'subcategory_name': 'Political Challenges',
+                                                                         'keywords': ['plausible deniability',
+                                                                                      'false attribution',
+                                                                                      'misattribution',
+                                                                                      'attribution uncertainty',
+                                                                                      'attribution credibility',
+                                                                                      'political considerations',
+                                                                                      'policy challenges']}]},
+                {'subcategory_name': 'Evidentiary Evaluation', 'subcategories': [
+                    {'subcategory_name': 'Evidence Assessment',
+                     'keywords': ['evidence evaluation', 'evidence assessment', 'evidentiary considerations',
+                                  'evidence sufficiency', 'evidence reliability', 'probative value',
+                                  'probative weight']}, {'subcategory_name': 'Evidentiary Principles',
+                                                         'keywords': ['evidence gathering', 'evidence collection',
+                                                                      'evidence admissibility', 'evidence exclusion',
+                                                                      'evidentiary role', 'evidentiary rules',
+                                                                      'rules of evidence']},
+                    {'subcategory_name': 'Legal Standards',
+                     'keywords': ['legal standards', 'legal requirements', 'legal methodology', 'legal framework',
+                                  'legal consequences', 'legal attribution', 'legal standard']}]}]}]
+            themes=[]
+            a={'subheadings': [{'title': 'Introduction to Cyber Attribution and Evidentiary Standards', 'level': 'h2', 'paragraph_ids': ['75181357', '35160369'], 'subheadings': [{'title': 'Challenges in Cyber Attribution', 'level': 'h3', 'paragraph_ids': ['81663828', '21362651', '29528985', '10322575', '59050824', '94408619', '23396244'], 'subheadings': []}, {'title': 'The Role of International Law', 'level': 'h3', 'paragraph_ids': ['24058155', '86934125', '34932706', '32592854', '37452373'], 'subheadings': []}]}, {'title': 'Evidentiary Standards in International Law', 'level': 'h2', 'paragraph_ids': ['13188085', '86934125', '44594999', '67469674', '53513629', '18276370'], 'subheadings': [{'title': 'Standards of Proof in International Litigation', 'level': 'h3', 'paragraph_ids': ['45860815', '94212138', '79839920', '60817872', '88411052', '91698436', '37399990', '31335785', '57804237'], 'subheadings': []}, {'title': "The ICJ's Approach to Evidentiary Standards", 'level': 'h3', 'paragraph_ids': ['54437599', '46074232', '49174626', '94605466', '67469674', '61594015', '9537218'], 'subheadings': []}]}, {'title': 'Establishing Evidentiary Standards for Cyber Operations', 'level': 'h2', 'paragraph_ids': ['18437150', '9937623', '56364693', '34074296', '82602589', '45844095', '24058155'], 'subheadings': [{'title': 'Proposals for Standardization', 'level': 'h3', 'paragraph_ids': ['32835001', '67694622', '87921895'], 'subheadings': []}, {'title': 'Challenges and Considerations', 'level': 'h3', 'paragraph_ids': ['51991601', '4302583', '44594999', '29528985'], 'subheadings': []}]}, {'title': 'The Impact of Evidentiary Standards on Cyber Attribution', 'level': 'h2', 'paragraph_ids': ['82198232', '83919544', '77724680', '72070218', '10243856', '25761084'], 'subheadings': [{'title': 'Political and Strategic Implications', 'level': 'h3', 'paragraph_ids': ['82198232', '83919544', '77724680'], 'subheadings': []}, {'title': 'Influence of Different Actors', 'level': 'h3', 'paragraph_ids': ['72070218', '10243856', '25761084'], 'subheadings': []}]}, {'title': 'Conclusion and Future Directions', 'level': 'h2', 'paragraph_ids': ['61015732', '67694622', '82993773'], 'subheadings': [{'title': 'The Need for a Unified Approach', 'level': 'h3', 'paragraph_ids': ['61015732', '67694622'], 'subheadings': []}, {'title': 'Potential for International Cooperation', 'level': 'h3', 'paragraph_ids': ['82993773'], 'subheadings': []}]}]}
+
+            # batches= [i[0] for i in process_batch_output(file_path=r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_670454c622548190a5d66152dd9dcd53_output.jsonl").values()]
+            # for i in batches:
+            #     print(i)
+            # with open(r"C:\Users\luano\Downloads\AcAssitant\Files\studies\cyber_evidence\cyber_evidence_api_results_raw.json", "r") as f:
+            #     data=json.load(f)
+            #     aggregated_results = {
+            #         'section_title': [],
+            #         'paragraph_title': [],
+            #         'paragraph_text': [],
+            #         'paragraph_blockquote': [],
+            #         'paragraph_id': [],
+            #         'metadata': [],
+            #         'keywords': [],
+            #         'score': []
+            #     }
+            # pickle_file_path= 'aggregated_results.pkl'
+            #
+            # # Load the pickle file first
+            # if pickle_file_path is not None:
+            #     print(list(aggregated_results.keys()))
+            #     aggregated_ = load_aggregated_results(pickle_file_path, list(aggregated_results.keys()))
+            #     print("After loading, aggregated_ has the following sizes:")
+            #     for key in aggregated_.keys():
+            #         print(f"{key}: {len(aggregated_[key])}")
+            # else:
+            #     aggregated_ = {key: [] for key in aggregated_results.keys()}
+            # for category in section[0]["subcategories"]:
+            #
+            #     for index in range(len(category["subcategories"])):
+            #         subcategory= category["subcategories"][index]
+            #         data_to_send= {"query":category["subcategory_name"]+" and "+subcategory["subcategory_name"],"filter_terms": {"or":{"keywords":subcategory["keywords"]} },"collection_name":collection_name, "ai":True,
+            #                        "batches":data[index]
+            #                        }
+            #
+            #         response=self.search_paragraphs_by_query(**data_to_send,
+            #                                                  pickle_file_path=None
+            #                                                  )
+
+
+                    # themes.append(response)
+            # for k,v in themes.items():
+            #     print(replace_substring_and_check()v)
+            with open(r"C:\Users\luano\Downloads\AcAssitant\Files\studies\cyber_evidence\cyber_evidence_aggregate.json","r", encoding="utf-8") as f:
+                themes=json.load(f)
+            # with open("theme_writen.txt", "r", encoding="utf-8") as f:
+            #     themes=ast.literal_eval(f.read())
+            # print(themes)
+            # create_docx2(themes=themes,filename="cyber_evidence_raw.docx")
+            create_md(themes=themes,filename=r"C:\Users\luano\OneDrive - University College London\Obsidian\Thesis\Reviews\cyber evidence review.md")
+
+            # export_to_word_written(data=themes,filename="test_writen.docx")
+            # data=clean_themes(themes)
+            # datatosend=[{'Standards of Proof and Legal Standards': ['standard of proof', 'standards of proof', 'evidentiary standards', 'evidentiary standard', 'proof beyond reasonable doubt', 'clear and convincing evidence', 'preponderance of evidence', 'balance of probabilities']}, {'Standards of Proof and Burden of Proof': ['burden of proof', 'burden of production', 'burden of persuasion', 'reversal of the burden of proof', 'onus probandi incumbit actori', 'presumption of responsibility', 'probatio diabolica']}, {'Standards of Proof and Presumptions and Inferences': ['circumstantial evidence', 'indirect evidence', 'prima facie evidence', 'factual presumptions', 'adverse inference', 'presumptions of fact', 'legal presumption']}, {'Evidentiary Challenges and Technical Challenges': ['technical challenges', 'anonymity challenges', 'identity obfuscation', 'data spoofing', 'ip spoofing', 'stolen credentials', 'encryption algorithms']}, {'Evidentiary Challenges and Legal Challenges': ['legal challenges', 'legal and procedural challenges', 'evidentiary challenges', 'evidentiary difficulties', 'evidentiary barriers', 'evidence collection challenges', 'challenges in evidence gathering']}, {'Evidentiary Challenges and Political Challenges': ['plausible deniability', 'false attribution', 'misattribution', 'attribution uncertainty', 'attribution credibility', 'political considerations', 'policy challenges']}, {'Evidentiary Evaluation and Evidence Assessment': ['evidence evaluation', 'evidence assessment', 'evidentiary considerations', 'evidence sufficiency', 'evidence reliability', 'probative value', 'probative weight']}, {'Evidentiary Evaluation and Evidentiary Principles': ['evidence gathering', 'evidence collection', 'evidence admissibility', 'evidence exclusion', 'evidentiary role', 'evidentiary rules', 'rules of evidence']}, {'Evidentiary Evaluation and Legal Standards': ['legal standards', 'legal requirements', 'legal methodology', 'legal framework', 'legal consequences', 'legal attribution', 'legal standard']}]
+            # d={'query': 'Standards of Proof and Legal Standards', 'filter_terms': {'or': {'keywords': ['standard of proof', 'standards of proof', 'evidentiary standards', 'evidentiary standard', 'proof beyond reasonable doubt', 'clear and convincing evidence', 'preponderance of evidence', 'balance of probabilities']}}, 'collection_name': 'Law and evidence', 'ai': False}
+            # d={'query': 'Standards of Proof', 'filter_terms': {'or': {'keywords': ['standard of proof', 'standards of proof', 'evidentiary standards', 'evidentiary standard', 'proof beyond reasonable doubt', 'clear and convincing evidence', 'preponderance of evidence', 'balance of probabilities']}}, 'collection_name': 'Law and evidence', 'ai': False}
+
 
         if report=='report 1':
-        #
-            # sections=[]
+
+            sections=[]
             # data = [i['note']['note_info'] for  t, i in collection_data[("items")]["papers"].items() ]
             #
             # for notes in data:
@@ -2752,11 +2840,34 @@ class Zotero:
             #                 soup = BeautifulSoup(notes_info['note_content'], 'html.parser')
             #                 h2_tags =[ clean_headings(h2.get_text()) for h2 in soup.find_all('h2') if clean_headings(h2.get_text()) ]
             #                 sections.extend(h2_tags)
-            #
+
+            if subject:
+                # grouping_themes =call_openai_api(function='grouping_sections_one_theme',
+                #                              data=str(sections)+f"\nnote: all the themes should be related strictly to the overraching theme={subject} do not return redudant themes or unrelated, ",
+                #                              id='',
+                #                              model='gpt-4o-2024-08-06'
+                #                              )
+                grouping_themes=[{'theme': 'Evidentiary Issues AND Cyber Operations', 'outline': [{'title': 'Evidentiary Issues AND Cyber Operations', 'level': 'H1'}, {'title': 'Evidentiary Standards AND International Court of Justice', 'level': 'H1'}, {'title': 'Burden of Proof AND Cyber Operations', 'level': 'H1'}, {'title': 'Standard of Proof AND Cyber Operations', 'level': 'H1'}, {'title': 'Methods of Proof AND Cyber Operations', 'level': 'H1'}, {'title': 'Indirect Evidence AND Cyber Operations', 'level': 'H1'}, {'title': 'Digital Evidence AND Cyber Operations', 'level': 'H1'}, {'title': 'Illegally Obtained Evidence AND Cyber Operations', 'level': 'H1'}, {'title': 'Privileged Information AND Cyber Operations', 'level': 'H1'}, {'title': 'Evidentiary Dilemma AND Cyberspace', 'level': 'H1'}, {'title': 'Reversing Burden of Proof AND Cyberspace', 'level': 'H1'}, {'title': 'Indirect Evidence Dilemma AND Cyberspace', 'level': 'H1'}, {'title': 'Production of Evidence AND Court Powers', 'level': 'H1'}, {'title': 'Proof of Attribution AND Cyberspace', 'level': 'H1'}, {'title': 'Difficulty AND Proof of Attribution AND States', 'level': 'H1'}, {'title': 'Evidentiary Issues AND Cyber Attacks', 'level': 'H1'}, {'title': 'Evidentiary Requirements AND Legal Deficiencies', 'level': 'H1'}, {'title': 'Erroneous Attribution AND Legal Deficiencies', 'level': 'H1'}, {'title': 'Evidentiary Rules AND Customary International Law', 'level': 'H1'}, {'title': 'Evidentiary Issues AND Cyber Operations AND Indirect Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues AND Cyber Operations AND Digital Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues AND Cyber Operations AND Illegally Obtained Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues AND Cyber Operations AND Privileged Information', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND International Court of Justice', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Proving State Breach', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Burden of Proof', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Standard of Proof', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Indirect Evidence', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Digital Evidence', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Illegally Obtained Evidence', 'level': 'H1'}, {'title': 'Evidentiary Standards AND Cyber Attacks AND Privileged Information', 'level': 'H1'}]}]
+
+                themes = process_themes(themes=grouping_themes,more_subsection_get=self.search_paragraphs_by_query,type_collection=type_collection,collection_name=collection_name)
+                with open('textfinal.txt', 'w', encoding='utf-8') as f:
+                    f.write(str(themes))
+
+            # with open(r"C:\Users\luano\Downloads\AcAssitant\Files\Cache\keywords_categorised.json", 'r', encoding='utf-8') as f:
+            #     data=json.load(f)
+            # categories= [{n+1:category["category_name"]} for n,category in enumerate(data["categories"])]
+            # for dicts in categories:
+            #     for k,v in dicts.items():
+            #         print(k,v)
+            # chosen= input("pick one theme")
+            # print(chosen)
+            # chosen =  [category for n,category in enumerate(data["categories"]) if n+1==int(chosen)]
+            # print(chosen)
+
             # # grouping_themes =call_openai_api(function='grouping_sections',
             # #                                  data=sections,
             # #                                  id='',
-            # #                                  model='gpt-4o-2024-08-06'
+            #                                  model='gpt-4o-2024-08-06'
             # #                                  )
             # # Grouping collection sections
             # grouping_themes = {'themes': [{'theme': 'Cyber Attribution Frameworks and Processes', 'outline': [{'title': 'Deconstructing Cyber Attribution: A Proposed Framework and Lexicon', 'level': 'H1'}, {'title': 'Cyber Attribution in Scholarly and Policy Debate', 'level': 'H1'}, {'title': 'Deconstructing (and Reconstructing) Cyber Attribution', 'level': 'H1'}, {'title': 'Attribution Processes Today', 'level': 'H1'}, {'title': 'New Developments in Advancing Attribution', 'level': 'H1'}, {'title': 'Institutionalizing Transnational Attribution', 'level': 'H1'}, {'title': 'The Practice and Purposes of Attribution', 'level': 'H1'}, {'title': 'Designing Attribution', 'level': 'H1'}, {'title': 'A New Model for Attribution', 'level': 'H1'}, {'title': 'Technical Cyber Attribution', 'level': 'H1'}]}, {'theme': 'Legal Aspects of Cyber Attribution', 'outline': [{'title': 'The Role of Cyber Attribution in Deterrence and Accountability', 'level': 'H1'}, {'title': 'Legal Deficiencies That Encourage Ill-Substantiated Public Attribution', 'level': 'H1'}, {'title': 'The Law of Attribution', 'level': 'H1'}, {'title': 'Legal Challenges in Attributing an Unlawful Cyber Intrusion', 'level': 'H1'}, {'title': 'Prospects for International Legal Regulation', 'level': 'H1'}, {'title': 'Cyber Armed Attacks and Self-Defense', 'level': 'H1'}, {'title': 'Attribution of State Responsibility in Cyberspace', 'level': 'H1'}, {'title': 'The Tallinn Manual and State Responsibility', 'level': 'H1'}, {'title': 'Complying with International Law on Attribution: The Russia DNC Hack', 'level': 'H1'}, {'title': 'The International Law Problems with Countermeasures in Cyber', 'level': 'H1'}, {'title': 'Assessing the State of Attribution Law', 'level': 'H1'}, {'title': 'The National Security Implications of the International Law on Attribution', 'level': 'H1'}]}, {'theme': 'Evidentiary Standards and Challenges', 'outline': [{'title': 'Advantages and Difficulties of Regulating Evidentiary Requirements', 'level': 'H1'}, {'title': 'Establishment of Evidentiary Rules via Customary International Law', 'level': 'H1'}, {'title': 'Three Lenses to Interrogate Public Attribution', 'level': 'H1'}, {'title': 'Burden of Proof', 'level': 'H1'}, {'title': 'The Standard of Proof', 'level': 'H1'}, {'title': 'Means of Proof of Evidence', 'level': 'H1'}, {'title': 'Evidentiary Issues in the Context of Cyber Operations', 'level': 'H1'}, {'title': 'Cyber-Attacks and Evidentiary Difficulties: Estonia and Georgia', 'level': 'H1'}, {'title': 'Evidentiary Standards Before the International Court of Justice', 'level': 'H1'}, {'title': 'Possible Means to Address the Evidentiary Dilemma in Cyberspace', 'level': 'H1'}, {'title': 'The International Law of Evidence', 'level': 'H1'}, {'title': 'Burden of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Standard of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Methods of Proof and Cyber Operations', 'level': 'H1'}, {'title': 'Presumptions and Inferences in the Cyber Context', 'level': 'H1'}, {'title': 'Inadmissible Evidence', 'level': 'H1'}]}, {'theme': 'Cyber Conflict and State Responsibility', 'outline': [{'title': 'Cyber-Attacks and the Russian-Georgian Conflict', 'level': 'H1'}, {'title': 'Cyber-Attacks as Internationally Wrongful Acts', 'level': 'H1'}, {'title': 'Adverse Cyber Operations and Possible Responses', 'level': 'H1'}, {'title': 'Causality and Attribution', 'level': 'H1'}, {'title': 'The Present State of Cyber Attribution', 'level': 'H1'}, {'title': 'Proposals for International Attribution Mechanisms', 'level': 'H1'}, {'title': 'Developing Evidence for Attribution and Victim State Responses', 'level': 'H1'}, {'title': 'Assessment of Russian Cyberspace Activities', 'level': 'H1'}, {'title': 'Current International Law Has Limited Utility to Counter Russian Cyber Proxies', 'level': 'H1'}]}, {'theme': 'Policy and Strategic Implications of Attribution', 'outline': [{'title': 'Deciding How and When a “Victim” State May Respond', 'level': 'H1'}, {'title': 'Retorsion and Other Lawful Responses', 'level': 'H1'}, {'title': 'Countermeasures', 'level': 'H1'}, {'title': 'Actions Taken Out of Necessity', 'level': 'H1'}, {'title': 'Resort to Sanctions from a Legal Perspective', 'level': 'H1'}, {'title': 'The US, the EU and the UK Counter-Cyber Sanction Regimes and Their Implementation', 'level': 'H1'}, {'title': 'How to Measure the Effectiveness of Sanctions', 'level': 'H1'}, {'title': 'Consequential Coercive Diplomacy Through Economic Sanctions', 'level': 'H1'}, {'title': 'Implement a Rapid Attribution Strategy', 'level': 'H1'}]}, {'theme': 'Cyber Attribution: Challenges and Solutions', 'outline': [{'title': 'The Challenge of Attribution to Nation-State Actors', 'level': 'H1'}, {'title': 'Technical and Practical Challenges', 'level': 'H1'}, {'title': 'The Attribution Problem', 'level': 'H1'}, {'title': 'On the Problem of Cyber Attribution', 'level': 'H1'}, {'title': 'What is Attribution About?', 'level': 'H1'}, {'title': 'The Design of the Internet and the Difficulty of Attribution', 'level': 'H1'}, {'title': 'How Attribution Judgments Are Made', 'level': 'H1'}, {'title': 'Attribution from the Standpoint of the Adversary', 'level': 'H1'}, {'title': 'Identifying Cybercrime, Cyberterrorism, and Cyberwarfare: Taxonomy', 'level': 'H1'}]}, {'theme': 'Case Studies and Empirical Analysis', 'outline': [{'title': "NotPetya, Merck, Mondelez and Lloyd's of London - An Overview", 'level': 'H1'}, {'title': 'Case Studies', 'level': 'H1'}, {'title': 'Cyber Proxies: What We Know', 'level': 'H1'}, {'title': 'The Illogic of Plausible Deniability', 'level': 'H1'}, {'title': 'Empirical Strategy', 'level': 'H1'}, {'title': 'The Park Jin Hyok Case: Salient Features', 'level': 'H1'}]}, {'theme': 'Conceptual and Theoretical Frameworks', 'outline': [{'title': 'Conceptual Framework', 'level': 'H1'}, {'title': 'Criminal Charges as Policy: Considerations', 'level': 'H1'}, {'title': 'Theory of Criminal Justice', 'level': 'H1'}, {'title': 'The Nature of Cyber-Attack', 'level': 'H1'}, {'title': 'Existing Principles of Jus ad Bellum', 'level': 'H1'}]}]}
@@ -2845,9 +2956,9 @@ class Zotero:
             #             section=ast.literal_eval(f.read())
         #     export_to_word_written(data=[section],filename='test_writen')
         # #     print(section)
-        with open('theme_writen.txt', 'r', encoding='utf-8') as theme_file:
-            themes_writen=ast.literal_eval(theme_file.read())
-            print(themes_writen)
+        # with open('theme_writen.txt', 'r', encoding='utf-8') as theme_file:
+        #     themes_writen=ast.literal_eval(theme_file.read())
+        #     print(themes_writen)
             # export_written()
             # export_to_word_written(data=themes,filename='newtest_gpt4')
             # print(type(a))
@@ -2860,10 +2971,15 @@ class Zotero:
                                    collection_name,  # Now we should have a valid collection name
                                    query,  # The embedding for the query
                                    update=False,
-                                   keyword=None,
                                    type_collection='paragraph_title',
                                    ai=False,
-                                   # top_k=10,  # Retrieve top 10 similar paragraphs
+                                   update_results_cache=False,
+                                   filter_terms=None,
+                                   batches=False,
+                                   pickle_file_path="aggregated_results.pkl",
+
+
+    # top_k=10,  # Retrieve top 10 similar paragraphs
                                    filter_conditions=None,  # No specific filter, searching across all data
                                    with_payload=True,  # Return payload (paragraph text)
                                    with_vectors=False,  # No need to return vectors
@@ -2871,13 +2987,15 @@ class Zotero:
                                    # offset=0,  # Starting from the first result
                                    # limit=10  # Limit to 10 results
     ):
+        batch=True if batches else False
 
         search_results=None
         query_open_ai=''
         if ai:
             query_open_ai=query
 
-            query=query['title']
+            # query=query['title']
+
 
         """
         Perform `advanced_search` across multiple collections and aggregate results into a dictionary.
@@ -2889,7 +3007,12 @@ class Zotero:
         Returns:
             dict: Aggregated results by keys ('section_title', 'paragraph_title', 'paragraph_text', 'blockquote_text').
         """
+        # Path to your pickle file
 
+        # Check if the pickle file exists, load it if it does
+        # if os.path.exists(pickle_file_path):
+        #     with open(pickle_file_path, 'rb') as f:
+        #         aggregated_results = pickle.load(f)
         # Initialize aggregated results with empty lists for each key
         aggregated_results = {
             'section_title': [],
@@ -2897,12 +3020,22 @@ class Zotero:
             'paragraph_text': [],
             'paragraph_blockquote':[],
             'paragraph_id': [],
-            'metadata': []
+            'metadata': [],
+            'keywords': [],
+            "score":[]
+
         }
+
+        # Load the pickle file first, so the existing data is available before processing new search results.
+        if pickle_file_path is not None:
+            print(list(aggregated_results.keys()))
+            aggregated_ = load_aggregated_results(pickle_file_path, list(aggregated_results.keys()))
+        else:
+            aggregated_ = {key: [] for key in aggregated_results.keys()}
 
         dquadrant_handler = QdrantHandler()
         collection_data = self.get_or_update_collection(collection_name=collection_name, update=update)
-        data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ][:15]
+        data = [ i['item_id'] for t, i in collection_data[("items")]["papers"].items() ]
         # Setting up the tqdm iterator
         for collection_name in data:
 
@@ -2910,44 +3043,197 @@ class Zotero:
             collection_name = f'{collection_name}_{type_collection}'
 
             try:
-                search_results = dquadrant_handler.hybird_search(collection_name=collection_name, query=query,
-                                                                 keywords=keyword)
 
+
+                search_results = dquadrant_handler.hybrid_search(collection_name=collection_name, query=query,
+                                                                 filter_terms=filter_terms,
+                                                                 update_results_cache=update_results_cache,
+
+                                                                    score_threshold=score_threshold)
             except UnexpectedResponse as e:
                 print(e)
                 print('error with',collection_name)
-            # Append values to corresponding keys in final_data
-            aggregated_results['section_title'].extend(search_results['section_title'])
-            aggregated_results['paragraph_title'].extend(search_results['paragraph_title'])
-            aggregated_results['paragraph_text'].extend(search_results['paragraph_text'])
-            aggregated_results['paragraph_blockquote'].extend(search_results['paragraph_blockquote'])
-            aggregated_results['paragraph_id'].extend(search_results['paragraph_id'])
-            aggregated_results['metadata'].extend(search_results['metadata'])
+            if search_results:
+                # Append values to corresponding keys in final_data
+                aggregated_results['section_title'].extend(search_results['section_title'])
+                aggregated_results['paragraph_title'].extend(search_results['paragraph_title'])
+                aggregated_results['paragraph_text'].extend(search_results['paragraph_text'])
+                aggregated_results['paragraph_blockquote'].extend(search_results['paragraph_blockquote'])
+                aggregated_results['paragraph_id'].extend(search_results['paragraph_id'])
+                aggregated_results['metadata'].extend(search_results['metadata'])
+                aggregated_results['keywords'].extend(search_results['keywords'])
+                aggregated_results['score'].extend(search_results['score'])
+
 
 
 
         data_to_send = [{'id': aggregated_results['paragraph_id'][data_index],
                          'topic sentence': aggregated_results['paragraph_title'][data_index]} for data_index in
                         range(len(aggregated_results['paragraph_text']))]
-        with open('aggregate.txt', 'w') as f:
-            f.write(json.dumps(aggregated_results))
+        # data_to_send = [{'id': aggregated_results['paragraph_id'][data_index],
+        #                  'paragraph': aggregated_results['paragraph_text'][data_index]} for data_index in
+        #                 range(len(aggregated_results['paragraph_text']))]
+
+        # Combine all the relevant fields into tuples and sort by the last field, which is 'score'
+        combined_results = list(zip(
+            aggregated_results['section_title'],
+            aggregated_results['paragraph_title'],
+            aggregated_results['paragraph_text'],
+            aggregated_results['paragraph_blockquote'],
+            aggregated_results['paragraph_id'],
+            aggregated_results['metadata'],
+            aggregated_results['keywords'],
+            aggregated_results['score']
+        ))
+
+        # Sort by the score (the last element in each tuple)
+        sorted_results = sorted(combined_results, key=lambda x: x[-1],
+                                reverse=True)  # Sort by score in descending order
+
+        # Unpack the sorted results back into the respective aggregated_results lists
+        (
+            aggregated_results['section_title'],
+            aggregated_results['paragraph_title'],
+            aggregated_results['paragraph_text'],
+            aggregated_results['paragraph_blockquote'],
+            aggregated_results['paragraph_id'],
+            aggregated_results['metadata'],
+            aggregated_results['keywords'],
+            aggregated_results['score']
+        ) = map(list, zip(*sorted_results))
+        # Save the updated aggregated_ back to the pickle file
+        # Save the updated aggregated_ back to the pickle file
+        if pickle_file_path is not None:
+            for key in aggregated_results.keys():
+                aggregated_[key].extend(aggregated_results[key])
+                print(f"Total items in '{key}' after extending: {len(aggregated_[key])}")
+            with open(pickle_file_path, 'wb') as f:
+                pickle.dump(aggregated_, f)
+            print(f"Aggregated data saved to '{pickle_file_path}'.")
 
         print('aggregated results size:',len(aggregated_results['paragraph_title']))
         size_results= len(aggregated_results['paragraph_title'])
         if ai:
+            split_data=[]
+            json_file_path = 'cyber_evidence_aggregate.json'
 
-            response = retry_api_call(
-                data=str(data_to_send) + f'\n as context, the data is inside the {query_open_ai}',
-                function='cleaning_headings',
-                model='gpt-4o-2024-08-06'
-            )
+            # If the file doesn't exist, create an empty array in it
+            if not os.path.exists(json_file_path):
+                with open(json_file_path, 'w') as f:
+                    json.dump([], f)
+            chunk_size=190
+            # If size_results is less than or equal to 50, no splitting, process all at once
+            if size_results <= chunk_size:
 
-            data =update_response_with_paragraph_data(response=response,aggregated_paragraph_data=aggregated_results)
+                print(type(aggregated_results))
 
+                print(f"title:{query_open_ai}\nlevel:h1")
+                print(data_to_send)
+                # Call OpenAI API
+                # response = call_openai_api(
+                #     data=f"{data_to_send}\n as context, the data related parent:h2 {query_open_ai}\n number of paragraphs to process={size_results}",
+                #     function='cleaning_headings',
+                #     id=query_open_ai,
+                #     batch=batch,
+                #     model='gpt-4o-2024-08-06'
+                # )
+                if isinstance(batches, dict):
+                    response = {"subheadings":batches["subheadings"]}
+                # print(batches)
+                # print("response:",response)
+                # print("response:", type(batches))
+                # input("aaa")
+                # input("aaa")
+
+                response = {"subheadings": batches["subheadings"]}
+                # Update and process data
+                data = update_response_with_paragraph_data(
+                    response=response,
+                    aggregated_paragraph_data=aggregated_results
+                )
+
+
+
+                # Read existing data from JSON file and append new data
+                data[0]["title"] = query_open_ai
+                data[0]["level"] = "h1"
+
+                with open(json_file_path, 'r+', encoding="utf-8") as f:
+                    existing_data = json.load(f)
+                    existing_data.extend(data)  # Extend with the new split data
+                    f.seek(0)
+                    json.dump(existing_data, f, indent=4)  # Write the updated data back
+
+
+
+            # If size_results is greater than 50, split accordingly
+            else:
+                data_to_append=[]
+                # Determine the number of chunks, ideally of size 50
+                num_chunks = size_results // chunk_size if size_results % chunk_size == 0 else (size_results // chunk_size) + 1
+
+                # Calculate the size of each chunk
+                base_size = size_results // num_chunks
+                remainder = size_results % num_chunks
+
+                # Determine chunk sizes, distributing the remainder among the first few chunks
+                chunk_sizes = [base_size + 1 if i < remainder else base_size for i in range(num_chunks)]
+
+                # Calculate the start and end indices for each chunk
+                indices = []
+                start = 0
+                for size in chunk_sizes:
+                    end = start + size
+                    indices.append((start, end))
+                    start = end
+
+                # Process each chunk
+                for start, end in indices:
+
+
+                    data_to = data_to_send[start:end]
+
+                    dset_len=len([response["id"] for response in data_to])
+
+                    print(dset_len)
+                    print(data_to)
+                    # Call the OpenAI API
+
+                    # time.sleep(20)
+                    # Update and process data
+
+
+                    response = call_openai_api(
+                        data=f"{data_to}\n as context, the data related to {query_open_ai}.\n number of paragraphs to process={dset_len}",
+                        function='cleaning_headings',
+                        id=query_open_ai,
+                        batch=batch,
+                        model='gpt-4o-2024-08-06'
+                    )
+                    if isinstance(batches, dict):
+                        response=batches
+
+                    data = update_response_with_paragraph_data(
+                        response=response,
+                        aggregated_paragraph_data=aggregated_results
+                    )
+
+
+                    print("response:",response)
+                    print("data")
+                    print(data)
+                    input("ddd")
+                    data=data[0]
+                    data["title"] = query_open_ai
+                    data["level"] = "h1"
+
+                    with open(json_file_path, 'r+', encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                        existing_data.extend(data)  # Extend with the new split data
+                        f.seek(0)
+                        json.dump(existing_data, f, indent=4)  # Write the updated data back
             return data
+
         else:
-
             return aggregated_results
-
-
 

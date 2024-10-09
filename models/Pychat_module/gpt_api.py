@@ -86,7 +86,7 @@ from uuid import uuid4
 # Function to prepare a request for batch processing
 
 
-def prepare_batch_requests(text_to_send, id, content,schema):
+def prepare_batch_requests(text_to_send, id, content,schema,model):
     unique_id = uuid4()
     hash_object = hashlib.sha256()
     # Encode the paragraph and update the hash object
@@ -101,7 +101,7 @@ def prepare_batch_requests(text_to_send, id, content,schema):
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": "gpt-4o-mini",
+            "model": model,
             "messages": [
                 {"role": "system", "content": content},
                 {"role": "user", "content": text_to_send}
@@ -110,7 +110,7 @@ def prepare_batch_requests(text_to_send, id, content,schema):
                 "type": "json_schema",
                 "json_schema": schema
             },
-            "max_tokens": 2048
+            "max_tokens": 16384
         }
     }
     return results
@@ -131,9 +131,10 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini',eval=True)
     #                         "remarkable", "in conclusion", "it is important to note",
     #                          "in this digital world","intricacies","interplay","complexity"]
 
-    prompt = prompts[function]['text'] +f"\n text: {data}\n avoid these words in your output:\nEnsure the JSON is valid and not truncated."
+    prompt = prompts[function]['text'] +f"\n input data:{data}"
     logit_bias= prompts['logit_bias']
     schema=prompts[function]['json_schema']
+
     content =prompts[function]['content']
     config = prompts[function]['config']
     max_tokens = config.get('max_tokens', 4096)  # Fallback to 500 if not defined
@@ -141,8 +142,8 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini',eval=True)
     top_p = config.get('top_p', 0.9)  # Fallback to 0.9 if not defined
 
     if batch:
-        batch_request=prepare_batch_requests(text_to_send=prompt,id=id, content=content, schema=schema)
-
+        batch_request=prepare_batch_requests(text_to_send=prompt,id=id, content=content, schema=schema,model=model)
+        write_batch_requests_to_file(batch_request)
         return batch_request
 
     response = client.chat.completions.create(
@@ -160,23 +161,24 @@ def call_openai_api(data,id,function, batch=False,model='gpt-4o-mini',eval=True)
             "type": "json_schema",
             "json_schema": schema
         },
-        logit_bias=logit_bias,
+        # logit_bias=logit_bias,
 
-        # max_tokens=max_tokens,  # Use max_tokens from config
+        max_tokens=16384,  # Use max_tokens from config
         temperature=temperature,  # Use temperature from config
         top_p=top_p,  # Use top_p from config
     )
 
     message = response.choices[0].message.content.strip()
-    print('response\n',response)
     if eval:
         try:
             if isinstance(message, str):
                 message = ast.literal_eval(message)
         except Exception as e:
-            print('err, trying again',e)
+            print('err, trying again',e.with_traceback(e.__traceback__))
+            print('response\n', response)
+
             print(message)
-            print(data)
+            print(prompt)
             input('openai failed, data above')
             message=call_openai_api(data=data,id=id,function=function,batch=batch,model=model)
     return message
@@ -229,7 +231,7 @@ def extract_text_from_pdf(file_path):
 
 
 
-def write_batch_requests_to_file(batch_request, file_name=r"C:\Users\luano\Downloads\AcAssitant\Batching_files\batchinput.jsonl"):
+def write_batch_requests_to_file(batch_request, file_name=r"C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batchinput.jsonl"):
     with open(file_name, "a+", encoding="utf-8") as f:
         # Convert the batch_request dictionary into a JSON string
         json_string = json.dumps(batch_request, ensure_ascii=False, separators=(',', ':'))
@@ -299,7 +301,7 @@ def retrieve_batch_results(batch_id):
     else:
         print("[DEBUG] Batch processing failed or expired.")
         return None
-def process_batch_output(file_path,item_id_filter):
+def process_batch_output(file_path,item_id_filter=""):
 
     grouped_content = {}
     filtered_content = {}
@@ -315,9 +317,27 @@ def process_batch_output(file_path,item_id_filter):
                         if 'message' in choice and 'content' in choice['message']:
                             if key_id not in grouped_content:
                                 grouped_content[key_id] = []
-                            grouped_content[key_id].append(choice['message']['content'])
+                            grouped_content[key_id].append(ast.literal_eval(choice['message']['content']))
+    # Code to process the data
+    merged_data = {}
 
+    for k, v in grouped_content.items():
+        if len(v) > 1:
+            # Merge 'subheadings' from all items in v
+            merged_subheadings = []
+            for item in v:
+                merged_subheadings.extend(item['subheadings'])
+            # Create a single item with the merged 'subheadings'
+            merged_data[k] = [{'subheadings': merged_subheadings}]
+        else:
+            # Keep the data as is
+            merged_data[k] = v
+
+            # another_grouped.append({k:{"subhheadings":more_dicts}})
+    print(merged_data)
     # Filter and convert content by the specified key (item_id_filter)
+    if item_id_filter=="":
+        return merged_data
     if item_id_filter in grouped_content:
         filtered_content[item_id_filter] = []
         for entry in grouped_content[item_id_filter]:

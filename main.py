@@ -1,10 +1,7 @@
+import json
 
+from databases.Zotero_module.zotero_class import  Zotero
 
-from Zotero_module.zotero_class import  Zotero
-
-
-
-from Pychat_module.Pychat import  ChatGPT
 from dotenv import load_dotenv
 load_dotenv()  # loads the variables from .env
 import os
@@ -48,26 +45,25 @@ pdf =r"C:\Users\luano\Zotero\storage\AZN6P3JU\(T Rid, B Buchanan, 2015).pdf"
 # extract_citations_grobid(pdf_path=pdf,file_name="attributing.xml")
 # update_quote(note_id="VWPNFE2J",pdf=pdf,zot=zt.zot,xml_path=xml)
 #rewrite ["75995D72","Y3EEKUDQ"]
-zt.processing_collection_paragraphs(collection_name='Law and evidence',
-                                    # item_start='Tre',
-                              insert_database=True,
-                              create_md_file=True,
-                              update_paragraph_notes=False,
-                              batch=False,
-                              store_only=False,
-                              update=False,
-                                    rewrite=True,
-                                    database_name='paragraph_title',
-                                    overwrite_payload=False,
-                                    # corpus=True
-                              # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
-)
+# zt.processing_collection_paragraphs(collection_name='Law and evidence',
+#                                     # item_start='Tre',
+#                               insert_database=True,
+#                               create_md_file=True,
+#                               update_paragraph_notes=False,
+#                               batch=False,
+#                               store_only=False,
+#                               update=False,
+#                                     rewrite=True,
+#                                     database_name='paragraph_title',
+#                                     overwrite_payload=False,
+#                                     # corpus=True
+#                               # processing_batch=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_qgQDngLBi0fdvibGZiJsnM6Q_output.jsonl'
+# )
 
 
 # a =zt.insert_title_paragraphs(item_id='NGCR7JSU',note_id='8ERNL6GE',insert_database=True,zotero_collection="Law and evidence",update_paragraph_notes=False,rewrite=True,overwrite_payload=False,database_name='paragraph_title',create_md_file=False,corpus=False)
 
 root=r"C:\Users\luano\OneDrive - University College London\Obsidian\cyber evidence\test.md"
-from Word_modules.md_config import convert_zotero_to_md_with_id
 # keywords = call_openai_api(function='getting_keywords',
 #                            data=bk,
 #                            id='')
@@ -80,7 +76,9 @@ from Word_modules.md_config import convert_zotero_to_md_with_id
 # input('')
 # with open(file=root,mode='w', encoding='utf-8') as f:
 #     f.write(str(data))
-# zt.paragraphs_reports(report='report 1',collection_name='Law and evidence',update=False,type_collection='paragraph_title')
+zt.paragraphs_reports(report='keywords',collection_name='Law and evidence',update=False,type_collection='paragraph_title',
+                      # subject="Evidentiary issues"
+                      )
 # metadata = generate_cabecalho(zot=zt.zot, item_id="NGCR7JSU", dict_response=True, links=False)
 # print(metadata['authors'])
 # s =zt.search_paragraphs_by_query(collection_name='Law and evidence',query='What are the challenges in cyber attribution?',function='raw report',keyword=keywords,n_clusters=None)
@@ -111,8 +109,6 @@ from Word_modules.md_config import convert_zotero_to_md_with_id
 #     print('value',v)
 
 
-from Zotero_module.zotero_class import parse_headings_with_html_content
-from NLP_module.foot_notes import extract_text_with_numbers_from_pdf
 # Example usage (commented out):
 # result = extract_sentences_by_reference_from_pdf("example.pdf")
 # print(result)
@@ -137,9 +133,8 @@ pdf =r"C:\Users\luano\Zotero\storage\9WSSD7MF\(T Mikanagi, 2021).pdf"
 
 # Find the collection associated with the custom_id
 # get_bigram_matches(text='take over is what is good for us')
-from Vector_Database.qdrant_handler import QdrantHandler
+from databases.Vector_Database.qdrant_handler import QdrantHandler
 #
-import hashlib
 # zt.summary_gpt()
 
 
@@ -148,68 +143,107 @@ data='“Each of the levels of the attribution process represents a discrete ana
 
 # search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
 # search_handler.clear_and_set_payload(collection_name='75995D72_paragraph',new_payload={'test':'test'},point_id='34692445')
+filter_terms = {
+        "or": {
+            "keywords":   [
+                # "use of force",
+                # "prohibition of the threat or use of force",
+                "armed attack",
+                "jus ad bellum",
+                # "armed conflict",
+                # "use of force threshold",
+                # "unlawful use of force"
+
+              ]
+        }
+    }
+
+
+d={'query': 'Standards of Proof and Legal Standards', 'filter_terms': {'or': {'keywords': ['standard of proof', 'standards of proof', 'evidentiary standards', 'evidentiary standard', 'proof beyond reasonable doubt', 'clear and convincing evidence', 'preponderance of evidence', 'balance of probabilities']}}, 'collection_name': 'Law and evidence', 'ai': False}
 
 def workingWith_search():
-    from Vector_Database.qdrant_handler import QdrantHandler
+    # Step 2: Perform the search in the collection for top 10 similar paragraphs
 
-    # # Step 2: Perform the search in the collection for top 10 similar paragraphs
-    # search_results = zt.search_paragraphs_by_query(
+    results = zt.search_paragraphs_by_query(
+
+        **d,
     #     type_collection='paragraph_title',
     #     collection_name='Law and evidence',  # Now we should have a valid collection name
-    #         query='Findings',  # The embedding for the query
-    #     # top_k=10,  # Retrieve top 10 similar paragraphs
-    #     filter_conditions=None,  # No specific filter, searching across all data
-    #     with_payload=True,  # Return payload (paragraph text)
-    #     with_vectors=False,  # No need to return vectors
-    #     score_threshold=0.7,  # Only return results with a score >= 0.75 (optional)
-    #     # offset=0,  # Starting from the first result
-    #     # limit=10  # Limit to 10 results
-    # )
-    # print(len(search_results['paragraph_title']))
-    # # Step 4: Print out the results
-    # for titles in search_results['paragraph_title']:
-    #     print(titles)
+    #     query="Use of Force and Self-Defense",
+    #     filter_terms=filter_terms,
+        update_results_cache=True,
+    #     ai=True,
+    #
+    # score_threshold=0.5,
+
+        # test=True,
+        # The embedding for the query
+        # # top_k=10,  # Retrieve top 10 similar paragraphs
+        # filter_conditions=None,  # No specific filter, searching across all data
+        # with_payload=True,  # Return payload (paragraph text)
+        # with_vectors=False,  # No need to return vectors
+        # score_threshold=0.7,  # Only return results with a score >= 0.75 (optional)
+        # offset=0,  # Starting from the first result
+        # limit=10  # Limit to 10 results
+    )
+    if not results:
+        print("No results found.")
+    else:
+        # Print the results
+        for title, text, score, keywords in zip(results['paragraph_title'], results['paragraph_text'], results['score'],
+                                                results['keywords']):
+            print(f"Title: {title}\nText: {text}\n,score: {score}\nkeywords:{keywords}")
+
+
 #
 def one_search():
     # Initialize the QdrantHandler
     search_handler = QdrantHandler(qdrant_url="http://localhost:6333")
-    # search_handler.get_all_collections_payloads_and_save_csv()
+    # search_handler.get_all_collections_payloads_and_save_csv(save=True)
+    # search_handler.set_payload()
     # Define your query and collection
-    query = 'cyber*'
-    collection_name = 'NGCR7JSU_paragraph_title'
+    # search_handler.get_all_collections_payloads_and_save_csv()
+    input("aaa"
+    )
 
-    # Define keywords for filtering (optional)
-    keywords = {
-        "AND": ["network", "security"],
-        "OR": ["attack", "breach"],
-        "NOT": ["outdated"]
+    filter_terms = {
+        "or": {
+            "keywords":  [
+        "icj",
+        "international court of justice",
+        "international criminal tribunal for the former yugoslavia",
+        "international criminal court",
+        "european union",
+        "united nations",
+        "european court of human rights",
+        "international group of experts",
+        "eritrea-ethiopia claims commission",
+        "iran-us claims tribunal"
+    ]
+        }
     }
 
+    collection_name = 'NGCR7JSU_paragraph_title'
+
+    query="What are the entities in cyber attribution system?"
+
     # Perform the search, using the cache if available
-    results = search_handler.hybrid_search(collection_name=collection_name, query=query,update=True)
+    results = search_handler.hybrid_search(
+        **d
+        # collection_name=collection_name, query=query,
+        #                                    filter_terms=filter_terms
+                                           )
     print(results.keys())
     # Check if results are not empty before processing
     if not results:
         print("No results found.")
     else:
         # Print the results
-        for title, text, score in zip(results['paragraph_title'], results['paragraph_text'],results['score']):
-            print(f"Title: {title}\nText: {text}\n,score: {score}")
+        for title, text, score ,keywords in zip(results['paragraph_title'], results['paragraph_text'],results['score'],results['keywords']):
+            print(f"Title: {title}\nText: {text}\n,score: {score}\nkeywords:{keywords}")
+
 
 
 # one_search()
 # workingWith_search()
-
-
-# handler.replace_custom_id_with_embedding(input_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\Batching_files\batch_input.jsonl',
-#                                  embedding_batch_path=r'C:\Users\luano\Downloads\AcAssitant\Files\batch_ElitxAYgCWaWoywtCRYFUHCP_output.jsonl',
-#                                  output_file_path='trigrams_database.json')
-
-
-
-
-# parent={'title':'burden of proof', 'level':'h2','subsections': []}
-# # Example usage:
-# updated_response = update_response_with_paragraph_data(response=response, aggregated_paragraph_data=heading,parent=parent)
-# print(updated_response)
-
+#

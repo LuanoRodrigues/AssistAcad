@@ -1,26 +1,21 @@
-import json
 import os.path
-import zipfile
-import json
-from typing import List
-from bs4 import BeautifulSoup, NavigableString
+import pickle
+
+from bs4 import NavigableString
 from typing import List, Tuple
 import markdown
 import markdownify
-import pdfkit
 from bs4 import BeautifulSoup
-from docx import Document
 from docx2pdf import convert
 import json
 from docx import Document
-from scipy.signal import impulse
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt, Inches
-from docx.enum.style import WD_STYLE_TYPE
+from docx.shared import Inches
+from sympy.physics.units import percent
 
-from Pychat_module.gpt_api import call_openai_api
+from models.Pychat_module.gpt_api import call_openai_api
 
-from Word_modules.Creating_docx import customize_doc_style
+from File_management.Word_modules.Creating_docx import customize_doc_style
 md_root=r"C:\Users\luano\OneDrive - University College London\Obsidian\cyber evidence"
 
 def export_results(structure, filename="output", export_to=['doc','html']):
@@ -147,27 +142,22 @@ def add_paragraphs(doc, item):
                     f"{f' {entry.get("journal")}' if entry.get('journal') else ''}"
                     for entry in metadata
                 ]
-                print('references\n', references)
                 biblio.extend(references)
     return  biblio
 
 def process_outline(doc, item,single_theme=False):
     """Recursively process the outline and subheadings/subsections."""
+
     title = item.get('title', '')
     level_str = item.get('level', '')
-    level = level_map.get(level_str.upper(), None)
+    level = level_map[level_str]
     bibliography =[]
+
 
     # Add heading based on the level
     if title and level is not None:
-        if single_theme and level_str.upper() == 'H1':
-            customize_doc_style(doc, title)
-        if single_theme and level_str.upper() != 'H1':
+        doc.add_heading(title, level=level)
 
-            level = level_map.get(level_str.upper(), None)-1
-            doc.add_heading(title, level=level)
-        else:
-            doc.add_heading(title, level=level)
 
     # Add paragraphs (if any)
     if 'paragraph_title' in item or 'paragraph_text' in item:
@@ -213,6 +203,41 @@ def create_docx(filename, themes):
 
     convert(filename)
 
+def create_docx2(filename, themes):
+    """Main function to create DOCX from themes and outlines."""
+    bibliographic= []
+    doc = Document()
+
+    if len(themes)==1:
+        customize_doc_style(doc, "thematic")
+        for outline_item in themes[0].get('outline', []):
+           bibliographic.extend(process_outline(doc, outline_item,single_theme=False))  # Process each item in the outline
+
+    if len(themes)>1:
+
+        customize_doc_style(doc,'Thematic review')
+        for theme in themes:
+            doc.add_heading(theme['title'], level=1)
+
+            for outline_item in theme.get('subheadings', []):
+
+                bibliographic.extend(process_outline(doc, outline_item))  # Process each item in the outline
+        # Add a "References" heading
+                # input("")
+    references_heading = doc.add_paragraph("References", style='Heading 1')
+    references_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # Add each reference with numbering
+    bibliographic= sorted(set(bibliographic), key=lambda ref: ref.split(",")[0])
+    for i, reference in enumerate(bibliographic, 1):
+        numbered_reference = f"{i}. {reference}"  # Add numbering to each reference
+        paragraph = doc.add_paragraph(numbered_reference, style='References')
+        paragraph.paragraph_format.first_line_indent = Inches(-0.5)  # Hanging indent
+        paragraph.paragraph_format.left_indent = Inches(
+            0.5)  # Indent the entire paragraph to preserve the hanging indent
+    doc.save(filename)
+
+
+    convert(filename)
 
 def create_md(filename, themes):
     """Main function to create Markdown from themes and outlines."""
@@ -221,24 +246,17 @@ def create_md(filename, themes):
     bibliography = []
 
     for theme in themes:
-        md_content += f"# {theme['theme']}\n\n"  # Add the main theme as H1
-        for outline in theme.get('outline', []):
-            md_content += f"## {outline.get('title', '')}\n"  # Add the outline's main title as H2
-
-            # Add paragraphs and subheadings recursively
-            outline_content, outline_biblio = add_md_paragraphs(outline)
-            md_content += outline_content
-            bibliography.extend(outline_biblio)
-
-            if 'subheadings' in outline:
-                subheadings_content, sub_biblio = add_md_subheadings(outline['subheadings'], level=3)
-                md_content += subheadings_content
-                bibliography.extend(sub_biblio)
+        # Add paragraphs and subheadings recursively
+        outline_content, outline_biblio = process_md(theme)
+        md_content += outline_content
+        bibliography.extend(outline_biblio)
 
     # Add a "References" section with numbering
     if bibliography:
         md_content += "\n# References\n\n"
+
         bibliography = sorted(set(bibliography))  # Remove duplicates and sort
+
         for i, ref in enumerate(bibliography, 1):
             md_content += f"{i}. {ref}\n\n"
 
@@ -247,34 +265,96 @@ def create_md(filename, themes):
         f.write(md_content)
 
 
-def add_md_paragraphs(item):
+
+def process_md(item):
     """Helper function to add paragraphs and blockquotes to markdown content."""
-    paragraph_titles = item.get('paragraph_title', [])
-    paragraph_texts = item.get('paragraph_blockquote', [])
-    metadata = item.get('metadata', [])
+    md_content = ""
     biblio = []
 
-    md_content = ""
+    if isinstance(item, list):
+        for item_item in item:
+            md, bil = process_md(item_item)
+            md_content += md
+            biblio.extend(bil)
+    else:
 
-    # Add paragraph titles and texts if present
-    if paragraph_titles:
-        for i, title in enumerate(paragraph_titles):
-            md_content += f"**{title}**\n\n"  # Bold title in Markdown format
-            if paragraph_texts and i < len(paragraph_texts):
-                md_content += f"{paragraph_texts[i]}\n\n"  # Add corresponding text
+        subsections = item.get('subheadings', '')
 
-        if metadata:
-            # Use list comprehension to format metadata references in markdown
-            references = [
-                f"{entry.get('authors', 'Unknown Author')}. "
-                f"({entry.get('date', 'Unknown Year')}). "
-                f"{entry.get('title', 'Unknown Title')}."
-                f"{f' *{entry.get("journal", "")}*' if entry.get('journal') else ''}"
-                for entry in metadata
-            ]
-            biblio.extend(references)
+        title = item.get('title', '')
+        level_str = item.get('level', '')
+        level = level_map_md[level_str]
+        paragraph_titles = item.get('paragraph_title', [])
+        paragraph_texts = item.get('paragraph_text', [])
+        paragraph_id = item.get('paragraph_id', [])
+        metadata = item.get('metadata', [])
+        if title and level:
+            md_content += f"{level} {title}\n\n"
+
+        # input("Press Enter to continue...")
+
+
+
+        # Add paragraph titles and texts if present
+        if paragraph_titles:
+            for i, title in enumerate(paragraph_titles):
+
+                cite = metadata[i]["citation_key"]
+
+                md_content += f">[!important] > **{title}{extract_last_reference(paragraph_texts[i],cite,str(paragraph_id[i]))}**\n\n"  # Bold title in Markdown format
+                # md_content += f"{paragraph_texts[i]}\n\n"  # Add corresponding text
+
+
+
+            if metadata:
+                # Use list comprehension to format metadata references in markdown
+                references = [
+                    f"{entry.get('authors', 'Unknown Author')}. "
+                    f"({entry.get('date', 'Unknown Year')}). "
+                    f"{entry.get('title', 'Unknown Title')}."
+                    f"{f' *{entry.get("journal", "")}*' if entry.get('journal') else ''}"
+                    for entry in metadata
+                ]
+
+                biblio.extend(references)
+        if subsections:
+
+            md,bil =process_md(subsections)
+            md_content += md
+            biblio.extend(bil)
 
     return md_content, biblio
+# def create_md(filename, themes):
+#     """Main function to create Markdown from themes and outlines."""
+#     filename= os.path.join(md_root,filename)
+#     md_content = ""
+#     bibliography = []
+#
+#     for theme in themes:
+#         md_content += f"# {theme['theme']}\n\n"  # Add the main theme as H1
+#         for outline in theme.get('outline', []):
+#             md_content += f"## {outline.get('title', '')}\n"  # Add the outline's main title as H2
+#
+#             # Add paragraphs and subheadings recursively
+#             outline_content, outline_biblio = add_md_paragraphs(outline)
+#             md_content += outline_content
+#             bibliography.extend(outline_biblio)
+#
+#             if 'subheadings' in outline:
+#                 subheadings_content, sub_biblio = add_md_subheadings(outline['subheadings'], level=3)
+#                 md_content += subheadings_content
+#                 bibliography.extend(sub_biblio)
+#
+#     # Add a "References" section with numbering
+#     if bibliography:
+#         md_content += "\n# References\n\n"
+#         bibliography = sorted(set(bibliography))  # Remove duplicates and sort
+#         for i, ref in enumerate(bibliography, 1):
+#             md_content += f"{i}. {ref}\n\n"
+#
+#     # Save the generated Markdown content to a file
+#     with open(filename, 'w', encoding='utf-8') as f:
+#         f.write(md_content)
+
 
 
 def add_md_subheadings(subheadings, level=3):
@@ -288,7 +368,7 @@ def add_md_subheadings(subheadings, level=3):
         md_content += f"{md_heading} {title}\n\n"  # Add heading with Markdown syntax
 
         # Add paragraphs under the subheading
-        paragraphs_content, biblio = add_md_paragraphs(sub)
+        paragraphs_content, biblio = process_md(sub)
         md_content += paragraphs_content
         bibliography.extend(biblio)
 
@@ -312,7 +392,7 @@ def create_html(filename, themes):
             md_content += f"## {outline.get('title', '')}\n\n"  # Add main outline title as H2
 
             # Add paragraphs and subheadings recursively
-            outline_content, _ = add_md_paragraphs(outline)
+            outline_content, _ = process_md(outline)
             md_content += outline_content
 
             if 'subheadings' in outline:
@@ -409,6 +489,15 @@ level_map = {
     'h5': 5,
     'h6': 6
 }
+level_map_md = {
+    'h1': "#",
+    'h2': "##",
+    'h3': "###",
+    'h4': "####",
+    'h5': "#####",
+    'h6': "######"
+}
+
 
 def html_to_text_with_level(html_content: str) -> List[Tuple[str, int]]:
     """
@@ -447,7 +536,7 @@ def export_to_word_written(data: List[dict], filename: str):
     """
     Export the data to a Word file with correct heading levels and paragraphs, preserving inline references.
     """
-    data=clean_themes(data)
+    # data=clean_themes(data)
     for theme in data:
         outline =theme['outline']
 
@@ -717,12 +806,18 @@ def clean_outline(item):
     paragraph_title = item.get('paragraph_title', [])
     paragraph_text = item.get('paragraph_text', [])
     paragraph_id = item.get('paragraph_id', [])
+    citation_id =[ cite['citation_key'] for cite in item["metadata"]]
 
     if paragraph_title:
         for i in range(len(paragraph_title)):
             cleaned_item['content'].append(
-                {'paragraph_title': paragraph_title[i], 'paragraph_quoted': paragraph_text[i],
-                 'paragraph_id': paragraph_id[i]})
+                {
+                    'paragraph_title': paragraph_title[i],
+                    'paragraph_quoted': paragraph_text[i],
+                    'paragraph_id': paragraph_id[i],
+                    'citation_id': citation_id[i]
+                }
+            )
         cleaned_item['paragraph_count'] = len(paragraph_text)
 
     # Recursively clean subheadings, removing those without a title
@@ -739,7 +834,7 @@ def clean_outline(item):
     return cleaned_item
 
 
-def clean_themes(themes):
+def clean_theme(themes):
     """Iterate through the themes and clean each outline."""
     cleaned_themes = []
     for theme in themes:
@@ -753,3 +848,96 @@ def clean_themes(themes):
         with open('theme_writen.txt', 'w', encoding='utf-8') as theme_file:
             theme_file.write(json.dumps(cleaned_themes, indent=4, ensure_ascii=False))
     return cleaned_themes
+
+def clean_themes(themes):
+    """Iterate through the themes and clean each outline."""
+
+        # cleaned_theme = {
+            # 'theme': theme.get('theme', ''),
+    cleaned_themes = [
+    {
+        "theme":"N/A",
+        'outline':[
+        call_openai_api(data=clean_outline(theme[0]),function='writing_sections',id='',model='gpt-4o-2024-08-06',batch=False) for theme in themes
+              ]
+    }]
+        # cleaned_themes.append(cleaned_theme)
+    with open('theme_writen.txt', 'w', encoding='utf-8') as theme_file:
+        theme_file.write(json.dumps(cleaned_themes, indent=4, ensure_ascii=False))
+    return cleaned_themes
+
+
+
+def get_titles_by_heading_level(data):
+    """
+    Extracts all titles by their heading levels from a list of hierarchical data.
+
+    Args:
+        data (list): A list of dicts where each dict represents a heading and its subheadings.
+
+    Returns:
+        dict: A dictionary where keys are heading levels (h2, h3, etc.)
+              and values are lists of titles corresponding to that level.
+    """
+    headings_by_level = {}
+
+    def extract_titles(subheadings):
+        for heading in subheadings:
+            level = heading['level']
+            title = heading['title']
+
+            if level not in headings_by_level:
+                headings_by_level[level] = []
+            headings_by_level[level].append(title)
+
+            # Recursively extract titles from subheadings
+            if 'subheadings' in heading and heading['subheadings']:
+                extract_titles(heading['subheadings'])
+
+    # Start extraction for each dictionary in the list
+    extract_titles(data)
+
+    return headings_by_level
+
+
+def load_aggregated_results(file_path, keys):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'rb') as f:
+                data = pickle.load(f)
+            # Ensure all keys are present
+            for key in keys:
+                if key not in data:
+                    data[key] = []
+            return data
+        except (pickle.UnpicklingError, EOFError) as e:
+            print(f"Error loading pickle file: {e}")
+            # Return empty structure if loading fails
+            return {key: [] for key in keys}
+    else:
+        print(f"Pickle file '{file_path}' does not exist.")
+        return {key: [] for key in keys}
+
+
+# Function to extend aggregated_results with search_results
+def extend_aggregated_results(aggregated, search, keys):
+    for key in keys:
+        if key in search:
+            aggregated[key].extend(search[key])
+        else:
+            print(f"Warning: Key '{key}' not found in search_results.")
+
+
+def extract_last_reference(text,cite,paragraph_id):
+    # Regular expression to match the reference pattern (Author, Year, p. Page)
+    pattern = r'\(([^)]+), (\d{4}), p\. (\d+)\)'
+
+    # Find all matches in the text
+    matches = re.findall(pattern, text)
+
+    if matches:
+        # Return the last match formatted as (Author, Year, p. Page)
+        last_match = matches[-1]
+        return f"[[{cite}#^{paragraph_id}|({last_match[0]}, {last_match[1]}, p. {last_match[2]})]]"
+    else:
+        return None

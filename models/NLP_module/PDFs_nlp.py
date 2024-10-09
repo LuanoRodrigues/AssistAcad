@@ -1,12 +1,12 @@
 import fitz
-from NLP_module.normalise_texts import normalize_text2,normalize_text
-from NLP_module.foot_notes import find_flexible_pattern_positions
+from models.NLP_module.normalise_texts import normalize_text2,normalize_text
+from models.NLP_module.foot_notes import find_flexible_pattern_positions
 
 
 def extract_text_by_page( pdf_path):
     # Open the PDF file
     doc = fitz.open(pdf_path)
-    from NLP_module.normalise_texts import basic_normalization
+    from models.NLP_module.normalise_texts import basic_normalization
     # List to hold text of every two pages
     # Open the PDF file
     doc = fitz.open(pdf_path)

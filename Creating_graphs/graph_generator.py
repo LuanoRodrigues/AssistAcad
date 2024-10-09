@@ -16,17 +16,19 @@ import pandas as pd
 from scipy.stats import zscore
 
 # # Load data
-# with open(r"C:\Users\luano\Downloads\AcAssitant\Files\Cache\keywords.txt", encoding="utf-8") as net:
-#     keywords = ast.literal_eval(net.read())
+with open(r"C:\Users\luano\Downloads\AcAssitant\Files\Cache\keywords.txt", encoding="utf-8") as net:
+    keywords = ast.literal_eval(net.read())
 #
 # with open(r"C:\Users\luano\Downloads\AcAssitant\Files\Cache\keywords_categorised.json", encoding="utf-8") as net2:
 #     categories_keywords= json.load(net2)
 output_folder = r"C:\Users\luano\Downloads\AcAssitant\Files\Keywords_Canvas"
 #
 #
-# keywords_counts = Counter([kw.lower() for kw in keywords])
+keywords_counts = Counter([kw.lower() for kw in keywords])
 # print(keywords_counts)
-# print(keyword_counts.most_common(1200))
+n= int((len(keywords_counts.most_common(2500))+1)/3)
+print(n)
+print(keywords_counts.most_common(1185))
 keywords=""
 categories_keywords= ""
 
